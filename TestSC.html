@@ -1,0 +1,3889 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<script type="text/javascript" src="SugarCubes.js">
+</script>
+<style>
+#testPanel {
+  position: absolute;
+  width: 100vw;
+  height:100vh;
+  top:0;
+  left:0;
+  margin:0;
+  border:0;
+  padding:0;
+  unicode-bidi: embed;
+  font-family: monospace;
+  white-space: pre;
+}
+</style>
+</head>
+<body>
+<textarea id="testPanel">
+</textarea>
+<script type="text/javascript">
+var testPanel = document.getElementById("testPanel");
+var testNum = parseInt((/\?n=([^&#]*)/.exec(location.search))[1]);
+function writeInConsole(msg){
+  testPanel.value += msg;
+  }
+
+SC.write = function(msg){
+  return SC.action(
+     function(){
+      testPanel.value += msg;
+      }
+    );
+  }
+var m = SC.machine();
+var e = SC.evt("e");
+var f = SC.evt("f");
+var g = SC.evt("g");
+var e1 = SC.evt("e1");
+var e2 = SC.evt("e2");
+var e3 = SC.evt("e3");
+var e4 = SC.evt("e4");
+var sens1 = SC.sensor("sens1");
+var called1 = function(v){};
+var fun1 = function(v){ return called1(v); };
+
+var sens2 = SC.sensor("sens2");
+var called2 = function(v){};
+var fun2 = function(v){ return called2(v); };
+
+m.setStdOut(writeInConsole);
+
+var testBehaviors = [
+  {
+    prg:
+      SC.write("Hello World !")
+    , expected :
+        "\n1 -: Hello World !\n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+  }
+  , {
+      prg:
+        SC.seq(
+          SC.pause()
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: Hello World !\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+    }
+  , {
+      prg:
+        SC.seq(
+          SC.pause(2)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: Hello World !\n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+    }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause(3)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: Hello World !\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause(4)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: Hello World !\n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+//-- 5
+  ,  {
+      prg:
+        SC.repeat(0
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.repeat(1
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.repeat(2
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.repeat(3
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.repeat(4
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: Hello World !\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.repeat(2
+          , SC.repeat(2
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: Hello World !\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+//-- 10
+  ,  {
+      prg:
+        SC.repeat(2
+          , SC.repeat(3
+              , SC.repeat(2
+                  , SC.write("Hello World !")
+                  )
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: Hello World !\n5 -: Hello World !\n6 -: Hello World !\n7 -: Hello World !\n8 -: Hello World !\n9 -: Hello World !\n10 -: Hello World !"
+     }
+  ,  {
+      prg:
+        SC.repeat(2
+          , SC.repeat(3
+              , SC.repeat(1
+                  , SC.write("Hello World !")
+                  )
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: Hello World !\n5 -: Hello World !\n6 -: Hello World !\n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.repeat(1
+          , SC.repeat(3
+              , SC.repeat(2
+                  , SC.write("Hello World !")
+                  )
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: Hello World !\n5 -: Hello World !\n6 -: Hello World !\n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.repeat(2
+          , SC.repeat(1
+              , SC.repeat(2
+                  , SC.write("Hello World !")
+                  )
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: Hello World !\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.repeat(2
+          , SC.repeat(2
+              , SC.repeat(2
+                  , SC.write("Hello World !")
+                  )
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: Hello World !\n5 -: Hello World !\n6 -: Hello World !\n7 -: Hello World !\n8 -: Hello World !\n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.repeat(2
+          , SC.repeat(2
+              , SC.repeat(0
+                  , SC.write("Hello World !")
+                  )
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.repeat(2
+          , SC.repeat(0
+              , SC.repeat(2
+                  , SC.write("Hello World !")
+                  )
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.repeat(0
+          , SC.repeat(2
+              , SC.repeat(2
+                  , SC.write("Hello World !")
+                  )
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.repeat(1
+          , SC.repeat(1
+              , SC.repeat(2
+                  , SC.write("Hello World !")
+                  )
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.repeat(1
+          , SC.repeat(1
+              , SC.repeat(3
+                  , SC.write("Hello World !")
+                  )
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.repeat(1
+          , SC.repeat(2
+              , SC.repeat(3
+                  , SC.write("Hello World !")
+                  )
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: Hello World !\n5 -: Hello World !\n6 -: Hello World !\n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.repeat(1
+          , SC.repeat(3
+              , SC.repeat(3
+                  , SC.write("Hello World !")
+                  )
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: Hello World !\n5 -: Hello World !\n6 -: Hello World !\n7 -: Hello World !\n8 -: Hello World !\n9 -: Hello World !\n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.await(e)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause()
+          , SC.await(e)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause(2)
+          , SC.await(e)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause(3)
+          , SC.await(e)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause(4)
+          , SC.await(e)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.await(e)
+          , SC.generate(e)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause()
+          , SC.await(e)
+          , SC.generate(e)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause(2)
+          , SC.await(e)
+          , SC.generate(e)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause(3)
+          , SC.await(e)
+          , SC.generate(e)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause(4)
+          , SC.await(e)
+          , SC.generate(e)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause(SC.forever)
+          , SC.await(e)
+          , SC.generate(e)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause(SC.forever)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.generate(e)
+          , SC.await(e)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.generate(e)
+          , SC.pause()
+          , SC.await(e)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause()
+          , SC.generate(e)
+          , SC.await(e)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: Hello World !\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.generate(e)
+          , SC.pause(2)
+          , SC.await(e)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause(2)
+          , SC.generate(e)
+          , SC.await(e)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: Hello World !\n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.generate(e)
+          , SC.pause(3)
+          , SC.await(e)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause(3)
+          , SC.generate(e)
+          , SC.await(e)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: Hello World !\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.generate(e)
+          , SC.pause(4)
+          , SC.await(e)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause(4)
+          , SC.generate(e)
+          , SC.await(e)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: Hello World !\n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause(4)
+          , SC.generate(e)
+          , SC.await(e)
+          , SC.await(e)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: Hello World !\n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.generate(e)
+          , SC.pause(4)
+          , SC.await(e)
+          , SC.await(e)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.generate(e)
+          , SC.pause(4)
+          , SC.await(e)
+          , SC.await(f)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.generate(f)
+          , SC.pause(4)
+          , SC.await(e)
+          , SC.await(f)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.generate(f)
+          , SC.generate(e)
+          , SC.pause(4)
+          , SC.await(e)
+          , SC.await(f)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.generate(e)
+          , SC.generate(f)
+          , SC.pause(4)
+          , SC.await(e)
+          , SC.await(f)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.generate(e)
+          , SC.pause(4)
+          , SC.generate(f)
+          , SC.await(e)
+          , SC.await(f)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.generate(f)
+          , SC.pause(4)
+          , SC.generate(e)
+          , SC.await(e)
+          , SC.await(f)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause(4)
+          , SC.generate(e)
+          , SC.generate(f)
+          , SC.await(e)
+          , SC.await(f)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: Hello World !\n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause(4)
+          , SC.generate(e)
+          , SC.generate(e)
+          , SC.await(e)
+          , SC.await(f)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause(4)
+          , SC.generate(e)
+          , SC.await(e)
+          , SC.generate(e)
+          , SC.await(f)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause(4)
+          , SC.generate(e)
+          , SC.await(e)
+          , SC.generate(f)
+          , SC.await(f)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: Hello World !\n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause(4)
+          , SC.generate(f)
+          , SC.await(e)
+          , SC.generate(f)
+          , SC.await(f)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause(4)
+          , SC.generate(f)
+          , SC.await(e)
+          , SC.generate(e)
+          , SC.await(f)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.pause()
+          , SC.generate(f)
+          , SC.await(e)
+          , SC.generate(e)
+          , SC.await(f)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.generate(f)
+          , SC.await(e)
+          , SC.generate(e)
+          , SC.await(f)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.generate(e)
+          , SC.await(e)
+          , SC.generate(e)
+          , SC.await(f)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.generate(e)
+          , SC.await(e)
+          , SC.generate(f)
+          , SC.await(f)
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.generate(e)
+          , SC.generate(f)
+          , SC.await(e)
+          , SC.await(SC.and(e,f))
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.generate(e)
+          , SC.generate(f)
+          , SC.await(e)
+          , SC.await(SC.or(e,f))
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.generate(e)
+          , SC.await(e)
+          , SC.await(SC.or(e,f))
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.seq(
+          SC.generate(f)
+          , SC.await(e)
+          , SC.await(SC.or(e,f))
+          , SC.write("Hello World !")
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.generate(e)
+          , SC.seq(
+              SC.generate(f)
+              , SC.await(e)
+              , SC.await(SC.or(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.generate(e)
+          , SC.seq(
+              SC.generate(f)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.generate(f)
+          , SC.seq(
+              SC.generate(f)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.generate(f)
+          , SC.seq(
+              SC.pause()
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.generate(e,undefined,2)
+          , SC.seq(
+              SC.pause()
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.generate(e,undefined,2)
+          , SC.seq(
+              SC.pause()
+              , SC.await(e)
+              , SC.await(SC.or(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: Hello World !\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.generate(e,undefined,2)
+          , SC.seq(
+              SC.pause(2)
+              , SC.await(e)
+              , SC.await(SC.or(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.generate(e,undefined,3)
+          , SC.seq(
+              SC.pause(2)
+              , SC.await(e)
+              , SC.await(SC.or(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: Hello World !\n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.generate(e,undefined,3)
+          , SC.seq(
+              SC.pause(2)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(2
+            , SC.generate(e)
+            )
+          , SC.seq(
+              SC.pause(2)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(3
+            , SC.generate(e)
+            )
+          , SC.seq(
+              SC.pause(2)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(3
+            , SC.generate(e)
+            , SC.generate(f)
+            )
+          , SC.seq(
+              SC.pause(2)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: Hello World !\n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(3
+            , SC.generate(e)
+            , SC.generate(f)
+            )
+          , SC.repeat(1
+              , SC.pause(2)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: Hello World !\n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(3
+            , SC.generate(e)
+            , SC.generate(f)
+            )
+          , SC.repeat(1
+              , SC.pause(1)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: Hello World !\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(3
+            , SC.generate(e)
+            , SC.generate(f)
+            )
+          , SC.repeat(2
+              , SC.pause(1)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: Hello World !\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(3
+            , SC.generate(e)
+            , SC.generate(f)
+            )
+          , SC.repeat(3
+              , SC.pause(1)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: Hello World !\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(2
+            , SC.generate(e)
+            , SC.generate(f)
+            )
+          , SC.repeat(3
+              , SC.pause(1)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: Hello World !\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(4
+            , SC.generate(e)
+            , SC.generate(f)
+            )
+          , SC.repeat(3
+              , SC.pause(1)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: Hello World !\n3 -: \n4 -: Hello World !\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(5
+            , SC.generate(e)
+            , SC.generate(f)
+            )
+          , SC.repeat(3
+              , SC.pause(1)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: Hello World !\n3 -: \n4 -: Hello World !\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(5
+            , SC.generate(e)
+            , SC.pause()
+            , SC.generate(f)
+            )
+          , SC.repeat(3
+              , SC.pause(1)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(5
+            , SC.generate(e)
+            , SC.pause(2)
+            , SC.generate(f)
+            )
+          , SC.repeat(3
+              , SC.pause(1)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(5
+            , SC.generate(e)
+            , SC.pause(2)
+            , SC.generate(f)
+            , SC.pause()
+            )
+          , SC.repeat(3
+              , SC.pause(1)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(5
+            , SC.generate(e)
+            , SC.pause(2)
+            , SC.generate(f)
+            , SC.pause(0)
+            )
+          , SC.repeat(3
+              , SC.pause(2)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(5
+            , SC.generate(e)
+            , SC.pause(2)
+            , SC.generate(f)
+            , SC.pause(0)
+            )
+          , SC.repeat(3
+              , SC.pause(3)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(5
+            , SC.generate(e)
+            , SC.pause(2)
+            , SC.generate(f)
+            , SC.pause(0)
+            )
+          , SC.repeat(3
+              , SC.pause(4)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(5
+            , SC.generate(e)
+            , SC.pause(2)
+            , SC.generate(f)
+            , SC.pause(0)
+            )
+          , SC.repeat(3
+              , SC.pause(5)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(5
+            , SC.generate(e)
+            , SC.pause(0)
+            , SC.generate(f)
+            , SC.pause(0)
+            )
+          , SC.repeat(3
+              , SC.pause(5)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(5
+            , SC.generate(e)
+            , SC.pause(0)
+            , SC.generate(f)
+            , SC.pause(0)
+            )
+          , SC.repeat(3
+              , SC.pause(4)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: Hello World !\n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(5
+            , SC.generate(e)
+            , SC.pause(0)
+            , SC.generate(f)
+            , SC.pause(0)
+            )
+          , SC.repeat(3
+              , SC.pause(3)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: Hello World !\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(5
+            , SC.generate(e)
+            , SC.pause(0)
+            , SC.generate(f)
+            , SC.pause(0)
+            )
+          , SC.repeat(3
+              , SC.pause(2)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: \n3 -: Hello World !\n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(5
+            , SC.generate(e)
+            , SC.pause(0)
+            , SC.generate(f)
+            , SC.pause(0)
+            )
+          , SC.repeat(3
+              , SC.pause(1)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: \n2 -: Hello World !\n3 -: \n4 -: Hello World !\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(5
+            , SC.generate(e)
+            , SC.pause(0)
+            , SC.generate(f)
+            , SC.pause(0)
+            )
+          , SC.repeat(3
+              , SC.pause(0)
+              , SC.await(e)
+              , SC.await(SC.and(e,f))
+              , SC.write("Hello World !")
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(3
+            , SC.pause(0)
+            , SC.await(e)
+            , SC.await(SC.and(e,f))
+            , SC.write("Hello World !")
+            )
+          , SC.repeat(5
+              , SC.generate(e)
+              , SC.pause(0)
+              , SC.generate(f)
+              , SC.pause(0)
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(3
+            , SC.pause(0)
+              , SC.log("e")
+            , SC.await(e)
+              , SC.log("e et f")
+            , SC.await(SC.and(e,f))
+            , SC.write("Hello World !")
+            )
+          , SC.repeat(5
+              , SC.generate(e)
+              , SC.generate(f)
+              , SC.pause(2)
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: \n3 -: \n4 -: Hello World !\n5 -: \n6 -: \n7 -: Hello World !\n8 -: \n9 -: \n10 -: "
+     }
+/******
+ * Test 100
+ ******/
+  ,  {
+      prg:
+        SC.par(
+          SC.kill(f
+            , SC.repeat(5
+                , SC.await(SC.and(e,f))
+                , SC.write("Hello World !")
+                )
+            )
+          , SC.repeat(5
+              , SC.generate(e)
+              , SC.generate(f)
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(2
+            , SC.kill(f
+                , SC.repeat(5
+                    , SC.await(SC.and(e,f))
+                    , SC.write("Hello World !")
+                    )
+                )
+            )
+          , SC.repeat(5
+              , SC.generate(e)
+              , SC.generate(f)
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: \n3 -: Hello World !\n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(SC.forever
+            , SC.kill(f
+                , SC.repeat(SC.forever
+                    , SC.await(e)
+                    , SC.write("Hello World !")
+                    )
+                )
+            , SC.pause()
+            , SC.generate(g)
+            )
+          , SC.repeat(5
+              , SC.generate(e)
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: Hello World !\n5 -: Hello World !\n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(SC.forever
+            , SC.kill(f
+                , SC.repeat(SC.forever
+                    , SC.await(e)
+                    , SC.write("Hello World !")
+                    )
+                )
+            , SC.pause()
+            , SC.generate(g)
+            )
+          , SC.repeat(5
+              , SC.generate(e)
+              )
+          , SC.repeat(3
+              , SC.pause()
+              , SC.generate(f) 
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: \n4 -: \n5 -: Hello World !\n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(SC.forever
+            , SC.kill(f
+                , SC.repeat(SC.forever
+                    , SC.await(e)
+                    , SC.write("Hello World !")
+                    )
+                )
+            , SC.pause()
+            , SC.generate(g)
+            )
+          , SC.repeat(5
+              , SC.generate(e)
+              )
+          , SC.repeat(3
+              , SC.pause()
+              , SC.generate(f) 
+              )
+          , SC.seq(
+              SC.await(g)
+              , SC.write("g!")
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: \n4 -: g!\n5 -: Hello World !\n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(SC.forever
+            , SC.kill(f
+                , SC.repeat(SC.forever
+                    , SC.await(e)
+                    , SC.write("Hello World !")
+                    )
+                , SC.write("f!")
+                )
+            , SC.pause()
+            , SC.generate(g)
+            )
+          , SC.repeat(5
+              , SC.generate(e)
+              )
+          , SC.repeat(3
+              , SC.pause()
+              , SC.generate(f) 
+              )
+          , SC.seq(
+              SC.await(g)
+              , SC.write("g!")
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: f!\n4 -: g!\n5 -: Hello World !\n6 -: \n7 -: f!\n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(SC.forever
+            , SC.kill(f
+                , SC.repeat(SC.forever
+                    , SC.await(e)
+                    , SC.write("Hello World !")
+                    )
+                , SC.write("f!")
+                )
+            , SC.pause()
+            , SC.generate(g)
+            )
+          , SC.repeat(5
+              , SC.generate(e)
+              )
+          , SC.repeat(4
+              , SC.pause()
+              , SC.generate(f) 
+              )
+          , SC.seq(
+              SC.await(g)
+              , SC.write("g!")
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: f!\n4 -: g!\n5 -: Hello World !\n6 -: \n7 -: f!\n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(SC.forever
+            , SC.kill(f
+                , SC.repeat(SC.forever
+                    , SC.await(e)
+                    , SC.write("Hello World !")
+                    )
+                , SC.write("f!")
+                )
+            , SC.pause()
+            , SC.generate(g)
+            )
+          , SC.repeat(5
+              , SC.generate(e)
+              )
+          , SC.repeat(4
+              , SC.pause(2)
+              , SC.generate(f) 
+              )
+          , SC.seq(
+              SC.await(g)
+              , SC.write("g!")
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: f!\n5 -: g!\n6 -: \n7 -: f!\n8 -: \n9 -: \n10 -: f!"
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(SC.forever
+            , SC.kill(f
+                , SC.repeat(SC.forever
+                    , SC.await(e)
+                    , SC.write("Hello World !")
+                    )
+                , SC.seq(
+                    SC.pause()
+                    , SC.write("f!")
+                    )
+                )
+            , SC.pause()
+            , SC.generate(g)
+            )
+          , SC.repeat(5
+              , SC.generate(e)
+              )
+          , SC.repeat(4
+              , SC.pause(2)
+              , SC.generate(f) 
+              )
+          , SC.seq(
+              SC.await(g)
+              , SC.write("g!")
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: \n5 -: f!\n6 -: g!\n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(SC.forever
+            , SC.kill(f
+                , SC.repeat(SC.forever
+                    , SC.await(e)
+                    , SC.write("Hello World !")
+                    )
+                , SC.seq(
+                    SC.await(f)
+                    , SC.write("f!")
+                    )
+                )
+            , SC.pause()
+            , SC.generate(g)
+            )
+          , SC.repeat(5
+              , SC.generate(e)
+              )
+          , SC.repeat(4
+              , SC.pause(2)
+              , SC.generate(f) 
+              )
+          , SC.seq(
+              SC.await(g)
+              , SC.write("g!")
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: \n5 -: \n6 -: f!\n7 -: g!\n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(SC.forever
+            , SC.kill(f
+                , SC.repeat(SC.forever
+                    , SC.await(e)
+                    , SC.write("Hello World !")
+                    )
+                , SC.seq(
+                    SC.await(f)
+                    , SC.write("f!")
+                    )
+                )
+            , SC.pause()
+            , SC.generate(g)
+            )
+          , SC.repeat(5
+              , SC.generate(e)
+              )
+          , SC.repeat(4
+              , SC.pause()
+              , SC.generate(f) 
+              )
+          , SC.seq(
+              SC.await(g)
+              , SC.write("g!")
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: \n4 -: f!\n5 -: g!\n6 -: \n7 -: \n8 -: f!\n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(SC.forever
+            , SC.kill(f
+                , SC.repeat(SC.forever
+                    , SC.await(e)
+                    , SC.write("Hello World !")
+                    )
+                , SC.seq(
+                    SC.await(f)
+                    , SC.write("f!")
+                    )
+                )
+            , SC.pause()
+            , SC.generate(g)
+            )
+          , SC.repeat(5
+              , SC.generate(e)
+              )
+          , SC.repeat(4
+              , SC.pause(0)
+              , SC.generate(f) 
+              )
+          , SC.seq(
+              SC.await(g)
+              , SC.write("g!")
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: f!\n3 -: g!\n4 -: Hello World !\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(SC.forever
+            , SC.kill(f
+                , SC.repeat(SC.forever
+                    , SC.await(e)
+                    , SC.write("Hello World !")
+                    )
+                , SC.seq(
+                    SC.await(f)
+                    , SC.write("f!")
+                    )
+                )
+            , SC.pause()
+            , SC.generate(g)
+            )
+          , SC.repeat(5
+              , SC.generate(e)
+              )
+          , SC.repeat(5
+              , SC.pause(0)
+              , SC.generate(f) 
+              )
+          , SC.seq(
+              SC.await(g)
+              , SC.write("g!")
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: f!\n3 -: g!\n4 -: Hello World !\n5 -: f!\n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+/* 113 */
+  ,  {
+      prg:
+        SC.par(
+          SC.repeat(SC.forever
+            , SC.actionOn(e, function(v){
+                  var msgs = v[e];
+                  for(var i in msgs){
+                    writeInConsole(msgs[i]);
+                    }
+                })
+            )
+          , SC.repeat(5
+              , SC.generate(e,"Hello World !")
+              )
+          , SC.repeat(5
+              , SC.pause(0)
+              , SC.generate(f, "Bonjour tout le monde !") 
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: Hello World !\n5 -: Hello World !\n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+  ,  {
+      prg:
+        SC.par(
+          SC.actionOn(e, function(v){
+              var msgs = v[e];
+              for(var i in msgs){
+                writeInConsole(msgs[i]);
+                }
+            }, undefined, SC.forever)
+          , SC.repeat(5
+              , SC.generate(e,"Hello World !")
+              )
+          , SC.repeat(5
+              , SC.pause(0)
+              , SC.generate(f, "Bonjour tout le monde !") 
+              )
+          )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: Hello World !\n5 -: Hello World !\n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.actionOn(e, function(v){
+                var msgs = v[e];
+                for(var i in msgs){
+                  writeInConsole(msgs[i]);
+                  }
+              }, undefined, SC.forever)
+            , SC.repeat(5
+                , SC.filter(sens1, e, fun1) 
+                )
+            )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: Hello World !\n5 -: Hello World !\n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+      , fun1: function(v){
+                return "Hello World !"
+                }
+      , init: function(){ window.called1 = this.fun1; }
+      , async: function(){ m.generateEvent(sens1, "Hello World !"); }
+     }
+/*116*/
+ ,  {
+      prg:
+          SC.par(
+            SC.actionOn(e, function(v){
+                var msgs = v[e];
+                for(var i in msgs){
+                  writeInConsole(msgs[i]);
+                  }
+              }, undefined, SC.forever)
+            , SC.repeat(5
+                , SC.filter(sens1, e, fun1) 
+                )
+            )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: Hello World !\n5 -: Hello World !\n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+      , fun1: function(v){
+                return v[0];
+                }
+      , init: function(){ window.called1 = this.fun1; }
+      , async: function(){
+                 m.generateEvent(sens1, "Hello World !");
+                 }
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.repeat(SC.forever
+              , SC.await(e)
+              , SC.actionOn(e, function(v){
+                    var msgs = v[e];
+                    for(var i in msgs){
+                      writeInConsole(msgs[i]);
+                      }
+                  })
+              )
+            , SC.repeat(5
+                , SC.filter(sens1, e, fun1) 
+                )
+            )
+      , expected :
+          "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: Hello World !\n5 -: Hello World !\n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+      , fun1: function(v){
+                return v[0];
+                }
+      , init: function(){ window.called1 = this.fun1; }
+      , async: function(){ m.generateEvent(sens1, "Hello World !"); }
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.repeat(SC.forever
+              , SC.await(e)
+              , SC.actionOn(e, function(v){
+                    var msgs = v[e];
+                    for(var i in msgs){
+                      writeInConsole(msgs[i]);
+                      }
+                  })
+              , SC.pause()
+              )
+            , SC.repeat(5
+                , SC.filter(sens1, e, fun1) 
+                )
+            )
+      , expected :
+          "\n1 -: Hello World !\n2 -: \n3 -: Hello World !\n4 -: \n5 -: Hello World !\n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+      , fun1: function(v){
+                return v[0];
+                }
+      , init: function(){ window.called1 = this.fun1; }
+      , async: function(){ m.generateEvent(sens1, "Hello World !"); }
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.repeat(SC.forever
+              , SC.await(e)
+              , SC.actionOn(e, function(v){
+                    var msgs = v[e];
+                    for(var i in msgs){
+                      writeInConsole(msgs[i]);
+                      }
+                  })
+              , SC.pause()
+              )
+            , SC.repeat(SC.forever
+                , SC.filter(sens1, e, fun1) 
+                )
+            )
+      , expected :
+          "\n1 -: Hello World !\n2 -: \n3 -: Hello World !\n4 -: \n5 -: Hello World !\n6 -: \n7 -: Hello World !\n8 -: \n9 -: Hello World !\n10 -: "
+      , fun1: function(v){
+                return v[0];
+                }
+      , init: function(){ window.called1 = this.fun1; }
+      , async: function(){ m.generateEvent(sens1, "Hello World !"); }
+     }
+/* 120 */
+ ,  {
+      prg:
+          SC.par(
+            SC.repeat(SC.forever
+              , SC.await(e)
+              , SC.actionOn(e, function(v){
+                    var msgs = v[e];
+                    for(var i in msgs){
+                      writeInConsole(msgs[i]);
+                      }
+                  })
+              , SC.pause()
+              )
+            , SC.repeat(SC.forever
+                , SC.await(sens1)
+                , SC.filter(sens1, e, fun1) 
+                , SC.pause()
+                )
+            )
+      , expected :
+          "\n1 -: Hello World !\n2 -: \n3 -: Hello World !\n4 -: \n5 -: Hello World !\n6 -: \n7 -: Hello World !\n8 -: \n9 -: Hello World !\n10 -: "
+      , fun1: function(v){
+                return v[0];
+                }
+      , init: function(){ window.called1 = this.fun1; }
+      , async: function(){ m.generateEvent(sens1, "Hello World !"); }
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.repeat(SC.forever
+              , SC.await(e)
+              , SC.actionOn(e, function(v){
+                    var msgs = v[e];
+                    for(var i in msgs){
+                      writeInConsole(msgs[i]);
+                      }
+                  })
+              , SC.pause()
+              )
+            , SC.repeat(SC.forever
+                , SC.await(sens1)
+                , SC.filter(sens1, e, fun1) 
+                , SC.pause()
+                )
+            )
+      , expected :
+          "\n1 -: Hello World !1_1\n2 -: \n3 -: Hello World !3_2\n4 -: \n5 -: Hello World !5_3\n6 -: \n7 -: Hello World !7_4\n8 -: \n9 -: Hello World !9_5\n10 -: "
+      , fun1: function(v){
+                return v[0]+"_"+(window.myCount2++);
+                }
+      , init: function(){
+                window.called1 = this.fun1;
+                window.myCount = 1;
+                window.myCount2 = 1;
+                }
+      , async: function(){ m.generateEvent(sens1, "Hello World !"+(window.myCount++)); }
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.repeat(SC.forever
+              , SC.await(e)
+              , SC.actionOn(e, function(v){
+                    var msgs = v[e];
+                    for(var i in msgs){
+                      writeInConsole(msgs[i]);
+                      }
+                  })
+              , SC.pause()
+              )
+            , SC.repeat(SC.forever
+                , SC.await(SC.or(sens1,sens2))
+                , SC.filter(sens1, e, fun1) 
+                , SC.pause()
+                )
+            )
+      , expected :
+          "\n1 -: Hello World !1_1\n2 -: \n3 -: Hello World !3_2\n4 -: \n5 -: Hello World !5_3\n6 -: \n7 -: Hello World !7_4\n8 -: \n9 -: Hello World !9_5\n10 -: "
+      , fun1: function(v){
+                return v[0]+"_"+(window.myCount2++);
+                }
+      , init: function(){
+                window.called1 = this.fun1;
+                window.myCount = 1;
+                window.myCount2 = 1;
+                }
+      , async: function(){ m.generateEvent(sens1, "Hello World !"+(window.myCount++)); }
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.repeat(SC.forever
+              , SC.await(e)
+              , SC.actionOn(e, function(v){
+                    var msgs = v[e];
+                    for(var i in msgs){
+                      writeInConsole(msgs[i]);
+                      }
+                  })
+              , SC.pause()
+              )
+            , SC.repeat(SC.forever
+                , SC.await(SC.or(sens1,sens2))
+                , SC.par(
+                    SC.filter(sens1, e, fun1) 
+                    , SC.filter(sens2, e, fun1)
+                    )
+                , SC.pause()
+                )
+            )
+      , expected :
+          "\n1 -: Hello World !1_1\n2 -: \n3 -: Hello World !3_2\n4 -: \n5 -: Hello World !5_3\n6 -: \n7 -: Hello World !7_4\n8 -: \n9 -: Hello World !9_5\n10 -: "
+      , fun1: function(v){
+                return v[0]+"_"+(window.myCount2++);
+                }
+      , init: function(){
+                window.called1 = this.fun1;
+                window.myCount = 1;
+                window.myCount2 = 1;
+                }
+      , async: function(){ m.generateEvent(sens1, "Hello World !"+(window.myCount++)); }
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.repeat(SC.forever
+              , SC.await(e)
+              , SC.actionOn(e, function(v){
+                    var msgs = v[e];
+                    for(var i in msgs){
+                      writeInConsole(msgs[i]);
+                      }
+                  })
+              , SC.pause()
+              )
+            , SC.repeat(SC.forever
+                , SC.await(SC.or(sens1,sens2))
+                , SC.par(
+                    SC.filter(sens1, e, fun1) 
+                    , SC.filter(sens2, e, fun1)
+                    )
+                , SC.pause()
+                )
+            )
+      , expected :
+          "\n1 -: Hello World !1_1\n2 -: \n3 -: Hello World !3_2\n4 -: \n5 -: Hello World !5_3\n6 -: \n7 -: Hello World !7_4\n8 -: \n9 -: Hello World !9_5\n10 -: "
+      , fun1: function(v){
+                return v[0]+"_"+(window.myCount2++);
+                }
+      , init: function(){
+                window.called1 = this.fun1;
+                window.myCount = 1;
+                window.myCount2 = 1;
+                }
+      , async: function(){ m.generateEvent(sens2, "Hello World !"+(window.myCount++)); }
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.repeat(SC.forever
+              , SC.await(e)
+              , SC.actionOn(e, function(v){
+                    var msgs = v[e];
+                    for(var i in msgs){
+                      writeInConsole(msgs[i]);
+                      }
+                  })
+              , SC.pause(1)
+              )
+            , SC.repeat(SC.forever
+                , SC.await(SC.or(sens1,sens2))
+                , SC.par(
+                    SC.filter(sens1, e, fun1) 
+                    , SC.filter(sens2, e, fun1)
+                    )
+                , SC.pause(1)
+                )
+            )
+      , expected :
+          "\n1 -: Hello World !1_1\n2 -: \n3 -: Hello World !3_2\n4 -: \n5 -: Hello World !5_3\n6 -: \n7 -: Hello World !7_4\n8 -: \n9 -: Hello World !9_5\n10 -: "
+      , fun1: function(v){
+                return v[0]+"_"+(window.myCount2++);
+                }
+      , init: function(){
+                window.called1 = this.fun1;
+                window.myCount = 1;
+                window.myCount2 = 1;
+                }
+      , async: function(){ m.generateEvent(sens2, "Hello World !"+(window.myCount++)); }
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.repeat(SC.forever
+              , SC.await(e)
+              , SC.actionOn(e, function(v){
+                    var msgs = v[e];
+                    for(var i in msgs){
+                      writeInConsole(msgs[i]);
+                      }
+                  })
+              , SC.pause(1)
+              )
+            , SC.repeat(SC.forever
+                , SC.await(SC.or(sens1,sens2))
+                , SC.par(
+                    SC.filter(sens1, e, fun1) 
+                    , SC.filter(sens2, e, fun1)
+                    )
+                , SC.pause(1)
+                )
+            )
+      , expected :
+          "\n1 -: Hello World !1_1\n2 -: \n3 -: Hello World !3_2\n4 -: \n5 -: Hello World !5_3\n6 -: \n7 -: Hello World !7_4\n8 -: \n9 -: Hello World !9_5\n10 -: "
+      , fun1: function(v){
+                return v[0]+"_"+(window.myCount2++);
+                }
+      , init: function(){
+                window.called1 = this.fun1;
+                window.myCount = 1;
+                window.myCount2 = 1;
+                }
+      , async: function(){ m.generateEvent(sens2, "Hello World !"+(window.myCount++)); }
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.control(e
+              , SC.write("e!")
+              )
+            , SC.seq(
+                SC.pause()
+                , SC.generate(e)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: e!\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.write("e!")
+                )
+              ,SC.write("control end!")
+              )
+            , SC.seq(
+                SC.pause()
+                , SC.generate(e)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: e!control end!\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(0
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.seq(
+                SC.pause()
+                , SC.generate(e)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: control end!\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(1
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.seq(
+                SC.pause()
+                , SC.generate(e)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: e!control end!\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(2
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.seq(
+                SC.pause()
+                , SC.generate(e)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: e!\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(3
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.seq(
+                SC.pause()
+                , SC.generate(e)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: e!\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(4
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.seq(
+                SC.pause()
+                , SC.generate(e)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: e!\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(5
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.seq(
+                SC.pause()
+                , SC.generate(e)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: e!\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+/*135*/
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(5
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.seq(
+                SC.pause(2)
+                , SC.generate(e)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: \n3 -: e!\n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(5
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.seq(
+                SC.pause(3)
+                , SC.generate(e)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: e!\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(5
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.repeat(2
+                , SC.pause(3)
+                , SC.generate(e)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: e!\n5 -: \n6 -: \n7 -: \n8 -: e!\n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(5
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.repeat(2
+                , SC.pause(2)
+                , SC.generate(e)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: \n3 -: e!\n4 -: \n5 -: \n6 -: e!\n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(5
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.repeat(2
+                , SC.pause(1)
+                , SC.generate(e)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: e!\n3 -: \n4 -: e!\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(5
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.repeat(3
+                , SC.pause(1)
+                , SC.generate(e)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: e!\n3 -: \n4 -: e!\n5 -: \n6 -: e!\n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(5
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.repeat(4
+                , SC.pause(1)
+                , SC.generate(e)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: e!\n3 -: \n4 -: e!\n5 -: \n6 -: e!\n7 -: \n8 -: e!\n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(5
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.repeat(5
+                , SC.pause(1)
+                , SC.generate(e)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: e!\n3 -: \n4 -: e!\n5 -: \n6 -: e!\n7 -: \n8 -: e!\n9 -: \n10 -: e!control end!"
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(2
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.repeat(5
+                , SC.pause(1)
+                , SC.generate(e)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: e!\n3 -: \n4 -: e!control end!\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(2
+                    ,SC.await(f)
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.repeat(5
+                , SC.pause(1)
+                , SC.generate(e)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(2
+                    ,SC.await(f)
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.repeat(5
+                , SC.pause(1)
+                , SC.generate(e)
+                )
+            , SC.seq(
+                SC.pause(0)
+                , SC.generate(f)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(2
+                    ,SC.await(f)
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.repeat(5
+                , SC.pause(1)
+                , SC.generate(e)
+                )
+            , SC.seq(
+                SC.pause(1)
+                , SC.generate(f)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: e!\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(2
+                    ,SC.await(f)
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.repeat(5
+                , SC.pause(1)
+                , SC.generate(e)
+                )
+            , SC.seq(
+                SC.pause(2)
+                , SC.generate(f)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(2
+                    ,SC.await(f)
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.repeat(5
+                , SC.pause(1)
+                , SC.generate(e)
+                )
+            , SC.seq(
+                SC.pause(3)
+                , SC.generate(f)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: e!\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(2
+                    ,SC.await(f)
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.repeat(5
+                , SC.pause(1)
+                , SC.generate(e)
+                )
+            , SC.repeat(1
+                , SC.pause(3)
+                , SC.generate(f)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: e!\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(2
+                    ,SC.await(f)
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.repeat(5
+                , SC.pause(1)
+                , SC.generate(e)
+                )
+            , SC.repeat(2
+                , SC.pause(3)
+                , SC.generate(f)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: e!\n5 -: \n6 -: \n7 -: \n8 -: e!control end!\n9 -: \n10 -: "
+     }
+ /* 151 */
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(2
+                    ,SC.await(f)
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.repeat(5
+                , SC.pause(1)
+                , SC.generate(e)
+                )
+            , SC.repeat(2
+                , SC.pause(2)
+                , SC.generate(f)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: e!\n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.seq(
+              SC.control(e
+                , SC.repeat(2
+                    ,SC.await(f)
+                    , SC.write("e!")
+                    )
+                )
+              ,SC.write("control end!")
+              )
+            , SC.repeat(5
+                , SC.pause(1)
+                , SC.generate(e)
+                )
+            , SC.repeat(2
+                , SC.pause(1)
+                , SC.generate(f)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: e!\n3 -: \n4 -: e!control end!\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.actionOn(
+              e
+              , function(v){
+                  var msgs = v[e];
+                  for(var msg in msgs){
+                    writeInConsole(msgs[msg]);
+                    }
+                  }
+              )
+            , SC.repeat(5
+                , SC.pause(0)
+                , SC.generate(e, "Hello World!")
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: Hello World!\n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.actionOn(
+              e
+              , function(v){
+                  var msgs = v[e];
+                  for(var msg in msgs){
+                    writeInConsole(msgs[msg]);
+                    }
+                  }
+              , undefined
+              , 2
+              )
+            , SC.repeat(5
+                , SC.pause(0)
+                , SC.generate(e, "Hello World!")
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: Hello World!\n2 -: Hello World!\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+ ,  {
+      prg:
+          SC.par(
+            SC.actionOn(
+              e
+              , function(v){
+                  var msgs = v[e];
+                  for(var msg in msgs){
+                    writeInConsole(msgs[msg]);
+                    }
+                  }
+              , undefined
+              , 2
+              )
+            , SC.repeat(5
+                , SC.pause(1)
+                , SC.generate(e, "Hello World!")
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: Hello World!\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+   ,  {
+      prg:
+          SC.par(
+            SC.actionOn(
+              e
+              , function(v){
+                  var msgs = v[e];
+                  for(var msg in msgs){
+                    writeInConsole(msgs[msg]);
+                    }
+                  }
+              , undefined
+              , 3
+              )
+            , SC.repeat(5
+                , SC.pause(1)
+                , SC.generate(e, "Hello World!")
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: Hello World!\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+   ,  {
+      prg:
+          SC.par(
+            SC.actionOn(
+              e
+              , function(v){
+                  var msgs = v[e];
+                  for(var msg in msgs){
+                    writeInConsole(msgs[msg]);
+                    }
+                  }
+              , undefined
+              , 4
+              )
+            , SC.repeat(5
+                , SC.pause(1)
+                , SC.generate(e, "Hello World!")
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: Hello World!\n3 -: \n4 -: Hello World!\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+   ,  {
+      prg:
+          SC.par(
+            SC.actionOn(
+              e
+              , function(v){
+                  var msgs = v[e];
+                  for(var msg in msgs){
+                    writeInConsole(msgs[msg]);
+                    }
+                  }
+              , undefined
+              , 12
+              )
+            , SC.repeat(5
+                , SC.pause(1)
+                , SC.generate(e, "Hello World!")
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: Hello World!\n3 -: \n4 -: Hello World!\n5 -: \n6 -: Hello World!\n7 -: \n8 -: Hello World!\n9 -: \n10 -: Hello World!"
+     }
+   ,  {
+      prg:
+          SC.par(
+            SC.actionOn(
+              e
+              , function(v){
+                  var msgs = v[e];
+                  for(var msg in msgs){
+                    writeInConsole(msgs[msg]);
+                    }
+                  }
+              , undefined
+              , SC.forever
+              )
+            , SC.repeat(5
+                , SC.pause(0)
+                , SC.generate(e, "Hello World!")
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: Hello World!\n2 -: Hello World!\n3 -: Hello World!\n4 -: Hello World!\n5 -: Hello World!\n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+   ,  {
+      prg:
+          SC.par(
+            SC.actionOn(
+              e
+              , function(v){
+                  var msgs = v[e];
+                  for(var msg in msgs){
+                    writeInConsole(msgs[msg]);
+                    }
+                  }
+              , undefined
+              , SC.forever
+              )
+            , SC.repeat(20
+                , SC.pause(0)
+                , SC.generate(e, "Hello World!")
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: Hello World!\n2 -: Hello World!\n3 -: Hello World!\n4 -: Hello World!\n5 -: Hello World!\n6 -: Hello World!\n7 -: Hello World!\n8 -: Hello World!\n9 -: Hello World!\n10 -: Hello World!"
+     }
+   ,  {
+      prg:
+          SC.par(
+            SC.actionOn(
+              e
+              , function(v){
+                  var msgs = v[e];
+                  for(var msg in msgs){
+                    writeInConsole(msgs[msg]);
+                    }
+                  }
+              , undefined
+              , SC.forever
+              )
+            , SC.repeat(20
+                , SC.pause(1)
+                , SC.generate(e, "Hello World!")
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: Hello World!\n3 -: \n4 -: Hello World!\n5 -: \n6 -: Hello World!\n7 -: \n8 -: Hello World!\n9 -: \n10 -: Hello World!"
+     }
+   ,  {
+      prg:
+          SC.par(
+            SC.actionOn(
+              e
+              , function(v){
+                  var msgs = v[e];
+                  for(var msg in msgs){
+                    writeInConsole(msgs[msg]);
+                    }
+                  }
+              , undefined
+              , SC.forever
+              )
+            , SC.repeat(20
+                , SC.pause(2)
+                , SC.generate(e, "Hello World!")
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: \n3 -: Hello World!\n4 -: \n5 -: \n6 -: Hello World!\n7 -: \n8 -: \n9 -: Hello World!\n10 -: "
+     }
+   ,  {
+      prg:
+          SC.par(
+            SC.actionOn(
+              e
+              , function(v){
+                  var msgs = v[e];
+                  for(var msg in msgs){
+                    writeInConsole(msgs[msg]);
+                    }
+                  }
+              , undefined
+              , SC.forever
+              )
+            , SC.repeat(20
+                , SC.pause(1)
+                , SC.generate(e, "Hello World!",2)
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: Hello World!\n3 -: Hello World!\n4 -: \n5 -: Hello World!\n6 -: Hello World!\n7 -: \n8 -: Hello World!\n9 -: Hello World!\n10 -: "
+     }
+   ,  {
+      prg:
+          SC.repeat(SC.forever
+            , SC.pause(2)
+            , SC.par(
+                SC.seq(
+                  SC.write("gen ")
+                  , SC.generate(f)
+                  , SC.write("await ")
+                  , SC.await(e)
+                  , SC.write("after ")
+                  )
+                , SC.seq(
+                    SC.write("to ")
+                    , SC.pause(6)
+                    , SC.write("go ")
+                    , SC.generate(e)
+                    )
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: \n3 -: gen await to \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: go after \n10 -: "
+     }
+   ,  {
+      prg:
+          SC.repeat(SC.forever
+            , SC.kill(g
+                , SC.seq(
+                    SC.pause(2)
+                    , SC.par(
+                        SC.seq(
+                          SC.write("gen ")
+                          , SC.generate(f)
+                          , SC.write("await ")
+                          , SC.await(e)
+                          , SC.write("after ")
+                          )
+                        , SC.seq(
+                            SC.write("to ")
+                            , SC.pause(6)
+                            , SC.write("go ")
+                            , SC.generate(e)
+                            )
+                        )
+                    )
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: \n3 -: gen await to \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: go after \n10 -: "
+     }
+   ,  {
+      prg:
+          SC.repeat(SC.forever
+            , SC.pause(1)
+            , SC.control(sens1
+                , SC.kill(g
+                    , SC.seq(
+                        SC.pause(2)
+                        , SC.par(
+                            SC.seq(
+                              SC.write("gen ")
+                              , SC.generate(f)
+                              , SC.write("await ")
+                              , SC.await(e)
+                              , SC.write("after ")
+                              )
+                            , SC.seq(
+                                SC.write("to ")
+                                , SC.pause(4)
+                                , SC.write("go ")
+                                , SC.generate(e)
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+      , init: function(){}
+      , async: function(){}
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+   ,  {
+      prg:
+          SC.repeat(SC.forever
+            , SC.write("start")
+            , SC.pause(1)
+            , SC.control(sens1
+                , SC.kill(g
+                    , SC.seq(
+                        SC.pause(1)
+                        , SC.par(
+                            SC.seq(
+                              SC.write("gen ")
+                              , SC.generate(f)
+                              , SC.write("await ")
+                              , SC.await(e)
+                              , SC.write("after ")
+                              )
+                            , SC.seq(
+                                SC.write("to ")
+                                , SC.pause(4)
+                                , SC.write("go ")
+                                , SC.generate(e)
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+      , init: function(){}
+      , async: function(){ m.generateEvent(sens1); }
+      , expected :
+          "\n1 -: start\n2 -: \n3 -: gen await to \n4 -: \n5 -: \n6 -: \n7 -: go after \n8 -: start\n9 -: \n10 -: to gen await "
+     }
+   ,  {
+      prg:
+          SC.repeat(SC.forever
+            , SC.write("start")
+            , SC.pause(1)
+            , SC.control(sens1
+                , SC.kill(g
+                    , SC.seq(
+                        SC.pause(1)
+                        , SC.par(
+                            SC.seq(
+                              SC.write("gen ")
+                              , SC.generate(f)
+                              , SC.write("await ")
+                              , SC.await(e)
+                              , SC.write("after ")
+                              )
+                            , SC.seq(
+                                SC.write("to ")
+                                , SC.pause(2)
+                                , SC.write("go ")
+                                , SC.generate(e)
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+      , init: function(){}
+      , async: function(){ m.generateEvent(sens1); }
+      , expected :
+          "\n1 -: start\n2 -: \n3 -: gen await to \n4 -: \n5 -: go after \n6 -: start\n7 -: \n8 -: to gen await \n9 -: \n10 -: go after "
+     }
+   ,  {
+      prg:
+          SC.repeat(SC.forever
+            , SC.write("start")
+            , SC.pause(1)
+            , SC.control(sens1
+                , SC.kill(g
+                    , SC.seq(
+                        SC.pause(1)
+                        , SC.par(
+                            SC.seq(
+                              SC.write("gen ")
+                              , SC.generate(f)
+                              , SC.write("await ")
+                              , SC.await(e)
+                              , SC.write("after ")
+                              )
+                            , SC.seq(
+                                SC.write("to ")
+                                , SC.pause(2)
+                                , SC.write("go ")
+                                , SC.generate(e)
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+      , init: function(){}
+      , async: function(){ m.generateEvent(sens1); }
+      , maxI: 12
+      , expected :
+          "\n1 -: start\n2 -: \n3 -: gen await to \n4 -: \n5 -: go after \n6 -: start\n7 -: \n8 -: to gen await \n9 -: \n10 -: go after \n11 -: start\n12 -: "
+     }
+   ,  {
+      prg:
+          SC.repeat(SC.forever
+            , SC.write("start")
+            , SC.pause(1)
+            , SC.control(sens1
+                , SC.kill(g
+                    , SC.seq(
+                        SC.pause(1)
+                        , SC.par(
+                            SC.seq(
+                              SC.write("gen ")
+                              , SC.generate(f)
+                              , SC.write("await ")
+                              , SC.await(e)
+                              , SC.write("after ")
+                              )
+                            , SC.seq(
+                                SC.write("to ")
+                                , SC.pause(2)
+                                , SC.write("go ")
+                                , SC.generate(e)
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+      , init: function(){}
+      , async: function(){ m.generateEvent(sens1); }
+      , maxI: 15
+      , expected :
+          "\n1 -: start\n2 -: \n3 -: gen await to \n4 -: \n5 -: go after \n6 -: start\n7 -: \n8 -: to gen await \n9 -: \n10 -: go after \n11 -: start\n12 -: \n13 -: to gen await \n14 -: \n15 -: go after "
+     }
+   ,  {
+      prg:
+          SC.repeat(SC.forever
+            , SC.write("start")
+            , SC.pause(1)
+            , SC.control(sens1
+                , SC.kill(g
+                    , SC.seq(
+                        SC.pause(1)
+                        , SC.par(
+                            SC.seq(
+                              SC.write("gen ")
+                              , SC.generate(f)
+                              , SC.write("await ")
+                              , SC.await(e)
+                              , SC.write("after ")
+                              )
+                            , SC.seq(
+                                SC.write("to ")
+                                , SC.pause(2)
+                                , SC.write("go ")
+                                , SC.generate(e)
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+      , init: function(){}
+      , async: function(){ m.generateEvent(sens1); }
+      , maxI: 20
+      , expected :
+          "\n1 -: start\n2 -: \n3 -: gen await to \n4 -: \n5 -: go after \n6 -: start\n7 -: \n8 -: to gen await \n9 -: \n10 -: go after \n11 -: start\n12 -: \n13 -: to gen await \n14 -: \n15 -: go after \n16 -: start\n17 -: \n18 -: to gen await \n19 -: \n20 -: go after "
+     }
+   ,  {
+      prg:
+        SC.par(
+          SC.repeat(SC.forever
+            , SC.write("start")
+            , SC.pause(1)
+            , SC.control(sens1
+                , SC.kill(g
+                    , SC.seq(
+                        SC.pause(1)
+                        , SC.par(
+                            SC.seq(
+                              SC.write("gen ")
+                              , SC.generate(f)
+                              , SC.write("await ")
+                              , SC.await(e)
+                              , SC.write("after ")
+                              )
+                            , SC.seq(
+                                SC.write("to ")
+                                , SC.pause(2)
+                                , SC.write("go ")
+                                , SC.generate(e)
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+          , SC.actionOn(sens1, function(){
+                 writeInConsole("sens1");
+              }
+              ,undefined, SC.forever)
+          )
+      , init: function(){window.sctest_count = 0;}
+      , async: function(){
+                 window.sctest_count++;
+                 if(0 == (window.sctest_count%2)){
+                   m.generateEvent(sens1);
+                   }
+                 }
+      , maxI: 20
+      , expected :
+          "\n1 -: start\n2 -: sens1\n3 -: \n4 -: sens1gen await to \n5 -: \n6 -: sens1\n7 -: \n8 -: sens1go after \n9 -: start\n10 -: sens1\n11 -: \n12 -: sens1to gen await \n13 -: \n14 -: sens1\n15 -: \n16 -: sens1go after \n17 -: start\n18 -: sens1\n19 -: \n20 -: sens1to gen await "
+     }
+   ,  {
+      prg:
+        SC.pause(SC.forever)
+      , init: function(){
+                }
+      , async: function(){
+                 }
+      , maxI: 10
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+   ,  {
+      prg:
+        SC.pauseForever()
+      , init: function(){
+                }
+      , async: function(){
+                 }
+      , maxI: 10
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+   ,  {
+      prg:
+        SC.par(
+          SC.kill(e, SC.pauseForever(), SC.write("e"))
+          , SC.seq(SC.pause(4), SC.generate(e))
+          )
+      , init: function(){
+                }
+      , async: function(){
+                 }
+      , maxI: 10
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: e\n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+   ,  {
+      prg:
+        SC.par(
+          SC.kill(e, SC.pause(0), SC.write("e"))
+          , SC.seq(SC.pause(4), SC.generate(e))
+          )
+      , init: function(){
+                }
+      , async: function(){
+                 }
+      , maxI: 10
+      , expected :
+          "\n1 -: \n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+   ,  {
+      prg:
+        SC.par(
+          SC.when(e, SC.write("f"), SC.write("e"))
+          , SC.seq(SC.pause(4), SC.generate(e))
+          )
+      , init: function(){
+                }
+      , async: function(){
+                 }
+      , maxI: 10
+      , expected :
+          "\n1 -: \n2 -: e\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+   ,  {
+      prg:
+        SC.par(
+          SC.when(e, SC.write("f"), SC.write("e"))
+          , SC.seq(SC.pause(3), SC.generate(e))
+          )
+      , init: function(){
+                }
+      , async: function(){
+                 }
+      , maxI: 10
+      , expected :
+          "\n1 -: \n2 -: e\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+   ,  {
+      prg:
+        SC.par(
+          SC.when(e, SC.write("f"), SC.write("e"))
+          , SC.seq(SC.pause(2), SC.generate(e))
+          )
+      , init: function(){
+                }
+      , async: function(){
+                 }
+      , maxI: 10
+      , expected :
+          "\n1 -: \n2 -: e\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+   ,  {
+      prg:
+        SC.par(
+          SC.when(e, SC.write("f"), SC.write("e"))
+          , SC.seq(SC.pause(1), SC.generate(e))
+          )
+      , init: function(){
+                }
+      , async: function(){
+                 }
+      , maxI: 10
+      , expected :
+          "\n1 -: \n2 -: e\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+   ,  {
+      prg:
+        SC.par(
+          SC.when(e, SC.write("f"), SC.write("e"))
+          , SC.seq(SC.pause(0), SC.generate(e))
+          )
+      , init: function(){
+                }
+      , async: function(){
+                 }
+      , maxI: 10
+      , expected :
+          "\n1 -: f\n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+   ,  {
+      prg:
+        SC.par(
+          SC.repeat(2,SC.when(e, SC.write("f"), SC.write("e")))
+          , SC.seq(SC.pause(0), SC.generate(e))
+          )
+      , init: function(){
+                }
+      , async: function(){
+                 }
+      , maxI: 10
+      , expected :
+          "\n1 -: f\n2 -: \n3 -: e\n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+   ,  {
+      prg:
+        SC.par(
+          SC.repeat(2,SC.when(e, SC.write("f"), SC.write("e")))
+          , SC.repeat(2, SC.pause(0), SC.generate(e))
+          )
+      , init: function(){
+                }
+      , async: function(){
+                 }
+      , maxI: 10
+      , expected :
+          "\n1 -: f\n2 -: f\n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+   ,  {
+      prg:
+        SC.par(
+          SC.repeat(4,SC.when(e, SC.write("f"), SC.write("e")))
+          , SC.repeat(4, SC.pause(0), SC.generate(e))
+          )
+      , init: function(){
+                }
+      , async: function(){
+                 }
+      , maxI: 10
+      , expected :
+          "\n1 -: f\n2 -: f\n3 -: f\n4 -: f\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+   ,  {
+      prg:
+        SC.par(
+          SC.repeat(4,SC.when(e, SC.write("f"), SC.write("e")))
+          , SC.repeat(4, SC.pause(1), SC.generate(e))
+          )
+      , init: function(){
+                }
+      , async: function(){
+                 }
+      , maxI: 10
+      , expected :
+          "\n1 -: \n2 -: e\n3 -: \n4 -: e\n5 -: \n6 -: e\n7 -: \n8 -: e\n9 -: \n10 -: "
+     }
+   ,  {
+      prg:
+        SC.par(
+          SC.repeat(4,SC.when(e, SC.write("f"), SC.write("e")))
+          , SC.repeat(4, SC.pause(1), SC.generate(e), SC.pause(1), SC.generate(e))
+          )
+      , init: function(){
+                }
+      , async: function(){
+                 }
+      , maxI: 10
+      , expected :
+          "\n1 -: \n2 -: e\n3 -: f\n4 -: \n5 -: e\n6 -: f\n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+   ,  {
+      prg:
+        SC.par(
+          SC.repeat(4,SC.when(e, SC.write("f"), SC.write("e")))
+          , SC.repeat(4, SC.pause(1), SC.generate(e), SC.pause(1), SC.generate(e))
+          )
+      , init: function(){
+                }
+      , async: function(){
+                 }
+      , maxI: 10
+      , expected :
+          "\n1 -: \n2 -: e\n3 -: f\n4 -: \n5 -: e\n6 -: f\n7 -: \n8 -: \n9 -: \n10 -: "
+     }
+   ,  {
+      prg:
+        SC.par(
+          SC.repeat(5,SC.when(e, SC.write("f"), SC.write("e")))
+          , SC.repeat(5, SC.pause(1), SC.generate(e), SC.pause(1), SC.generate(e))
+          )
+      , init: function(){
+                }
+      , async: function(){
+                 }
+      , maxI: 10
+      , expected :
+          "\n1 -: \n2 -: e\n3 -: f\n4 -: \n5 -: e\n6 -: f\n7 -: \n8 -: e\n9 -: \n10 -: "
+     }
+   ,  {
+      prg:
+        SC.par(
+          SC.repeat(5
+            , SC.when(e
+                , SC.when(SC.and(f,g)
+                    , SC.write("f")
+                    , SC.write("g")
+                    )
+                , SC.write("e")
+                )
+            )
+          , SC.repeat(SC.forever
+              , SC.generate(e, undefined, 5)
+              )
+          , SC.repeat(5
+              , SC.pause(1)
+              , SC.generate(f)
+              , SC.pause(1)
+              , SC.generate(f)
+              , SC.generate(g)
+              )
+          )
+      , init: function(){
+                }
+      , async: function(){
+                 }
+      , maxI: 10
+      , expected :
+          "\n1 -: \n2 -: g\n3 -: f\n4 -: \n5 -: g\n6 -: f\n7 -: \n8 -: g\n9 -: \n10 -: "
+     }
+   ,  {
+      prg:
+        SC.par(
+          SC.repeat(5
+            , SC.when(e
+                , SC.when(SC.and(f,g)
+                    , SC.write("f")
+                    , SC.write("g")
+                    )
+                , SC.write("e")
+                )
+            )
+          , SC.repeat(SC.forever
+              , SC.generate(e, undefined, 5)
+              , SC.pause(1)
+              )
+          , SC.repeat(5
+              , SC.pause(1)
+              , SC.generate(f)
+              , SC.pause(1)
+              , SC.generate(f)
+              , SC.generate(g)
+              )
+          )
+      , init: function(){
+                }
+      , async: function(){
+                 }
+      , maxI: 10
+      , expected :
+          "\n1 -: \n2 -: g\n3 -: f\n4 -: \n5 -: g\n6 -: \n7 -: e\n8 -: \n9 -: g\n10 -: "
+     }
+   ,  {
+      prg:
+        SC.par(
+          SC.repeat(SC.forever
+            , SC.when(e
+                , SC.when(SC.and(f,g)
+                    , SC.write("f")
+                    , SC.write("g")
+                    )
+                , SC.write("e")
+                )
+            )
+          , SC.repeat(SC.forever
+              , SC.generate(e, undefined, 5)
+              , SC.pause(1)
+              )
+          , SC.repeat(SC.forever
+              , SC.pause(1)
+              , SC.generate(f)
+              , SC.pause(1)
+              , SC.generate(f)
+              , SC.generate(g)
+              )
+          )
+      , init: function(){
+                }
+      , async: function(){
+                 }
+      , maxI: 20
+      , expected :
+          "\n1 -: \n2 -: g\n3 -: f\n4 -: \n5 -: g\n6 -: \n7 -: e\n8 -: \n9 -: g\n10 -: \n11 -: g\n12 -: \n13 -: e\n14 -: \n15 -: g\n16 -: \n17 -: g\n18 -: \n19 -: e\n20 -: "
+     }
+   ,  {
+      prg:
+        SC.par(
+          SC.repeat(SC.forever
+            , SC.when(e
+                , SC.when(SC.and(f,g)
+                    , SC.write("f")
+                    , SC.write("g")
+                    )
+                , SC.write("e")
+                )
+            )
+          , SC.repeat(SC.forever
+              , SC.generate(e, undefined, 5)
+              , SC.pause(1)
+              )
+          , SC.repeat(SC.forever
+              , SC.pause(1)
+              , SC.generate(f)
+              , SC.pause(1)
+              , SC.generate(f)
+              , SC.generate(g)
+              , SC.pause(1)
+              , SC.generate(f)
+              , SC.generate(g)
+              )
+          )
+      , init: function(){
+                }
+      , async: function(){
+                 }
+      , maxI: 20
+      , expected :
+          "\n1 -: \n2 -: g\n3 -: f\n4 -: f\n5 -: \n6 -: g\n7 -: f\n8 -: f\n9 -: \n10 -: g\n11 -: f\n12 -: \n13 -: e\n14 -: \n15 -: g\n16 -: f\n17 -: \n18 -: g\n19 -: f\n20 -: f"
+     }
+   ,  {
+      prg:
+        SC.par(
+          SC.control(SC.and(e,f)
+            , SC.par(
+                SC.filter(sens1, g, fun1, SC.forever)
+                , SC.filter(sens2, g, fun1, SC.forever)
+                )
+            )
+          , SC.seq(SC.await(g),SC.write("g"))
+          , SC.seq(SC.pause(2)
+              , SC.write("go")
+              , SC.repeat(SC.forever, SC.generate(e),SC.generate(f))
+              )
+          )
+      , fun1: function(v){
+	        console.log("filter");
+                return 1;
+                }
+      , init: function(){ window.called1 = this.fun1; window.myCount = 0;}
+      , async: function(){ 
+          window.myCount++;
+          if(window.myCount == 10){
+            m.generateEvent(sens1, "Hello World !");
+            }
+          }
+      , maxI: 20
+      , expected :
+          "\n1 -: \n2 -: \n3 -: go\n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: g\n11 -: \n12 -: \n13 -: \n14 -: \n15 -: \n16 -: \n17 -: \n18 -: \n19 -: \n20 -: "
+     }
+   ,  {
+      prg:
+	SC.kill(g
+          , SC.par(
+              SC.control(SC.and(e,f)
+                , SC.par(
+                    SC.filter(sens1, g, fun1, SC.forever)
+                    , SC.filter(sens2, g, fun1, SC.forever)
+                    )
+                )
+              , SC.seq(SC.await(g),SC.write("g"))
+              , SC.seq(SC.pause(2)
+                  , SC.write("go")
+                  , SC.repeat(SC.forever, SC.generate(e),SC.generate(f))
+                  )
+              )
+	  )
+      , fun1: function(v){
+	        console.log("filter");
+                return 1;
+                }
+      , init: function(){ window.called1 = this.fun1; window.myCount = 0;}
+      , async: function(){ 
+          window.myCount++;
+          if(window.myCount == 10){
+            m.generateEvent(sens1, "Hello World !");
+            }
+          }
+      , maxI: 20
+      , expected :
+          "\n1 -: \n2 -: \n3 -: go\n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: g\n11 -: \n12 -: \n13 -: \n14 -: \n15 -: \n16 -: \n17 -: \n18 -: \n19 -: \n20 -: "
+     }
+   ,  {
+      prg:
+	SC.kill(SC.or(e1,e2)
+	  , SC.kill(g
+              , SC.par(
+                  SC.control(SC.and(e,f)
+                    , SC.par(
+                        SC.filter(sens1, g, fun1, SC.forever)
+                        , SC.filter(sens2, g, fun1, SC.forever)
+                        )
+                    )
+                  , SC.seq(SC.await(g),SC.write("g"))
+                  , SC.seq(SC.pause(2)
+                      , SC.write("go")
+                      , SC.repeat(SC.forever, SC.generate(e),SC.generate(f))
+                      )
+                  )
+	      , SC.write("fin")
+	      )
+	  )
+      , fun1: function(v){
+	        console.log("filter");
+                return 1;
+                }
+      , init: function(){ window.called1 = this.fun1; window.myCount = 0;}
+      , async: function(){ 
+          window.myCount++;
+          if(window.myCount == 10){
+            m.generateEvent(sens1, "Hello World !");
+            }
+          }
+      , maxI: 20
+      , expected :
+          "\n1 -: \n2 -: \n3 -: go\n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: g\n11 -: fin\n12 -: \n13 -: \n14 -: \n15 -: \n16 -: \n17 -: \n18 -: \n19 -: \n20 -: "
+     }
+   ,  {
+      prg:
+       SC.seq(
+	 SC.write("start")
+	 , SC.kill(SC.or(e1,e2)
+	     , SC.kill(g
+                 , SC.par(
+                     SC.control(SC.and(e,f)
+                       , SC.par(
+                           SC.filter(sens1, g, fun1, SC.forever)
+                           , SC.filter(sens2, g, fun1, SC.forever)
+                           )
+                       )
+                     , SC.seq(SC.await(g),SC.write("g"))
+                     , SC.seq(SC.pause(2)
+                         , SC.write("go")
+                         , SC.repeat(SC.forever, SC.generate(e),SC.generate(f))
+                         )
+                     )
+	         , SC.write("fin")
+	         )
+	     )
+	 )
+      , fun1: function(v){
+	        console.log("filter");
+                return 1;
+                }
+      , init: function(){ window.called1 = this.fun1; window.myCount = 0;}
+      , async: function(){ 
+          window.myCount++;
+          if(window.myCount == 10){
+            m.generateEvent(sens1, "Hello World !");
+            }
+          }
+      , maxI: 20
+      , expected :
+          "\n1 -: start\n2 -: \n3 -: go\n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: g\n11 -: fin\n12 -: \n13 -: \n14 -: \n15 -: \n16 -: \n17 -: \n18 -: \n19 -: \n20 -: "
+     }
+   ,  {
+      prg:
+       SC.seq(
+	 SC.write("start")
+	 , SC.pause(1)
+	 , SC.kill(SC.or(e1,e2)
+	     , SC.kill(g
+                 , SC.par(
+                     SC.control(SC.and(e,f)
+                       , SC.par(
+                           SC.filter(sens1, g, fun1, SC.forever)
+                           , SC.filter(sens2, g, fun1, SC.forever)
+                           )
+                       )
+                     , SC.seq(SC.await(g),SC.write("g"))
+                     , SC.seq(SC.pause(2)
+                         , SC.write("go")
+                         , SC.repeat(SC.forever, SC.generate(e),SC.generate(f))
+                         )
+                     )
+	         , SC.write("fin")
+	         )
+	     )
+	 )
+      , fun1: function(v){
+	        console.log("filter");
+                return 1;
+                }
+      , init: function(){ window.called1 = this.fun1; window.myCount = 0;}
+      , async: function(){ 
+          window.myCount++;
+          if(window.myCount == 10){
+            m.generateEvent(sens1, "Hello World !");
+            }
+          }
+      , maxI: 20
+      , expected :
+          "\n1 -: start\n2 -: \n3 -: \n4 -: go\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: g\n11 -: fin\n12 -: \n13 -: \n14 -: \n15 -: \n16 -: \n17 -: \n18 -: \n19 -: \n20 -: "
+     }
+   ,  {
+      prg:
+       SC.seq(
+	 SC.write("start")
+	 , SC.pause(1)
+	 , SC.kill(SC.or(e1,e2)
+	     , SC.kill(e3
+                 , SC.par(
+                     SC.control(SC.and(e,f)
+                       , SC.par(
+                           SC.filter(sens1, g, fun1, SC.forever)
+                           , SC.filter(sens2, g, fun1, SC.forever)
+                           )
+                       )
+                     , SC.seq(SC.await(g),SC.write("g"))
+                     , SC.seq(SC.pause(2)
+                         , SC.write("go")
+                         , SC.repeat(SC.forever, SC.generate(e),SC.generate(f))
+                         )
+                     )
+	         , SC.write("fin")
+	         )
+	     )
+	 )
+      , fun1: function(v){
+	        console.log("filter");
+                return 1;
+                }
+      , init: function(){ window.called1 = this.fun1; window.myCount = 0;}
+      , async: function(){ 
+          window.myCount++;
+          if(window.myCount == 10){
+            m.generateEvent(sens1, "Hello World !");
+            }
+          }
+      , maxI: 20
+      , expected :
+          "\n1 -: start\n2 -: \n3 -: \n4 -: go\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: g\n11 -: \n12 -: \n13 -: \n14 -: \n15 -: \n16 -: \n17 -: \n18 -: \n19 -: \n20 -: "
+     }
+   ,  {
+      prg:
+       SC.seq(
+	 SC.write("start")
+	 , SC.pause(1)
+	 , SC.kill(SC.or(e1,e2)
+	     , SC.kill(e3
+                 , SC.par(
+		     SC.generate(e4, undefined, SC.forever)
+                     , SC.control(SC.and(e,f)
+                         , SC.par(
+                             SC.filter(sens1, g, fun1, SC.forever)
+                             , SC.filter(sens2, g, fun1, SC.forever)
+                             )
+                         )
+                     , SC.seq(SC.await(g),SC.write("g"))
+                     , SC.seq(SC.pause(2)
+                         , SC.write("go")
+                         , SC.repeat(SC.forever, SC.generate(e),SC.generate(f))
+                         )
+                     )
+	         , SC.write("fin")
+	         )
+	     )
+	 )
+      , fun1: function(v){
+	        console.log("filter");
+                return 1;
+                }
+      , init: function(){ window.called1 = this.fun1; window.myCount = 0;}
+      , async: function(){ 
+          window.myCount++;
+          if(window.myCount == 10){
+            m.generateEvent(sens1, "Hello World !");
+            }
+          }
+      , maxI: 20
+      , expected :
+          "\n1 -: start\n2 -: \n3 -: \n4 -: go\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: g\n11 -: \n12 -: \n13 -: \n14 -: \n15 -: \n16 -: \n17 -: \n18 -: \n19 -: \n20 -: "
+     }
+];
+
+if(undefined != testBehaviors[testNum].init){
+  testBehaviors[testNum].init();
+  }
+m.addProgram(testBehaviors[testNum].prg);
+
+var maxInstants = (undefined == testBehaviors[testNum].maxI)?10:testBehaviors[testNum].maxI;
+for(var i = 0 ; i < maxInstants; i++){
+  if(undefined !== testBehaviors[testNum].async){
+    testBehaviors[testNum].async();
+    }
+  m.react();
+  }
+
+if(testPanel.value == testBehaviors[testNum].expected){
+  testNum++;
+  if(testNum < testBehaviors.length){
+    window.location.search="?n="+testNum;
+    }
+  else{
+    alert("Ok");
+    }
+  }
+else{
+  testPanel.style.background="red";
+  }
+
+</script>
+</body>
+</html>
