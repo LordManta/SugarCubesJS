@@ -54,7 +54,8 @@ var _SC = {
       if(typeof p == "string"){ // si on fournit un objet chaîne de caractères 
                                 // c'est qu'on veut probablement faire un
                                 // lien tardif vers la ressources. On va donc
-                                // encapsuler cette chaîne dans un SC_CubeBinding
+				// encapsuler cette chaîne dans un
+				// SC_CubeBinding
         var tmp = new SC_CubeBinding(p);
         return tmp;
         }

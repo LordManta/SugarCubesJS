@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Tentative de doc SugarCubes JS</title>
+<script type="text/javascript" src="SugarCubes.js">
+</script>
+<style>
+pre, code{
+  font-size:1.3em;
+}
+span.keyword{
+  font-weight:bold;
+  color:purple;
+}
+</style>
+</head>
+<body>
+<script type="text/javascript">
+var JFS = {
+  m: SC.machine(30,{
+     init:SC.pause(SC.forever)
+    })
+  , sensors:{}
+  , events:{}
+  } ;
+</script>
+<h1>Tentative de description des instructions réactives...</h1>
+<p>Un programme SugarCubesJS est un une structure arborescente dont les nœuds sont des instructions réactives. Une instruction réactive est implantée par un objet par un objet JavaScript. Pour chaque type d'instruction, un constructeur permet de créer un objet implantant cette instruction :</p>
+Par exemple pour la séquence, un constructeur <code>SC_Seq()</code> permet de construire des objets séquences.<br>
+Le constructeur permet de créer une séquence à partir d'un tableau d'instructions passé en paramètre au constructeur. Ainsi :
+<pre><span class="keyword">new</span> SC_Seq([<em>i1</em>, <em>i2</em>, <em>i3</em>])</pre>
+permettrait de créer une séquence des instructions i1 puis i2 puis i3.
+<pre>
+          |
+       -------
+       | Seq |
+       -------
+     /    |    \
+------  ------  ------
+| i1 |  | i2 |  | i3 |
+------  ------  ------
+
+---------------------&gt;
+sens de parcours de l'arbre.
+</pre>
+<p>
+Mais en SugarCubes on ne manipule pas directement les constructeurs. On utilise l'objet global <code>SC</code> dont les méthodes associées font appel aux différents constructeurs. Cela permet d'isoler la construction d'un programme, de la façon dont sont implantées les instructions.
+</p>
+Ainsi pour la séquence, on utilisera <code>SC.seq(<em>i1</em>, <em>i2</em>, <em>i3</em>)</code> au lieu du constructeur.<br>
+Remarquons au passage que dans cette notation, on n'explicite plus le tableau d'instructions, ce qui rend un peu moins lourd l'écriture d'un programme.
+<p>
+A chaque constructeur d'instruction on associe un prototype contenant quelques méthodes importantes pour exécuter le programme. Ceci constitue en quelques sorte une interface de manipulation des instructions par la machine d'exécution :
+<!--
+s/\(\%V.*\%V.\)/<code>\1<\/code>
+  -->
+<ul>
+<li> <code>activate()</code> : activation d'une instruction durant l'instant
+<li> <code>eoi()</code> : activation d'une instruction à la toute fin de l'instant
+<li> <code>reset()</code> : réinitialisation de l'état d'une instruction.
+<li> <code>wackup()</code> : réveil d'une instruction en attente sur un ou plusieurs événements quand l'un de ces événements est émis.
+<li> <code>awake()</code> : propagation de l'information de réveil dans l'AST depuis la feuille jusqu'à la racine (précurseur)
+<li> <code>bindTo()</code> : copie d'un programme et optimisation en vu de son exécution (une machine d'exécution n'exécute que des copies d'un programme qu'on lui soumet par <code>addProgram()</code> jamais le programme lui même).
+<li> <code>toString()</code> : retourne une chaine de caractère représentant le programme dans un langage à la ReactiveScript.
+</ul>
+
+D'autres méthodes accessoires sont aussi présentes pour gérer l'enregistrement ou le desenregistrement des instruction sur les événements, la production des valeurs associées aux événements, etc.
+<h3>La méthode <code>activate()</code></h3>
+La méthode la plus importante est la méthode <code>activate()</code> qui implante une micro étape d'exécution d'une instruction.
+<p>
+À chaque instant, la machine d'exécution réactive appelle la méthode <code>activate()</code> sur la racine du programme. Cette méthode va récursivement s'appeler et parcourir l'aborescnece des instructions exécutables et faire évoluer l'état de ces instructions.<p>
+Lorsque la transition d'état d'un instruction est faite, la méthode <code>activate()</code> retourne un statut d'exécution parmi les valeurs suivantes :
+<ul>
+<li><code><strong><em>SUSP</em></strong></code> : «à activer dans l'instant courant»
+<li><code><strong><em>WEOI</em></strong></code> : «à activer si l'événement attendu est là ou à la fin de l'instant»
+<li><code><strong><em>OEOI</em></strong></code> : «à activer uniquement à la fin de l'instant»
+<li><code><strong><em>STOP</em></strong></code> : «à activer à l'instant suivant»
+<li><code><strong><em>WAIT</em></strong></code> : «à activer si seulement un événement attendu est présent»
+<li><code><strong><em>HALT</em></strong></code> : «ne plus activer mais ne termine pas»
+<li><code><strong><em>TERM</em></strong></code> : «ne plus activer est complètement terminé»
+</ul>
+
+<h5><strong><em>SUSP</em></strong> :</h5> Ce statut signifie : «il est impératif de réactiver cette instruction avant que l'instant courant ne termine car elle n'a pas terminé son évolution pour l'instant courant mais a juste suspendu momentanément son exécution afin de permettre à d'autres instructions de progresser».<br>
+<strong><em>SUSP</em></strong> indique que l'instruction peut progresser dans son exécution au cours de l'instant.
+<p>
+Par exemple, imaginons le programme suivant :
+<pre>
+SC.par( SC.await(&amp;e), SC.generate(&amp;e))
+</pre>
+<p>
+il va nous donner l'AST suivant :
+</p>
+<div style="height:200px;line-height:200px">
+<pre id="animation1" style="float:left;vertical-align:middle; line-height:normal">
+          |
+
+       -------
+       | Par |
+       -------
+       /     \
+
+---------   ------------
+| Await |   | Generate |
+---------   ------------
+ </pre>
+<section style="display:inline-block;vertical-align:middle; line-height:normal">
+<em>&lt;- Click the graph to animate</em><br>
+<code>o</code> symbolise l'appel de la méthode <code>activate()</code> sur une instruction.<br>
+<code>△</code> symbolise l'appel de la méthode <code>wakeup()</code> sur une instruction, lorsqu"un événement attendu par l'instruction est généré.<br>
+<code>x</code> symbolise l'appel de la méthode <code>awake()</code> sur une instruction. (précurseur remontant l'arbre depuis une feuille nouvellement débloquée jusqu'à la racine).<br>
+</section>
+</div>
+<br style="clear:both">
+<script>
+var vues = [
+"          |\n\
+\n\
+       -------\n\
+       | Par |     \n\
+       -------\n\
+       /     \\\n\
+\n\
+---------   ------------\n\
+| Await |   | Generate |\n\
+---------   ------------\n\
+ "
+,
+"           \n\
+\n\
+              \n\
+                   \n\
+              \n\
+     DÉBUT !!!          \n\
+               \n\
+\n\
+                        \n\
+                        \n\
+ "
+,
+"          |\n\
+\n\
+       -------\n\
+  <strong><em>SUSP</em></strong> | Par | <strong><em>SUSP</em></strong>\n\
+       -------\n\
+       /     \\\n\
+\n\
+---------   ------------\n\
+| Await |   | Generate |\n\
+---------   ------------\n\
+ "
+,
+"          |\n\
+          o\n\
+       -------\n\
+  <strong><em>SUSP</em></strong> | Par | <strong><em>SUSP</em></strong>\n\
+       -------\n\
+       /     \\\n\
+\n\
+---------   ------------\n\
+| Await |   | Generate |\n\
+---------   ------------\n\
+ "
+,
+"          |\n\
+          o\n\
+       -------\n\
+  <strong><em>SUSP</em></strong> | Par | <strong><em>SUSP</em></strong>\n\
+       -------\n\
+       /     \\\n\
+      o\n\
+---------   ------------\n\
+| Await |   | Generate |\n\
+---------   ------------\n\
+ "
+,
+"          |\n\
+          o\n\
+       -------\n\
+  <strong><em>SUSP</em></strong> | Par | <strong><em>SUSP</em></strong>\n\
+       -------\n\
+       /     \\\n\
+      o (<strong><em>WAIT</em></strong>)\n\
+---------   ------------\n\
+| Await |   | Generate |\n\
+---------   ------------\n\
+ "
+,
+"          |\n\
+          o\n\
+       -------\n\
+  <strong><em>WAIT</em></strong> | Par | <strong><em>SUSP</em></strong>\n\
+       -------\n\
+       /     \\\n\
+              \n\
+---------   ------------\n\
+| Await |   | Generate |\n\
+---------   ------------\n\
+ "
+,
+"          |\n\
+          o\n\
+       -------\n\
+  <strong><em>WAIT</em></strong> | Par | <strong><em>SUSP</em></strong>\n\
+       -------\n\
+       /     \\\n\
+              o\n\
+---------   ------------\n\
+| Await |   | Generate |\n\
+---------   ------------\n\
+                   "
+,
+"          |\n\
+          o\n\
+       -------\n\
+  <strong><em>WAIT</em></strong> | Par | <strong><em>SUSP</em></strong>\n\
+       -------\n\
+       /     \\\n\
+              o\n\
+---------   ------------\n\
+| Await |   | Generate |\n\
+---------   ------------\n\
+    △_____________|"
+,
+"          |\n\
+          o\n\
+       -------\n\
+  <strong><em>WAIT</em></strong> | Par | <strong><em>SUSP</em></strong>\n\
+       -------\n\
+       /     \\\n\
+     x        o\n\
+---------   ------------\n\
+| Await |   | Generate |\n\
+---------   ------------\n\
+    △_____________|"
+,
+"          |\n\
+          o\n\
+       -------\n\
+  <strong><em>SUSP</em></strong> | Par | <strong><em>SUSP</em></strong>\n\
+       -------\n\
+       /     \\\n\
+     x        o\n\
+---------   ------------\n\
+| Await |   | Generate |\n\
+---------   ------------\n\
+    △_____________|"
+,
+"          |\n\
+          o\n\
+       -------\n\
+  <strong><em>SUSP</em></strong> | Par | <strong><em>SUSP</em></strong>\n\
+       -------\n\
+       /     \\\n\
+              o\n\
+---------   ------------\n\
+| Await |   | Generate |\n\
+---------   ------------\n\
+    △_____________|"
+,
+"          |\n\
+          o\n\
+       -------\n\
+  <strong><em>SUSP</em></strong> | Par | <strong><em>SUSP</em></strong>\n\
+       -------\n\
+       /     \\\n\
+              o\n\
+---------   ------------\n\
+| Await |   | Generate |\n\
+---------   ------------\n\
+                   "
+,
+"          |\n\
+          o\n\
+       -------\n\
+  <strong><em>SUSP</em></strong> | Par | <strong><em>SUSP</em></strong>\n\
+       -------\n\
+       /     \\\n\
+              o (<strong><em>TERM</em></strong>)\n\
+---------   ------------\n\
+| Await |   | Generate |\n\
+---------   ------------\n\
+ "
+,
+"          |\n\
+          o\n\
+       -------\n\
+  <strong><em>SUSP</em></strong> | Par | <strong><em>TERM</em></strong>\n\
+       -------\n\
+       /     \\\n\
+                      \n\
+---------   ------------\n\
+| Await |   | Generate |\n\
+---------   ------------\n\
+ "
+,
+"          |\n\
+          o (<strong><em>SUSP</em></strong>)\n\
+       -------\n\
+  <strong><em>SUSP</em></strong> | Par | <strong><em>TERM</em></strong>\n\
+       -------\n\
+       /     \\\n\
+                      \n\
+---------   ------------\n\
+| Await |   | Generate |\n\
+---------   ------------\n\
+ "
+,
+"          |\n\
+                  \n\
+       -------\n\
+  <strong><em>SUSP</em></strong> | Par | <strong><em>TERM</em></strong>\n\
+       -------\n\
+       /     \\\n\
+                      \n\
+---------   ------------\n\
+| Await |   | Generate |\n\
+---------   ------------\n\
+ "
+,
+"          |\n\
+          o       \n\
+       -------\n\
+  <strong><em>SUSP</em></strong> | Par | <strong><em>TERM</em></strong>\n\
+       -------\n\
+       /     \\\n\
+                      \n\
+---------   ------------\n\
+| Await |   | Generate |\n\
+---------   ------------\n\
+ "
+,
+"          |\n\
+          o       \n\
+       -------\n\
+  <strong><em>SUSP</em></strong> | Par | <strong><em>TERM</em></strong>\n\
+       -------\n\
+       /     \\\n\
+      o               \n\
+---------   ------------\n\
+| Await |   | Generate |\n\
+---------   ------------\n\
+ "
+,
+"          |\n\
+          o       \n\
+       -------\n\
+  <strong><em>SUSP</em></strong> | Par | <strong><em>TERM</em></strong>\n\
+       -------\n\
+       /     \\\n\
+      o (<strong><em>TERM</em></strong>)        \n\
+---------   ------------\n\
+| Await |   | Generate |\n\
+---------   ------------\n\
+ "
+,
+"          |\n\
+          o       \n\
+       -------\n\
+  <strong><em>TERM</em></strong> | Par | <strong><em>TERM</em></strong>\n\
+       -------\n\
+       /     \\\n\
+                      \n\
+---------   ------------\n\
+| Await |   | Generate |\n\
+---------   ------------\n\
+ "
+,
+"          |\n\
+          o (<strong><em>TERM</em></strong>)\n\
+       -------\n\
+  <strong><em>TERM</em></strong> | Par | <strong><em>TERM</em></strong>\n\
+       -------\n\
+       /     \\\n\
+                      \n\
+---------   ------------\n\
+| Await |   | Generate |\n\
+---------   ------------\n\
+ "
+,
+"           \n\
+\n\
+              \n\
+                   \n\
+              \n\
+     FIN !!!          \n\
+               \n\
+\n\
+                        \n\
+                        \n\
+ "
+];
+var animable1 = document.getElementById("animation1");
+animable1.style.display="table";
+//animable1.style.border="1px solid";
+JFS.anim1_clickSensor = JFS.m.systemEvent(animable1, "click");
+animable1.prevBuild = SC.evt("prevBuild");
+animable1.nextBuild = SC.evt("nextBuild");
+animable1.build = 0;
+animable1.my_width = parseInt(window.getComputedStyle(animable1).width);
+JFS.m.addProgram(
+  SC.cube(animable1
+    , SC.par(
+        SC.actionOn(JFS.anim1_clickSensor
+          , function(vals){
+              var evt = vals[JFS.anim1_clickSensor];
+              for(var i in evt){
+                var tmp = evt[i].cx-this.offsetLeft;
+                /*if(tmp < this.my_width/4){
+		  console.log("prevBuild "+tmp+"/"+this.my_width);
+                  JFS.m.generateEvent(this.prevBuild);
+                  }
+                if(tmp > this.my_width*3/4){*/
+		  console.log("nextBuild");
+		  this.build++;
+		  this.build %= vues.length;
+		  this.innerHTML = vues[this.build];
+                  JFS.m.generateEvent(this.prevBuild);
+                //  }
+	        }
+              }.bind(animable1)
+          , undefined
+          , SC.forever
+          )
+        )
+    )
+  );
+</script>
+On commence par appeler la méthode <code>activate()</code> de l'objet <code>Par</code> (la méthode <code>activate()</code> du prototype associé au constructeur <code>Par()</code> ).
+<p>
+Le comportement standard de l'instruction Par est d'activer ces 2 branches. On doit donc faire un choix dans l'ordre d'activation (on ne considère pas ici un moteur d'exécution parallèle mais séquentiel, les SugarCubes permettent d'exprimer du parallélisme mais leur interprétation peut-être parfaitement séquentiel). Pour les besoins de l'illustration, on choisit (parmi d'autres choix possibles) une interprétation séquentiel de Par qui active toujours dans une micro étape la branche gauche puis la branche droite de ce parallèle binaire. On suppose que l'on a que ce programme dans la machine d'exécution et que l'événement &amp;e n'est pas une entée du programme c'est à dire qu'il n'est pas généré par un composant externe au programme réactif. Au début de l'instant on ne sait donc pas si e est présent ou absent on lui donne donc un statut inconnu. Le Await est activé (appel de sa méthode activate() ) en premier et arrive à la conclusion qu'il ne peut pas progresser car e est dans un état encore inconnu et que la seul chose qui l'intéresse est la présence (et uniquement la présence - l'absence ne l'intéresse pas) de l'événement e. Comme il ne peut se décider il retourne un autre statut <strong><em>WAIT</em></strong> (que l'on verra plus loin),  le await informe donc son parent (l'instruction par) qu'il ne peut plus progresser et qu'il se met en attente d'un événement. Le par mémorise ce status pour sa première branche et passe à l'activation de la seconde...
+</p>
+Le generate lui a un comportement simple : lorsque sa méthode activate est appelée, il positionne le status de &amp;e à présent et renvoi le status d'exécution <strong><em>TERM</em></strong>, indiquant que la seconde branche du par à complètement terminé son exécution, inutile de la réactivé à l'avenir.
+
+avant d'activer la seconde branche le par avait mémoriser les status suivant : branche 1 <strong><em>WAIT</em></strong> et branche 2 <strong><em>SUSP</em></strong>.
+après l'activvation du générate il a la mémoire suivante ; branche 1 <strong><em>SUSP</em></strong> et branche 2 <strong><em>TERM</em></strong>.
+car la génération de l'événment e va modifier par le mécanisme des précurseurs le status associé au Await qui était en attente de l'événement e.
+
+Comme au moins une de ses branche est dans l'état <strong><em>SUSP</em></strong>, le par remonte un état <strong><em>SUSP</em></strong>. indiquant à la machine d'exécution que l'instant ne peut pas être terminé puisque des choses restent à faire (le await peut maintenant progresser). La machine va donc attendre encore avant de déclarer l'instant terminé et va relancer la méthode activate() à la racine...
+
+<h5><strong><em>WEOI</em></strong> :</h5>
+indique qu'une instruction est bloquée en attente d'information sur un ou plusieurs événements et qu'il est intéressé à la fois par la présence et par l'absence d'un événement. En SugarCubes la présence est signalé immédiatement au moment l'événement est généré comme dans l'exemple précédent.
+<script type="text/javascript">
+// create a Blob object with a worker code
+var blob = new Blob(["onmessage = function(e) { postMessage('msg from worker'); }"]);
+
+// Obtain a blob URL reference to our worker 'file'.
+var blobURL = window.URL.createObjectURL(blob);
+
+// create a Worker
+var worker = new Worker(blobURL);
+worker.onmessage = function(e) {
+  console.log(e.data);
+};
+worker.postMessage("Send some Data"); 
+</script>
+</body>
+</html>
