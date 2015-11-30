@@ -326,7 +326,7 @@ SC_Sensor.prototype = {
 /*******************************************************************************
  * Repeat Instruction
  ******************************************************************************/
-// *** SC_RelativeJump
+// *** SC_RelativeJump (relogeable)
 function SC_RelativeJump(jump){
   this.relativeJump = jump;
   this.seq = null;
@@ -342,7 +342,7 @@ SC_RelativeJump.prototype = {
       return copy;
       }
   , toString : function(){
-      return "jump "+this.relativeJump+" ";
+      return "end repeat ";
       }
 }
 
@@ -441,7 +441,9 @@ SC_Await.prototype = {
       }
   , bindTo : function(parbranch, engine, seq, path, cube){
       var binder = _SC._b(cube);
-      var copy = new SC_Await(binder(this.config).bindTo(parbranch, engine, seq, path, cube));
+      var bound_config = binder(this.config);
+      var copy = new SC_Await(bound_config.bindTo(parbranch, engine, seq, path, cube));
+      copy._config = this.config;
       copy.path = path;
       return copy;
       }
