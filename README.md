@@ -6,10 +6,10 @@
 #### Copyright 2014-2015.
 
 A Javascript implementation of the Reactive Programming SugarCubes v5 framework.
-It uses Frederic Boussinot's synchronous/reactive paradigm. And alloow one to write reactive parallel/concurent programs 
+It uses Frederic Boussinot's synchronous/reactive paradigm. And allow one to write reactive parallel/concurrent programs 
 on top of Javascript.
 
-Simple start :
+Quick start :
 --------------
 1. load the library SugarCubes.js by adding :
 ```HTML
@@ -18,7 +18,7 @@ Simple start :
 ```
 to your HTML
 
-2. then build a reactive engine to execute reative programs :
+2. then build a reactive engine to execute reactive programs :
 ```javascript
 var machine = SC.machine();
 ```
@@ -46,7 +46,7 @@ for(var i = 0 ; i < 100; i++){
   }
 ```
 
-It is a common practice to trigger the reactions of the execution machine according to a «real time» clock to preserve standard jascript's behavior :
+It is a common practice to trigger the reactions of the execution machine according to a «real time» clock to preserve standard javascript's behavior :
 ```javascript
 window.setInterval(
         function(){
@@ -55,3 +55,15 @@ window.setInterval(
         , 30
         );
 ```
+The easiest way to integrate the reactive machine is to declare it with a delay parameter :
+
+```javascript
+var machine = SC.machine(30);
+```
+where 30 is the delay (in milliseconds) between to consecutive reactions. So you don't need to deal with a loop of react() method calls or the setInterval() method in your code. The execution machine will be triggered automatically every 30ms (or more delay, only minimal delay is guarantied).
+.
+
+Commands
+--------
+
+* `javascript SC.nothing()` : Instruction which does nothing and immediately terminates (during the very same instants where it starts).
