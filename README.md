@@ -33,20 +33,20 @@ var program1 = SC.repeatForever(SC.await(e), SC.log("event &e is generated !"));
 var program2 = SC.repeatForever(SC.pause(10), SC.generate(e));
 ```
 
-5. ajouter les programmes aux machines :
+5. add programs to the execution machine (each program will be put in parallel with the others) :
 ```javascript
 machine.addProgram(program1);
 machine.addProgram(program2);
 ```
 
-6. activer la machine d'exécution :
+6. activate the execution machine :
 ```javascript
 for(var i = 0 ; i < 100; i++){
   machine.react();
   }
 ```
 
-En général il vaut mieux caler la machine d'exécution sur une horloge temps réel en utilisant le window.setInterval de Javascript :
+It is a common practice to trigger the reactions of the execution machine according to a «real time» clock to preserve standard jascript's behavior :
 ```javascript
 window.setInterval(
         function(){
