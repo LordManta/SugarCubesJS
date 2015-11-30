@@ -12,56 +12,55 @@ on top of Javascript.
 Quick start :
 --------------
 1. load the library SugarCubes.js by adding :
-```HTML
-<script type="text/javascript" src="SugarCubes.js">
-</script>
-```
-to your HTML
+   ```HTML
+   <script type="text/javascript" src="SugarCubes.js">
+   </script>
+   ```
+   to your HTML
 
 2. then build a reactive engine to execute reactive programs :
-```javascript
-var machine = SC.machine();
-```
-
+   ```javascript
+   var machine = SC.machine();
+   ```
+   
 3. declare events :
-```javascript
-var e = SC.evt("e");
-```
+   ```javascript
+   var e = SC.evt("e");
+   ```
 4. write programs :
-```javascript
-var program1 = SC.repeatForever(SC.await(e), SC.log("event &e is generated !"));
-var program2 = SC.repeatForever(SC.pause(10), SC.generate(e));
-```
+   ```javascript
+   var program1 = SC.repeatForever(SC.await(e), SC.log("event &e is generated !"));
+   var program2 = SC.repeatForever(SC.pause(10), SC.generate(e));
+   ```
 
 5. add programs to the execution machine (each program will be put in parallel with the others) :
-```javascript
-machine.addProgram(program1);
-machine.addProgram(program2);
-```
+   ```javascript
+   machine.addProgram(program1);
+   machine.addProgram(program2);
+   ```
 
 6. activate the execution machine :
-```javascript
-for(var i = 0 ; i < 100; i++){
-  machine.react();
-  }
-```
-
-It is a common practice to trigger the reactions of the execution machine according to a «real time» clock to preserve standard javascript's behavior :
-```javascript
-window.setInterval(
-        function(){
-          machine.react();
-          }
-        , 30
-        );
-```
-The easiest way to integrate the reactive machine is to declare it with a delay parameter :
-
-```javascript
-var machine = SC.machine(30);
-```
-where 30 is the delay (in milliseconds) between to consecutive reactions. So you don't need to deal with a loop of react() method calls or the setInterval() method in your code. The execution machine will be triggered automatically every 30ms (or more delay, only minimal delay is guarantied).
-.
+   ```javascript
+   for(var i = 0 ; i < 100; i++){
+     machine.react();
+     }
+   ```
+   
+   It is a common practice to trigger the reactions of the execution machine according to a «real time» clock to preserve standard javascript's behavior :
+   ```javascript
+   window.setInterval(
+           function(){
+             machine.react();
+             }
+           , 30
+           );
+   ```
+   The easiest way to integrate the reactive machine is to declare it with a delay parameter :
+   
+   ```javascript
+   var machine = SC.machine(30);
+   ```
+   where 30 is the delay (in milliseconds) between to consecutive reactions. So you don't need to deal with a loop of react() method calls or the setInterval() method in your code. The execution machine will be triggered automatically every 30ms (or more delay, only minimal delay is guarantied).
 
 Commands
 --------
