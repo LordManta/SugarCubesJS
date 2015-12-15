@@ -1,0 +1,107 @@
+/*
+ * SC_Panel.css
+ * Author : Jean-Ferdy Susini
+ * Created : 20/12/2014 14:02 PM
+ * Part of the SugarCubes Project
+ * version : 5.0 alpha
+ * implantation : 0.2
+ * Copyright 2014.
+ */
+
+/*
+ * Styles used in the ControlPanel.
+ */
+#SC_console {
+  width:300px;
+  height:200px;
+  background-color:white;
+  color:black;
+  border: solid 1px black;
+  overflow: scroll;  
+  font-size:10px;
+  unicode-bidi: embed;
+  font-family: monospace;
+  white-space: pre;
+}
+#SC_ScreenShot_pic{
+  width:64px;
+  height:40px;
+  border: solid 1px black;
+  vertical-align:middle;
+}
+#SC_mouse_tracker{
+  display:inline-block;
+  border-collapse: collapse;
+  border:solid 1px black;
+  width:110px;
+}
+#SC_reactive_machine_info{
+  width:198px;
+  display:inline-block;
+  border-collapse: collapse;
+  border:solid 1px black;
+}
+#SC_ControlPanel{
+ position:fixed;
+ display:inline-block;
+ background-color:rgba(0,0,0,0.5);
+ color:white;
+ padding:5px;
+ margin:0;
+ top:0;
+ left:0;
+ border-bottom-right-radius: 10px;
+}
+
+#App_splashScreen{
+  position:fixed;
+  margin:0;
+  padding:0;
+  top:0;
+  left:0;
+  width:100vw;
+  height:100vh;
+  background-color:black;
+  color:blue;
+  text-align:center;
+}
+#App_splashScreen>div{
+  position: relative;
+  margin:0;
+  padding:0;
+  height:100%;
+  width:100%;
+  line-height:100vh;
+  text-align:center;
+}
+#App_splashScreen>div div{
+  display: inline-block;
+  margin:0;
+  text-align:center;
+  vertical-align:middle;
+  line-height:normal;
+}
+span.SC_splashH1{
+  font-size:7vh;
+}
+div.SC_splashH3{
+  border: 2px solid;
+  font-size:4vh;
+  position:absolute;
+  left:50%;
+  bottom:1vh;
+  border-radius:1vh;
+  padding:1vh 1vw 1vh 1vw;
+  transform: translate(-50%, 0);
+  background-color:rgba(255,255,255,0.6);
+}
+div.SC_splashRestart{
+  border: 2px solid;
+  font-size:4vh;
+  position:absolute;
+  right:1vw;
+  bottom:1vh;
+  border-radius:1vh;
+  padding:1vh 1vw 1vh 1vw;
+  background-color:rgba(255,255,255,0.6);
+}

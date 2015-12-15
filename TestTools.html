@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html manifest="TestTools.manifest">
+ <head>
+   <meta charset="utf-8"/>
+   <script type="text/javascript" src="SugarCubes.js">
+   </script>
+   <script type="text/javascript" src="SC_Tools.js">
+   </script>
+   <script type="text/javascript">
+var SC_App_Config = {
+  tickTime: 30
+  , machineConfig:{init: SC.pauseForever()}
+  , audioSupport:true
+  , appTitle:"SC_ToolsTest"
+  , appAuthors:"Jean-Ferdy Susini"
+  , appDescription:""
+  , splashConfig:{
+      title:"Ma WebApp SugarCubes"
+      , title_style:"background-color: rgba(255,255,255, 0.6);font-size:12vh;font-weight:bold; text-shadow:0.5vw 0.5vh 0.5vmax white"
+      , start:"Démarrer !"
+      , startEvt: SC.evt("evt")
+      , background:"url(images/png/bg-test.png) no-repeat center"
+      }
+  , controler:true
+  , controler_closed:true
+  }
+SC.tools.appInit(SC_App_Config);
+   </script>
+   <style>
+.toto{
+  border:1px solid black;
+}
+   </style>
+ </head>
+ <body>
+   <script type="text/javascript">
+var imgClick = SC.sensor('image_click');
+window.addEventListener("load", function(){
+ SC.tools.t.push(SC.tools.makeImage({
+           src : "images/png/banane.png"
+           , title : "GROAR !"
+           , cl : "toto"
+           , evt_click: imgClick
+           , m : SC.tools.m
+           }));
+ var tmp = SC.tools.t[SC.tools.t.length-1]
+ document.body.appendChild(tmp);
+ SC.tools.t.push(SC.tools.makeP({
+           inH : "Hello World !"
+           , title : "Ceci est un paragraphe !"
+           , cl : "toto"
+           }));
+ tmp = SC.tools.t[SC.tools.t.length-1]
+ document.body.appendChild(tmp);
+ });
+   </script>
+<table>
+</table>
+<script>
+SC_ify({
+  inH:"<caption> Hello! </caption><tr><td>Hello</td><td>World !</td></tr>"
+  , title:"Essai"
+  });
+</script>
+<script type="text/javascript" src="sounds.js">
+</script>
+<script type="text/javascript">
+SC.tools.addProgram(
+   SC.repeat(SC.forever
+     , SC.await(imgClick)
+     , SC.log("click")
+     , SC.generate(audion.playEvt)
+     , SC.pause()
+     , SC.kill(imgClick, SC.await(audion.endedEvt), SC.generate(audion.stopEvt))
+     )
+   );
+SC.tools.addProgram(
+   SC.action(function(m){
+     filter = voice.audioContext.createBiquadFilter();
+     filter.connect(voice.audioContext.destination);
+     }.bind(this)
+     )
+   );
+</script>
+ </body>
+</html>

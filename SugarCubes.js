@@ -10,12 +10,24 @@
 SC = (function(){
 const SC_Instruction_State = {
   SUSP:1
-  ,WEOI:2
-  ,OEOI:3
-  ,STOP:4
-  ,WAIT:5
-  ,HALT:6
-  ,TERM:7
+  , WEOI:2
+  , OEOI:3
+  , STOP:4
+  , WAIT:5
+  , HALT:6
+  , TERM:7
+  , str :[ "undefined !"
+    , "SUSP:1"
+    , "WEOI:2"
+    , "OEOI:3"
+    , "STOP:4"
+    , "WAIT:5"
+    , "HALT:6"
+    , "TERM:7"
+    ]
+  , toString: function(state){
+      return str[state];
+      }
 };
 /*
  * SC_CubeBinding : permet de gérer l'accès aux ressources non définit à
@@ -54,8 +66,8 @@ var _SC = {
       if(typeof p == "string"){ // si on fournit un objet chaîne de caractères 
                                 // c'est qu'on veut probablement faire un
                                 // lien tardif vers la ressources. On va donc
-				// encapsuler cette chaîne dans un
-				// SC_CubeBinding
+                                // encapsuler cette chaîne dans un
+                                // SC_CubeBinding
         var tmp = new SC_CubeBinding(p);
         return tmp;
         }
@@ -84,12 +96,12 @@ var _SC = {
       }
   , bindIt(targetAcion){
       if((undefined !== targetAcion.t)
-	 &&(undefined !== targetAcion.f)){
-	var tmp = targetAcion.t[targetAcion.f];
-	if((undefined !== tmp)
-	    &&("function" == typeof(tmp))){
-	  return tmp.bind(targetAcion.t);
-	  }
+         &&(undefined !== targetAcion.f)){
+        var tmp = targetAcion.t[targetAcion.f];
+        if((undefined !== tmp)
+            &&("function" == typeof(tmp))){
+          return tmp.bind(targetAcion.t);
+          }
         }
       return targetAcion;
       }
@@ -227,9 +239,11 @@ function SC_Event(name){
   this.registeredInst2 = [];
 }
 SC_Event.prototype = {
-  isPresent : function(m){
-    return this.its == m.instantNumber;
-    }
+  isEvent:true
+  , isEventOrSensor:true
+  , isPresent : function(m){
+      return this.its == m.instantNumber;
+      }
 /*
  * Réveil des instructions sur liste d'attente pour l'évennement. Si cela ne
  * suffit pas à débloquer l'instruction (qui reste bloquée sur d'autres
@@ -282,6 +296,16 @@ SC_Event.prototype = {
   , getAllValues : function(m, vals){
       vals[this] = this.getValues(m);
       }
+  , iterateOnValues(combiner){
+      if((undefined === combiner.iterateOn)
+         ||("function" != typeof(combiner.iterate))){
+        throw "invalid combiner";
+        }
+      const len = this.vals.length;
+      for(var i = 0; i < len; i++){
+        combiner.iterateOn(this.vals[i]);
+        }
+      }
   , bindTo : function(parbranch, engine, seq, path, cube){
       var copy = this;
       return copy;
@@ -300,7 +324,9 @@ function SC_Sensor(name){
   this.registeredInst2 = [];
 }
 SC_Sensor.prototype = {
-  isPresent : SC_Event.prototype.isPresent
+  isSenor:true
+  , isEventOrSensor:true
+  , isPresent : SC_Event.prototype.isPresent
   , wakeupAll : SC_Event.prototype.wakeupAll
   , generateValues : SC_Event.prototype.generateValues
   , systemGen : function(val, m, flag){
@@ -318,6 +344,7 @@ SC_Sensor.prototype = {
   , getValues : SC_Event.prototype.getValues
   , getAllValues : SC_Event.prototype.getAllValues
   , bindTo : SC_Event.prototype.bindTo
+  , iterateOnValues : SC_Event.prototype.iterateOnValues
   , toString : function(){
       return "&_"+this.name+" ";
       }
@@ -2969,7 +2996,7 @@ function Machine(delay,params){
     }
     else{
       if(b){
-        this.timer = window.setInterval(function(){m.react();}, delay);
+        this.timer = window.setInterval(function(){this.react();}.bind(this), delay);
       }
     }
   }
@@ -3429,42 +3456,61 @@ Control.prototype.toString = function(){
 function SC_Cube(o, p){
   this.o = o;
   this.p = p;
+  this.toAdd = [];
+  this.addProgram = this.addFirst;
 }
-SC_Cube.prototype.activate = function(m){
-  return this.p.activate(m);
-  }
-SC_Cube.prototype.eoi = function(m){
-  this.p.eoi(m);
-  }
-SC_Cube.prototype.reset = function(m){
-  this.p.reset(m);
-  }
-SC_Cube.prototype.bindTo = function(parbranch, engine, seq, path, cube){
-  var tmp_par = SC.par();
-  if(undefined !== this.o.SC_cubeAddBehaviorEvt){
-    console.log("warning javascript object already configured !"
-                +"Be sure that it is not used bound to another program, especially in a different reactive machine");
+SC_Cube.prototype = {
+  activate : function(m){
+    return this.p.activate(m);
     }
-  else{
-     SC_cubify.apply(this.o);
-     tmp_par.add(
-       SC.repeat(SC.forever
-         , SC.await(SC.or(this.o.SC_cubeCellifyEvt, this.o.SC_cubeAddCellEvt))
-         , this.o.$SC_cellMaker
-         )
-       );
+  , eoi : function(m){
+    this.p.eoi(m);
     }
-  tmp_par.add(SC.parex(this.o.SC_cubeAddBehaviorEvt
-                     , this.p
-                    ));
-  var copy = new SC_Cube(this.o, tmp_par.bindTo(parbranch, engine, null, path, this.o));
-  return copy;
-}
-SC_Cube.prototype.toString = function(){
-  return "cube "+this.o.toString()
-          +" with "+this.p.toString()
-          +" end cube ";
-}
+  , reset : function(m){
+      this.p.reset(m);
+      }
+  , addSecond: function(p){
+    this.dynamic.addBranch(p, this.pb, this.m);
+    }
+  , addFirst : function(p){
+    this.toAdd.push(p);
+    }
+  , bindTo : function(parbranch, engine, seq, path, cube){
+      var tmp_par = SC.par();
+      var tmp_par_dyn;
+      if(undefined !== this.o.SC_cubeAddBehaviorEvt){
+        console.log("warning javascript object already configured !"
+                    +"Be sure that it is not used bound to another program, especially in a different reactive machine");
+        }
+      else{
+         SC_cubify.apply(this.o);
+         tmp_par.add(
+           SC.repeat(SC.forever
+             , SC.await(SC.or(this.o.SC_cubeCellifyEvt, this.o.SC_cubeAddCellEvt))
+             , this.o.$SC_cellMaker
+             )
+           );
+        }
+      tmp_par.add(tmp_par_dyn = SC.parex(this.o.SC_cubeAddBehaviorEvt
+                         , this.p
+                        ));
+      for(var i = 0 ; i < this.toAdd.length; i++){
+	tmp_par_dyn.add(this.toAdd[i]);
+        }
+      var copy = new SC_Cube(this.o, tmp_par.bindTo(parbranch, engine, null, path, this.o));
+      copy.dynamic = tmp_par_dyn;
+      copy.toAdd = undefined;
+      copy.addProgram = copy.addSecond;
+      copy.m = engine;
+      copy.pb = parbranch;
+      return copy;
+      }
+  , toString : function(){
+      return "cube "+this.o.toString()
+              +" with "+this.p.toString()
+              +" end cube ";
+      }
+  };
 
 /*********
  * When Class
@@ -3860,6 +3906,9 @@ SC = {
     },
   linkToCube:function(s){
     return _SC.b_(s);
+    },
+  writeInConsole(){
+    console.log.call(console,arguments);
     },
   forever: -1
 };

@@ -1,9 +1,9 @@
 # SugarCubesJS
-#### Author : Jean-Ferdy Susini
-#### Created : 2/12/2014 9:23 PM
-#### version : 5.0 alpha
-#### implantation : 0.8.3
-#### Copyright 2014-2015.
+##### Author : Jean-Ferdy Susini
+##### Created : 2/12/2014 9:23 PM
+##### version : 5.0 alpha
+##### implantation : 0.8.3
+##### Copyright 2014-2015.
 
 A Javascript implementation of the Reactive Programming SugarCubes v5 framework.
 It uses Frederic Boussinot's synchronous/reactive paradigm. And allow one to write reactive parallel/concurrent programs 
@@ -65,4 +65,5 @@ Quick start :
 Commands
 --------
 
-* `javascript SC.nothing()` : Instruction which does nothing and immediately terminates (during the very same instants where it starts).
+* `SC.nothing()` : Instruction which does nothing and immediately terminates (during the very same instant where it starts).
+* `SC.seq(...)` : This instruction takes a list of parameters which should be all SugarCubes instructions. This instruction link causally instructions in parameters in the same order as the list is built. 
