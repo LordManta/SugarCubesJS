@@ -12,6 +12,45 @@ SC.tools = (function(){
   /*
    * Gestion du cache local
    */
+  var css_properties = [
+    "width"
+    , "minWidth"
+    , "maxWidth"
+    , "height"
+    , "minHeight"
+    , "maxHeight"
+    , "top"
+    , "left"
+    , "right"
+    , "bottom"
+    , "background"
+    , "border"
+    , "display"
+    , "position"
+    , "visibility"
+    , "color"
+    , "opacity"
+    , "font"
+    , "borderRadius"
+    , "padding"
+    , "margin"
+    , "textAlign"
+    , "verticalAlign"
+    , "boxSizing"
+    , "boxShadow"
+    , "outline"
+    , "cursor"
+    , "float"
+    , "overflowX"
+    , "overflowY"
+    , "zIndex"
+  ];
+  if(undefined !== document.documentElement.style.WebkitFilter){
+    css_properties.push("WebkitFilter");
+    }
+  else{
+    css_properties.push("filter");
+    }
   var WebAppcache = window.applicationCache;
   var manifest = document.documentElement.manifest;
   function activateElement(tmp){
@@ -74,45 +113,8 @@ SC.tools = (function(){
                            )
                         );
       }
-    stylizer.call(tmp, "width");
-    stylizer.call(tmp, "minWidth");
-    stylizer.call(tmp, "maxWidth");
-    stylizer.call(tmp, "height");
-    stylizer.call(tmp, "minHeight");
-    stylizer.call(tmp, "maxHeight");
-    stylizer.call(tmp, "top");
-    stylizer.call(tmp, "left");
-    stylizer.call(tmp, "right");
-    stylizer.call(tmp, "bottom");
-    stylizer.call(tmp, "background");
-    stylizer.call(tmp, "border");
-    stylizer.call(tmp, "display");
-    stylizer.call(tmp, "position");
-    stylizer.call(tmp, "color");
-    stylizer.call(tmp, "opacity");
-    stylizer.call(tmp, "font");
-    stylizer.call(tmp, "borderRadius");
-    stylizer.call(tmp, "padding");
-    stylizer.call(tmp, "margin");
-    stylizer.call(tmp, "textAlign");
-    stylizer.call(tmp, "verticalAlign");
-    stylizer.call(tmp, "boxSizing");
-    stylizer.call(tmp, "boxShadow");
-    stylizer.call(tmp, "outline");
-    stylizer.call(tmp, "cursor");
-    stylizer.call(tmp, "float");
-    stylizer.call(tmp, "overflowX");
-    stylizer.call(tmp, "overflowY");
-    stylizer.call(tmp, "overflowY");
-    stylizer.call(tmp, "zIndex");
-    if(undefined !== tmp.style.WebkitFilter){
-      stylizer.call(tmp, "WebkitFilter");
-      }
-    else{
-      stylizer.call(tmp, "filter");
-      }
-    if(undefined !== tmp.style.WebkitFilter){
-      stylizer.call(tmp, "WebkitFilter");
+    for(var i in css_properties){
+      stylizer.call(tmp, css_properties[i]);
       }
     tmp.titleEvt = SC.evt("set_title");
     SC.cellify(tmp, "title", SC.simpleCellFun(tmp, tmp.titleEvt)
@@ -132,6 +134,16 @@ SC.tools = (function(){
                            )
                         );
       }
+    tmp.sc_inspected = false;
+    tmp.addEventListener('click', function(evt){
+      if(undefined !== SC_ClientTools.elementInspector){
+        console.log("click = ",evt.detail);
+        if((SC_ClientTools.elementInspector.sc_vis) || (4 === evt.detail)){
+            SC.tools.generateEvent(SC_ClientTools.elementInspector.setIcobjUnderInspectionEvt
+                                                    , this);
+            }
+        }
+    }.bind(tmp));
     return tmp;
     }
   function finishElement(elt, p){
@@ -226,6 +238,8 @@ function AudioChunk(data){
   this.loadedEvt = SC.sensor("AC_"+this.idx+"_loaded");
   this.data = data;
   this.playEvt = SC.evt("play");
+  this.pauseEvt = SC.evt("pause");
+  this.resumeEvt = SC.evt("resume");
   this.stopEvt = SC.evt("stop");
   this.idx = SC_ClientTools.audioToolbox.sFXs.length;
   SC_ClientTools.audioToolbox.sFXs.push(this);
@@ -236,7 +250,17 @@ function AudioChunk(data){
           , SC.seq(
               SC.await(this.playEvt)
               , SC.action(this.play.bind(this))
-              , SC.await(this.endedEvt)
+              , SC.par(
+                  SC.seq(
+                    SC.repeat(SC.forever
+                      , SC.await(this.pauseEvt)
+                      , SC.action(this.pause.bind(this))
+                      , SC.await(this.resumeEvt)
+                      , SC.action(this.resume.bind(this))
+                      )
+                    )
+                  , SC.seq(SC.await(this.endedEvt), SC.generate(this.stopEvt))
+                  )
               )
           , SC.action(this.stop.bind(this))
           )
@@ -263,8 +287,19 @@ AudioChunk.prototype = {
   , setDestination : function(dest){
       this.dest = dest;
       if(null !=  this.source){
-	this.source.disconnect();
-	this.source.connect(this.dest);
+        this.source.disconnect();
+        this.source.connect(this.dest);
+        }
+      }
+  , pause : function(){
+      if(null !=  this.source){
+        this.source.disconnect();
+        }
+      }
+  , resume : function(){
+      if(null !=  this.source){
+        this.source.connect((undefined !== this.dest)?this.dest
+                               :this.audioContext.destination);
         }
       }
   , i : function(msg){
@@ -277,10 +312,10 @@ AudioChunk.prototype = {
       this.source = this.audioContext.createBufferSource();
       this.source.buffer = this.buffer;
       if(undefined !== this.dest){
-	this.source.connect(this.dest);
+        this.source.connect(this.dest);
         }
       else{
-	this.source.connect(this.audioContext.destination);
+        this.source.connect(this.audioContext.destination);
         }
       this.source[this.start](0);
       this.source.onended = (function(me) { return function(evt){
@@ -321,6 +356,7 @@ SC_ClientTools = {
       activateElement(tmp);
       return finishElement(tmp, args);
       }
+  , audioContext : sharedContext
   , activateElement : activateElement
   , configureElement : finishElement
   , energize : function(p){
@@ -338,11 +374,37 @@ SC_ClientTools = {
         w.getFPS = function(){return "NA";}
         }
       }
+  , addProgram(p){
+      throw "Not well initialized !";
+      }
+  , appStartedEvt : SC.evt("appStarted")
+  , appInited : false
   , init : function(m){
       this.setWorkspace(document);
       this.m = m;
-      this.addProgram = function(p){
-        this.programsToAdd.add(p);
+      if("complete" != document.readyState){
+        this.programsToAdd=SC.par();
+        this.addProgram = function(p){
+          this.programsToAdd.add(p);
+          }
+        window.addEventListener("load", function(){
+            this.m.addProgram(SC.seq(
+                  (this.appInited)?SC.await(this.appStartedEvt):SC.nothing()
+                  , this.programsToAdd)
+                  );
+            this.addProgram = function(p){
+              this.m.addProgram(p);
+              }
+            }.bind(this));
+        }
+      else{
+        console.log("Probably initialized too late !");
+        this.addProgram = function(p){
+          this.m.addProgram(p);
+          }
+        }
+      this.generateEvent = function(evt, val){
+        this.m.generateEvent.apply(this.m, arguments);
         }
       }
   , loadData : function(url, m){
@@ -460,6 +522,17 @@ SC_ClientTools = {
       this.controlPanel.content.appendChild(tmpTable);
       this.controlPanel.content.appendChild(document.createElement("br"));
       this.controlPanel.content.appendChild(this.controlPanel.console);
+      this.controlPanel.setInspectorBtn = function(){
+        var inspector_btn = document.createElement("button");
+        inspector_btn.innerHTML="Element Inspector";
+        inspector_btn.onclick=function(){
+          SC.tools.generateEvent(SC_ClientTools.elementInspector.setIcobjUnderInspectionEvt, null);
+          };
+        this.content.appendChild(inspector_btn);
+        }
+      if(undefined !== this.elementInspector){
+        this.controlPanel.setInspectorBtn();
+        }
       SC_evt_mouse_click = this.m.systemEvent(document, "click");
       SC_evt_mouse_down = this.m.systemEvent(document, "mousedown");
       SC_evt_mouse_up = this.m.systemEvent(document, "mouseup");
@@ -559,15 +632,22 @@ SC_ClientTools = {
         }
     }
   , appInit(config){
+      this.appInited = true;
       document.write("<title>"+config.appTitle+"</title>");
       document.write("<meta name='athor' content='"+config.appAuthors+"'/>");
       document.write("<meta name='description' content='"+config.appDescription+"'/>");
       document.write("<meta name='viewport' content='width=device-width,height=device-height,user-scalable=no'/>");
       document.write("<meta name='apple-mobile-web-app-capable' content='yes'>");
-      document.write("<meta name='apple-mobile-web-app-status-bar-style' content='black'>");
+      document.write("<meta name='apple-mobile-web-app-status-bar-style' content='translucent black'>");
       document.write("<meta name='apple-touch-fullscreen' content='yes'>");
-      document.write("<link rel ='stylesheet' type='text/css' href='SC_Panel.css' title='Style'/>");
-      this.programsToAdd=SC.par();
+      if(undefined !== config.startup_img){
+        for(var i in config.startup_img){
+          document.write("<link href='"+config.startup_img[i].rsrc+"' media='"+config.startup_img[i].media+"' rel='apple-touch-startup-image'>");
+          }
+        }
+      if(undefined !== config.controler_style){
+        document.write("<link rel ='stylesheet' type='text/css' href='"+config.controler_style+"' title='Style'/>");
+        }
       var m = SC.machine(config.tickTime, config.machineConfig);
       this.init(m);
       var tmp_par = SC.par(SC.pause(50));
@@ -616,12 +696,9 @@ SC_ClientTools = {
                   , SC.action(function(m){
                       this.splashScreen.parentElement.removeChild(
                                                             this.splashScreen);
-                      m.addProgram(this.programsToAdd);
-                      this.addProgram = function(p){
-                        this.m.addProgram(p);
-                        }
                       }.bind(this)
                       )
+                  , SC.generate(this.appStartedEvt)
                   )
                 );
               }.bind(this, config.splashConfig.startEvt)
@@ -640,6 +717,9 @@ SC_ClientTools = {
             )
           );
         }
+        if(true == config.inspectorEnabled){
+          this.initInspector();
+          }
       }
   , audioToolbox : {
       audioFormats:["audio/mp3", "audio/mp4"]
@@ -713,6 +793,15 @@ SC_ClientTools = {
       , newAudioChunck(data){
           return new AudioChunk(data);
           }
+      , mkBQFilter(p){
+          var tmp = SC.tools.audioContext.createBiquadFilter();
+          tmp.connect(SC.tools.audioContext.destination);
+          tmp.type = (undefined !== p.type)?p.type:"bandpass";
+          tmp.frequency.value=(undefined !== p.f)?p.f:2050;
+          tmp.Q.value=(undefined !== p.Q)?p.Q:5;
+          tmp.gain.value=(undefined !== p.g)?p.g:0;
+          return tmp;
+          }
       , loadAll:function(){
             SC_ClientTools.m.addProgram(
               SC.seq(
@@ -738,6 +827,478 @@ SC_ClientTools = {
           }
     }
   };
+/**/
+/* DOM Element Inspector */
+/* JFS Inspector */
+SC_ClientTools.initInspector = function(){
+  if(undefined == this.m){
+    throw "tools not initialized";
+    }
+  this.elementInspector = document.createElement("div");
+  this.elementInspector.style.display="inline-block";
+  this.elementInspector.style.position="fixed";
+  this.elementInspector.style.color="rgba(255,255,255,0.9)";
+  this.elementInspector.style.backgroundColor="rgba(0,0,0,0.6)";
+  this.elementInspector.style.borderRadius="10px";
+  this.elementInspector.style.padding="5px";
+  this.elementInspector.set_xyEvt = SC.evt("panel_set_xy");
+  this.elementInspector.showEvt = SC.evt("show");
+  this.elementInspector.hideEvt = SC.evt("hide");
+  this.elementInspector.makeCell = function(nom, init, el){
+    this["$"+nom] = SC.cell({init:init, sideEffect: this["_"+nom].bind(this), eventList: el});
+    Object.defineProperty(this, nom,{get : (function(nom){
+      return this["$"+nom].val();
+    }).bind(this, nom)});
+    }
+  this.elementInspector._updatePanel = function(val, evts){
+    var pos = evts[this.set_xyEvt];
+    if(undefined === pos){
+      return null;
+      }
+    if((pos[0].x-this.panel_mid) > 0){
+      if((pos[0].x-this.panel_mid) < window.innerWidth-80){
+        this.style.left = (pos[0].x-this.panel_mid)+"px";
+        }
+      else{
+        this.style.left = (window.innerWidth-80)+"px";
+        }
+      }
+    else{
+      this.style.left = "1px";
+      }
+    if(pos[0].y > 0){
+      if(pos[0].y < window.innerHeight-10){
+        this.style.top = pos[0].y+"px";
+        }
+      else{
+        this.style.top = (window.innerHeight-10)+"px";
+        }
+      }
+    else{
+      this.style.top = "1px";
+      }
+    };
+/* ---- */
+  this.elementInspector.icobjListener = function(nom, evt){
+    return SC.repeat(SC.forever
+             , SC.await(evt)
+             , SC.actionOn(evt, function(n, e, vals){
+                 this[n].value = vals[e][0];
+                 }.bind(this, nom, evt))
+             );
+  }
+  this.elementInspector.setIcobjUnderInspectionEvt = SC.evt("setIcobjUnderInspection");
+  this.elementInspector.setIcobjNoMoreInspectionEvt = SC.evt("setIcobjNoMoreInspection");
+  this.elementInspector._icobjControled = function(val, evts){
+    var e = evts[this.setIcobjUnderInspectionEvt];
+    var i = val;
+    if(undefined === e){
+      e = evts[this.setIcobjNoMoreInspectionEvt];
+      if(undefined === e){
+        return val;
+        }
+      if(e[0] == val){
+        this.background.value = "";
+        this.position.value = "";
+        this.display.value = "";
+        this.left.value = "";
+        this.top.value = "";
+        this.color.value = "";
+        this.opacity.value = "";
+        this.font.value = "";
+        this.border.value = "";
+        this.borderRadius.value = "";
+        this.width.value = "";
+        this.height.value = "";
+        this.padding.value = "";
+        this.boxSizing.value = "";
+        this.boxShadow.value = "";
+        this.filter.value = "";
+        this.outline.value = "";
+        this.overflowX.value = "";
+        this.overflowY.value = "";
+        this.zoom.value = "";
+        this.sc_title.value = "";
+        this.sc_src.value = "";
+        i = null;
+        }
+      else{
+        return val;
+        }
+      }
+    else{
+      i = e[0];
+      }
+    this.controlTitle.innerHTML = (null == i)?"--":i.tagName;
+    if(null !== i){
+      this.background.value = i.style.background;
+      this.position.value = i.style.position;
+      this.display.value = i.style.display;
+      this.left.value = i.style.left;
+      this.top.value = i.style.top;
+      this.color.value = i.style.color;
+      this.opacity.value = i.style.opacity;
+      this.font.value = i.style.font;
+      this.border.value = i.style.border;
+      this.borderRadius.value = i.style.borderRadius;
+      this.width.value = i.style.width;
+      this.height.value = i.style.height;
+      this.padding.value = i.style.padding;
+      this.margin.value = i.style.margin;
+      this.boxSizing.value = i.style.boxSizing;
+      this.boxShadow.value = i.style.boxShadow;
+      this.filter.value = (undefined === i.style.WebkitFilter)?i.style.filter
+                               :i.style.WebkitFilter;
+      this.outline.value = i.style.outline;
+      this.overflowX.value = i.style.overflowX;
+      this.overflowY.value = i.style.overflowY;
+      this.zoom.value = i.style.zoom;
+      this.sc_title.value = i.title;
+      this.sc_src.value = (undefined === i.src)?"":i.src;
+      SC.tools.addProgram(
+        SC.kill(SC.or(this.setIcobjUnderInspectionEvt,this.setIcobjNoMoreInspectionEvt)
+          , SC.par(
+              this.icobjListener("background", i.css_backgroundEvt)
+              , this.icobjListener("position", i.css_positionEvt)
+              , this.icobjListener("display", i.css_displayEvt)
+              , this.icobjListener("top", i.css_topEvt)
+              , this.icobjListener("left", i.css_leftEvt)
+              , this.icobjListener("color", i.css_colorEvt)
+              , this.icobjListener("opacity", i.css_opacityEvt)
+              , this.icobjListener("font", i.css_fontEvt)
+              , this.icobjListener("border", i.css_borderEvt)
+              , this.icobjListener("borderRadius", i.css_borderRadiusEvt)
+              , this.icobjListener("width", i.css_widthEvt)
+              , this.icobjListener("height", i.css_heightEvt)
+              , this.icobjListener("padding", i.css_paddingEvt)
+              , this.icobjListener("margin", i.css_marginEvt)
+              , this.icobjListener("boxSizing", i.css_boxSizingEvt)
+              , this.icobjListener("boxShadow", i.css_boxShadowEvt)
+              , ((undefined === i.style.WebkitFilter)?this.icobjListener("filter", i.css_filterEvt)
+                   :this.icobjListener("filter", i.css_WebkitFilterEvt))
+              , this.icobjListener("outline", i.css_outlineEvt)
+              , this.icobjListener("overflowX", i.css_overflowXEvt)
+              , this.icobjListener("overflowY", i.css_overflowYEvt)
+              , (undefined === i.css_zoomEvt)?SC.nothing()
+                  :this.icobjListener("zoom", i.css_zoomEvt)
+              )
+              , this.icobjListener("sc_title", i.titleEvt)
+              , (undefined === i.srcEvt)?SC.nothing()
+                                             :this.icobjListener("sc_src", i.srcEvt)
+          )
+      );
+    }
+    var mid = parseInt(window.getComputedStyle(this.controlTitle.parentNode).width)/2;
+    this.panel_mid = isNaN(mid)?this.panel_mid:mid;
+    return i;
+    }
+  /* the icobj under inspection */
+  this.elementInspector.makeCell("icobjControled", null, [this.elementInspector.setIcobjUnderInspectionEvt
+                                                         , this.elementInspector.setIcobjNoMoreInspectionEvt]);
+  /* mise à jour de la position du panel */
+  this.elementInspector.makeCell("updatePanel", null, [this.elementInspector.set_xyEvt]);
+  this.elementInspector.sc_vis = false;
+  this.elementInspector._display = function(val, evts){
+      var tmp = evts[this.showEvt];
+      if(undefined != tmp){
+        this.sc_vis = true;
+        return "";
+        }
+      var tmp = evts[this.hideEvt];
+      if(undefined != tmp){
+        this.sc_vis = false;
+        return "none";
+        }
+      return val;
+    }
+  SC.cellify(this.elementInspector
+           , "display"
+           , undefined
+           , [this.elementInspector.showEvt, this.elementInspector.hideEvt]
+           , "style"
+           );
+  /* fonction pour créer des entrées dans l'inspector */
+  function pilot(p/*{tr, title, ctrl_kind, lst, help}*/){
+    if(undefined == p.title){
+      throw 'no title provided';
+      }
+    var tr = (undefined == p.tr)?document.createElement("tr"):p.tr;
+    tr.innerHTML ="<th>"+p.title+"</th><td></td>";
+    var css_control = null;
+    switch(p.ctrl_kind){
+      case 1 : {
+          css_control = document.createElement("select");
+          for(var i in p.lst){
+            var tmp = document.createElement("option");
+            tmp.classList.add("icobj");
+            tmp.innerHTML=p.lst[i];
+            css_control.appendChild(tmp);
+            }
+          break;
+        }
+      default:
+      case 2 : {
+          if(undefined !== p.suggestions){
+            css_control = document.createElement("div");
+            var tmp_css_ctrl = document.createElement("input");
+            tmp_css_ctrl.type = "text";
+            css_control.appendChild(tmp_css_ctrl);
+            tmp_css_ctrl = document.createElement("select");
+            for(var i in p.suggestions){
+              var tmp = document.createElement("option");
+              tmp.classList.add("icobj");
+              tmp.innerHTML=p.suggestions[i];
+              tmp_css_ctrl.appendChild(tmp);
+              }
+            css_control.appendChild(tmp_css_ctrl);
+            }
+          else{
+            css_control = document.createElement("input");
+            css_control.type = "text";
+            }
+          break;
+        }
+      }
+    if(p.numeric){
+      css_control.onchange = function(evt){
+        if(null != this.icobjControled){
+          SC.tools.generateEvent(this.icobjControled[p.targetEventName], parseInt(evt.target.value));
+          }
+        }.bind(SC_ClientTools.elementInspector);
+      }
+    else{
+      css_control.onchange = function(evt){
+        if(null != this.icobjControled){
+          SC.tools.generateEvent(this.icobjControled[p.targetEventName], evt.target.value);
+          }
+        }.bind(SC_ClientTools.elementInspector);
+      }
+    SC_ClientTools.elementInspector[p.title] = css_control;
+    //JFS.inspector["v_"+p.title] = tr.children[1];
+    tr.title = (undefined == p.help)?"an icobj css control":p.help;
+    //tr.children[2].appendChild(css_control);
+    tr.children[1].appendChild(css_control);
+    return tr;
+    }
+  /* on ajout l'inspecteur dans la page */
+  this.elementInspector.innerHTML = "<div style='text-align:center;border-bottom:2px solid white;'>"
+         +"<img src='images/png/hideBtn.png' style='float:left;width:16px;'/>Element inspector on <em> </em></div>"
+         +"<table>"
+         +"<tr></t></table>"
+  var table = SC_ClientTools.elementInspector.children[1];
+  table.style.maxHeight = "50vh";
+  table.style.height = "50vh";
+  table.style.overflowY = "scroll";
+  table.style.display = "inline-block";
+  this.addProgram(
+      SC.action(function(){
+        document.body.appendChild(this.elementInspector);
+        this.elementInspector.panel_mid = parseInt(window.getComputedStyle(this.elementInspector.children[0]).width)/2;
+        this.elementInspector.style.display="none";
+        }.bind(this))
+      );
+  this.elementInspector.hideClickSensor = SC.tools.m.systemEvent(SC_ClientTools.elementInspector.children[0].children[0],"click")
+  this.elementInspector.children[0].children[0].addEventListener("mousedown", function(evt){
+    evt.preventDefault();
+    });
+  this.elementInspector.controlTitle = SC_ClientTools.elementInspector.children[0].children[1];
+  /* une entrée */
+  var tr = table.children[0].children[0];
+  pilot({tr:tr
+       , ctrl_kind:1
+       , title:"display"
+       , lst:["", "none", "flex", "block", "inline", "inline-block"]
+       , help: "the css display field"
+       , targetEventName:"css_displayEvt"});
+  var propTable = [
+    {ctrl_kind:1
+         , title:"position"
+         , lst:["", "static", "relative", "absolute", "fixed"]
+         , help: "the css position field"
+         , targetEventName:"css_positionEvt"
+         }
+    , {ctrl_kind:2
+         , title:"background"
+         , help: "the css background field"
+         , targetEventName:"css_backgroundEvt"
+         , suggestions:["yellow", "pink", "blue", "green", "olive"]
+         }
+    , {ctrl_kind:2
+         , title:"left"
+         , help: "the css left property"
+         , targetEventName:"css_leftEvt"
+         }
+    , {ctrl_kind:2
+         , title:"top"
+         , help: "the css top property"
+         , targetEventName:"css_topEvt"
+         }
+    , {ctrl_kind:2
+         , title:"color"
+         , help: "the css color property"
+         , targetEventName:"css_colorEvt"
+         }
+    , {ctrl_kind:2
+         , title:"opacity"
+         , help: "the css opacity property"
+         , targetEventName:"css_opacityEvt"
+         }
+    , {ctrl_kind:2
+         , title:"font"
+         , help: "the css font property"
+         , targetEventName:"css_fontEvt"
+         }
+    , {ctrl_kind:2
+         , title:"border"
+         , help: "the css border property"
+         , targetEventName:"css_borderEvt"
+         }
+    , {ctrl_kind:2
+         , title:"borderRadius"
+         , help: "the css border-radius property"
+         , targetEventName:"css_borderRadiusEvt"
+         }
+    , {ctrl_kind:2
+         , title:"width"
+         , help: "the css width property"
+         , targetEventName:"css_widthEvt"
+         }
+    , {ctrl_kind:2
+         , title:"height"
+         , help: "css height property"
+         , targetEventName:"css_heightEvt"
+         }
+    , {ctrl_kind:2
+         , title:"padding"
+         , help: "the css padding property"
+         , targetEventName:"css_paddingEvt"
+         }
+    , {ctrl_kind:2
+         , title:"margin"
+         , help: "the css margin property"
+         , targetEventName:"css_marginEvt"
+         }
+    , {ctrl_kind:1
+         , title:"boxSizing"
+         , lst:["", "intial", "inherit", "content-box", "border-box"]
+         , help: "the css box-sizing property"
+         , targetEventName:"css_boxSizingEvt"
+         }
+    , {ctrl_kind:2
+         , title:"boxShadow"
+         , help: "the css box-shadow property"
+         , targetEventName:"css_boxShadowEvt"
+         }
+    , {ctrl_kind:2
+         , title:"filter"
+         , help: "the css filter property"
+         , targetEventName:(undefined === this.elementInspector.style.WebkitFilter)?"css_filterEvt":"css_WebkitFilterEvt"
+         }
+    , {ctrl_kind:2
+         , title:"outline"
+         , help: "the css outline property"
+         , targetEventName:"css_outlineEvt"
+         }
+    , {ctrl_kind:1
+         , title:"overflowX"
+         , lst:["", "visible", "hidden", "scroll", "auto", "initial", "inherit"]
+         , help: "the css overflow-x property"
+         , targetEventName:"css_overflowXEvt"
+         }
+    , {ctrl_kind:1
+         , title:"overflowY"
+         , lst:["", "visible", "hidden", "scroll", "auto", "initial", "inherit"]
+         , help: "the css overflow-y property"
+         , targetEventName:"css_overflowYEvt"
+         }
+    , {ctrl_kind:2
+         , title:"zoom"
+         , help: "the css zoom property"
+         , targetEventName:"css_zoomEvt"
+         }
+    , {ctrl_kind:2
+         , title:"sc_title"
+         , help: "the title property"
+         , targetEventName:"titleEvt"
+         }
+    , {ctrl_kind:2
+         , title:"sc_src"
+         , help: "the title property"
+         , targetEventName:"srcEvt"
+         }
+    ];
+  for(var i in propTable){
+    table.children[0].appendChild(pilot(propTable[i]));
+    }
+  this.elementInspector.panel_mdSensor = this.m.systemEvent(this.elementInspector.children[0],"mousedown");
+  this.elementInspector.panel_tsSensor = this.m.systemEvent(this.elementInspector.children[0],"touchstart");
+  this.elementInspector.children[0].addEventListener("mousedown", function(evt){
+    evt.preventDefault();
+    });
+  this.elementInspector.children[0].addEventListener("touchstart", function(evt){
+    evt.preventDefault();
+    });
+  this.elementInspector.onMousePanelMove = function(vals){
+    var pos = vals[0];
+    if(undefined != pos){
+      return {x : pos.cx, y: pos.cy};
+      }
+    }
+  this.touchStart = this.m.systemEvent(document, "touchstart");
+  this.touchMove = this.m.systemEvent(document, "touchmove");
+  this.touchEnd = this.m.systemEvent(document, "touchend");
+  this.mmSensor = this.m.systemEvent(window, "mousemove");
+  this.muSensor = this.m.systemEvent(window, "mouseup");
+  SC.tools.addProgram(SC.par(
+      SC.repeat(SC.forever
+              , SC.await(SC.or(this.elementInspector.panel_mdSensor, this.elementInspector.panel_tsSensor))
+              , SC.kill(SC.or(this.muSensor, this.touchEnd)
+                  , SC.par(
+                      SC.filter(this.mmSensor
+                          , this.elementInspector.set_xyEvt
+                          , SC._(this.elementInspector , "onMousePanelMove")
+                          , SC.forever
+                          )
+                      , SC.filter(this.touchMove
+                          , this.elementInspector.set_xyEvt
+                          , SC._(this.elementInspector, "onMousePanelMove")
+                          , SC.forever
+                          )
+                      )
+                  )
+              )
+      , SC.repeat(SC.forever
+          , SC.await(this.elementInspector.set_xyEvt)
+          , this.elementInspector.$updatePanel
+          )
+      , SC.repeat(SC.forever
+          , SC.await(SC.or(this.elementInspector.showEvt
+                        , this.elementInspector.hideEvt))
+          , this.elementInspector.$display
+          )
+      , SC.repeat(SC.forever
+          , SC.await(SC.or(this.elementInspector.setIcobjUnderInspectionEvt
+                        , this.elementInspector.setIcobjNoMoreInspectionEvt))
+          , this.elementInspector.$icobjControled
+          )
+      , SC.repeat(SC.forever
+          , SC.await(this.elementInspector.setIcobjUnderInspectionEvt)
+          , SC.generate(this.elementInspector.showEvt)
+          )
+      , SC.repeat(SC.forever
+          , SC.await(this.elementInspector.setIcobjNoMoreInspectionEvt)
+          , SC.generate(this.elementInspector.hideEvt)
+          )
+      , SC.repeat(SC.forever
+          , SC.await(this.elementInspector.hideClickSensor)
+          , SC.generate(this.elementInspector.hideEvt)
+          )
+      ));
+  if(undefined !== SC.tools.controlPanel){
+    SC.tools.controlPanel.setInspectorBtn();
+    }
+  }
+/**/
   if((undefined !== WebAppcache)
       &&("" !== manifest)
       ){

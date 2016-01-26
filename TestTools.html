@@ -16,13 +16,29 @@ var SC_App_Config = {
   , appDescription:""
   , splashConfig:{
       title:"Ma WebApp SugarCubes"
-      , title_style:"background-color: rgba(255,255,255, 0.6);font-size:12vh;font-weight:bold; text-shadow:0.5vw 0.5vh 0.5vmax white"
+      , title_style:"background-color: rgba(255,255,255, 0.6);font-size:12vh;font-weight:bold; text-shadow:0.5vw 0.5vh 0.5vmax white; padding:10px"
       , start:"Démarrer !"
       , startEvt: SC.evt("evt")
       , background:"url(images/png/bg-test.png) no-repeat center"
       }
   , controler:true
   , controler_closed:true
+  , controler_style:"SC_Panel.css"
+  , inspectorEnabled:true
+  , startup_img: [
+      {
+        rsrc:"images/png/st_1536x2008.png"
+        , media:"(device-width: 768px) and (device-height: 1024px)"
+                +"and (-webkit-device-pixel-ratio: 2)"
+                +"and (orientation: portrait)"
+        }
+      , {
+          rsrc:"images/png/st_1496x2048.png"
+          , media:"(device-width: 768px) and (device-height: 1024px)"
+                  +"and (-webkit-device-pixel-ratio: 2)"
+                  +"and (orientation: landscape)"
+          }
+      ]
   }
 SC.tools.appInit(SC_App_Config);
    </script>
@@ -65,20 +81,21 @@ SC_ify({
 <script type="text/javascript" src="sounds.js">
 </script>
 <script type="text/javascript">
+var windSnd = SC.tools.audioToolbox.newAudioChunck(audioData.wind);
+var voiceSnd = SC.tools.audioToolbox.newAudioChunck(audioData.voice);
 SC.tools.addProgram(
    SC.repeat(SC.forever
      , SC.await(imgClick)
      , SC.log("click")
-     , SC.generate(audion.playEvt)
+     , SC.generate(windSnd.playEvt)
      , SC.pause()
-     , SC.kill(imgClick, SC.await(audion.endedEvt), SC.generate(audion.stopEvt))
+     , SC.kill(imgClick, SC.await(windSnd.endedEvt), SC.generate(windSnd.stopEvt))
      )
    );
 SC.tools.addProgram(
    SC.action(function(m){
-     filter = voice.audioContext.createBiquadFilter();
-     filter.connect(voice.audioContext.destination);
-     }.bind(this)
+     filter = SC.tools.audioToolbox.mkBQFilter({});
+     }
      )
    );
 </script>
