@@ -4,11 +4,191 @@
  * Created : 20/12/2014 18:46
  * Part of the SugarCubes Project
  * version : 5.0 alpha
- * implantation : 0.3
- * Copyright 2014-2015.
+ * implantation : 0.4
+ * Copyright 2014-2016.
  */
 
 SC.tools = (function(){
+  /************************
+   * Zone de control
+   ************************/
+  function Zone(conf){
+    if(undefined != conf.zoneID){
+      this.num = conf.zoneID;
+    }
+    this.x = 0;
+    this.y = 0;
+    this.r = 0; // rayon du cercle tactile
+    this.img_zoom = conf.img_zoom; // image associée
+    this.hidden = false;
+    this.zoneVisible = conf.zoneVisible;
+    this.bgcolor = conf.bg_color;
+    this.zoneEvt = conf.zoneEvt;
+    this.touched = false;
+    this.img = conf.img;
+    this.flip = false;
+    this.rotateImg = (undefined == conf.rotateImg)?0:conf.rotateImg;
+  }
+  Zone.prototype.getBehavior = function(){
+    var localKill = SC.evt("localKill");
+    var res = SC.par(
+      SC.generate(requestDisplayLvl3, this, SC.forever)
+      , SC.par(
+          SC.filter(SC_evt_mouse_down, this.zoneEvt, {t:this,f:"filterStart"},SC.forever)
+          , SC.filter(SC_evt_mouse_move, this.zoneEvt, {t:this,f:"filterStart"},SC.forever)
+          , SC.filter(SC_evt_mouse_move, localKill, {t:this,f:"filterMove"},SC.forever)
+          , SC.filter(SC_evt_mouse_up, localKill, {t:this,f:"filterEnd"},SC.forever)
+          , SC.filter(SC_evt_touch_start, this.zoneEvt, {t:this,f:"filterStart"},SC.forever)
+          , SC.filter(SC_evt_touch_move, this.zoneEvt, {t:this,f:"filterStart"},SC.forever)
+          , SC.filter(SC_evt_touch_move, localKill, {t:this,f:"filterMove"},SC.forever)
+          , SC.filter(SC_evt_touch_end, localKill, {t:this,f:"filterEnd"},SC.forever)
+          , SC.filter(SC_evt_touch_cancel, localKill, {t:this,f:"filterEnd"},SC.forever)
+          )
+      , SC.repeat(SC.forever
+          , SC.await(this.zoneEvt) 
+          , SC.kill(
+              SC.or(localKill,chooseControlHand)
+              , SC.generate(this.zoneEvt,null,SC.forever)
+              )
+          )
+      , SC.actionOn(
+          chooseControlHand
+          , {t:this,f:"changeHand"}
+          , undefined
+          , SC.forever
+          )
+      );
+    return res;
+    }
+  Zone.prototype.inside = function(x,y){
+    var z = workspace.style.zoom;
+    var rx = Math.abs(this.x - x/z+workspace.offsetLeft);
+    var ry = Math.abs(this.y - y/z+workspace.offsetTop);
+    return (rx < this.r)&&(ry < this.r);
+    }
+  Zone.prototype.filterStart= function(t){
+      /*if(this instanceof TargetBuble){
+        console.log("on check pour ", this);
+        }*/
+    if(this.hidden){
+      return;
+      }
+    var z = workspace.style.zoom;
+    for(var n in t){
+      var touch = t[n];
+      //var rx = this.x - touch.cx/z+workspace.offsetLeft;
+      //var ry = this.y - touch.cy/z+workspace.offsetTop;
+      //var r = Math.sqrt(rx*rx + ry*ry);
+      /*if(this instanceof TargetBuble){
+        console.log("ça clique en ", touch, this);
+        }*/
+      if(this.inside(touch.cx, touch.cy)){
+        this.id = touch.id;
+        this.touched = true;
+        return {
+                ts:window.performance.now()
+                , x:touch.cx/z+workspace.offsetLeft
+                , y:touch.cy/z+workspace.offsetTop
+                };
+      }
+    }
+  }
+  Zone.prototype.filterMove= function(t){
+    var z = workspace.style.zoom;
+    for(var n in t){
+      var touch = t[n];
+      if( this.id != touch.id ){
+        continue;
+      }
+      //var rx = this.x - touch.cx/z+workspace.offsetLeft;
+      //var ry = this.y - touch.cy/z+workspace.offsetTop;
+      //var r = Math.sqrt(rx*rx + ry*ry);
+      //if(r > this.r){
+      if(!this.inside(touch.cx, touch.cy)){
+        this.touched = false;
+        return "zone1";
+      }
+    }
+  }
+  Zone.prototype.filterEnd= function(t){
+    for(var n in t){
+      if(t[n].id == this.id){
+        this.touched = false;
+        return "zone1";
+      }
+    }
+  }
+  Zone.prototype.draw = function(ctx){
+    if(this.hidden){
+      return;
+    }
+    var theCtx = ctx.save();
+    ctx.translate(this.x, this.y);
+    if(this.zoneVisible){
+      //ctx.strokeStyle = (this.touched)?"red":"black";
+      //ctx.translate(this.x, this.y);
+      ctx.fillStyle = this.bgcolor;
+      ctx.beginPath();
+      ctx.arc(0,0,this.r, 0,2*Math.PI, false);
+      ctx.fill();    
+      //ctx.arc(this.x,this.y,this.r, 0,2*Math.PI, false);
+      //ctx.stroke();    
+      ctx.closePath();
+    }
+    if(undefined != this.img){
+      var iw = this.img.width;
+      var ih = this.img.height;
+      var dir = 2*this.img_zoom*this.r;
+      var zw = dir/iw ;
+      var zh = dir/ih;
+      var z = Math.min(zw,zh);
+      iw *= z;
+      ih *= z;
+      if(this.flip){
+        ctx.scale(-1, 1);
+        }
+      if(0 != this.rotateImg){
+        ctx.rotate(this.rotateImg);
+        ctx.drawImage(this.img, -iw/2, -ih/2
+                               , iw, ih);
+        }
+      else{
+        ctx.drawImage(this.img, -iw/2
+                              , -ih/2
+                              , iw, ih);
+        }
+      }
+    ctx.restore(theCtx);
+  };
+  Zone.prototype.updateZonePos = function(v){
+    this.r = workspace.width*5/80;
+    switch(v){
+      case 1:{ this.flip = false; this.hidden = false; this.x = 60; break;}
+      case 2:{ this.flip = true; this.hidden = false; this.x = 740; break;}
+      case 0:{ this.hidden = true; this.x = -200; break;}
+    }
+    switch(this.num){
+      case 1:{
+        this.y = 2*this.r;
+        break;
+        }
+      case 2:{
+        this.y = workspace.height-2*this.r;
+        break;
+        }
+      }
+    this.lastV = v;
+    }
+  Zone.prototype.changeHand = function(v){
+    var vals = v[chooseControlHand];
+    if(inGame.isPresent(m)){
+      this.updateZonePos(vals[0]);
+      }
+    else{
+      this.updateZonePos(0);
+      }
+    }
+
   /*
    * Gestion du cache local
    */
@@ -35,6 +215,7 @@ SC.tools = (function(){
     , "padding"
     , "margin"
     , "textAlign"
+    , "lineHeight"
     , "verticalAlign"
     , "boxSizing"
     , "boxShadow"
@@ -44,6 +225,7 @@ SC.tools = (function(){
     , "overflowX"
     , "overflowY"
     , "zIndex"
+    , "zoom"
   ];
   if(undefined !== document.documentElement.style.WebkitFilter){
     css_properties.push("WebkitFilter");
@@ -114,7 +296,9 @@ SC.tools = (function(){
                         );
       }
     for(var i in css_properties){
-      stylizer.call(tmp, css_properties[i]);
+      if(undefined !== tmp.style[css_properties[i]]){
+        stylizer.call(tmp, css_properties[i]);
+        }
       }
     tmp.titleEvt = SC.evt("set_title");
     SC.cellify(tmp, "title", SC.simpleCellFun(tmp, tmp.titleEvt)
@@ -137,7 +321,7 @@ SC.tools = (function(){
     tmp.sc_inspected = false;
     tmp.addEventListener('click', function(evt){
       if(undefined !== SC_ClientTools.elementInspector){
-        console.log("click = ",evt.detail);
+        //console.log("click = ",evt.detail);
         if((SC_ClientTools.elementInspector.sc_vis) || (4 === evt.detail)){
             SC.tools.generateEvent(SC_ClientTools.elementInspector.setIcobjUnderInspectionEvt
                                                     , this);
@@ -162,14 +346,17 @@ SC.tools = (function(){
     if(undefined !== p.id){
       elt.setAttribute('id', p.id);
       }
+    if(p.position){
+      elt.style.position = p.position;
+      }
     if(p.inH){
       elt.innerHTML = p.inH;
       }
-    if((undefined !== p.evt_click)&&(undefined !== p.m)){
+    if(undefined !== p.evt_click){
       elt.evt_click = p.evt_click;
-      elt.addEventListener("click", function(m, sc_evt, evt){
-         m.generateEvent(sc_evt);
-         }.bind(elt, p.m, elt.evt_click));
+      elt.addEventListener("click", function(m, evt){
+         m.generateEvent(this.evt_click);
+         }.bind(elt, ((undefined === p.m)?this.m:p.m)));
       }
     if(undefined !== p.src){
       elt.setAttribute("src", p.src);
@@ -180,6 +367,39 @@ SC.tools = (function(){
     if(undefined !== p.title){
       elt.setAttribute("title", p.title);
       }
+    if(undefined !== p.on_touchStart){
+      elt.on_touchStartEvt= p.on_touchStart;
+      elt.addEventListener("touchstart", function(m, sc_evt, evt){
+         m.generateEvent(sc_evt);
+         }.bind(elt, ((undefined === p.m)?this.m:p.m), elt.on_touchStartEvt))
+      }
+    if(undefined !== p.on_touchStop){
+      elt.on_touchStopEvt= p.on_touchStop;
+      elt.addEventListener("touchend", function(m, sc_evt, evt){
+         m.generateEvent(sc_evt);
+         }.bind(elt, ((undefined === p.m)?this.m:p.m), elt.on_touchStopEvt))
+      }
+    if(undefined !== p.on_touchCancel){
+      elt.on_touchCancelEvt= p.on_touchCancel;
+      elt.addEventListener("touchcancel", function(m, sc_evt, evt){
+         m.generateEvent(sc_evt);
+         }.bind(elt, ((undefined === p.m)?this.m:p.m), elt.on_touchCancelEvt))
+      }
+    if(undefined !== p.on_mouseUp){
+      elt.on_mouseUpEvt= p.on_mouseUp;
+      elt.addEventListener("mouseup", function(m, sc_evt, evt){
+         m.generateEvent(sc_evt);
+         }.bind(elt, ((undefined === p.m)?this.m:p.m), elt.on_mouseUpEvt))
+      }
+    if(undefined !== p.on_mouseDown){
+      elt.on_mouseDownEvt= p.on_mouseDown;
+      elt.addEventListener("mousedown", function(m, sc_evt, evt){
+         m.generateEvent(sc_evt);
+         }.bind(elt, ((undefined === p.m)?this.m:p.m), elt.on_mouseDownEvt))
+      }
+    if(undefined !== p.beh){
+      elt.beh.addProgram(p.beh);
+      }
     if(undefined !== elt.beh){
       ((undefined === p.m)?SC_ClientTools:p.m).addProgram(elt.beh);
       }
@@ -189,149 +409,162 @@ SC.tools = (function(){
     return function(p){
       var tmp = document.createElement(elt);
       activateElement(tmp);
-      return finishElement(tmp, p);
+      if(undefined === p){
+	p = {};
+	}
+      return finishElement.call(this,tmp, p);
       }
     }
 /*
  **** Support audio.
  * On crée un AudioContext commun à tous les players.
  */
-var sharedContext;
+var sharedContext = null;
 var webKitAPI = false;
 if('AudioContext' in window){
   sharedContext = new AudioContext();
   }
 else if('webkitAudioContext' in window){
-  sharedContext = new webkitAudioContext();
-  webKitAPI = true;
+  try{
+    sharedContext = new webkitAudioContext();
+    webKitAPI = true;
+    }
+  catch(e){
+    console.log("no Web Audio API");
+    }
   }
 else{
-  alert('Your browser does not support yet Web Audio API');
-  throw "no Web Audio API";
+  //alert('Your browser does not support yet Web Audio API');
+  //throw "no Web Audio API";
+  console.log("no Web Audio API");
   }
-/*
- * Mic not yet implemented
- */
-var microPhoneManager = sharedContext.createScriptProcessor(512);
-microPhoneManager.connect(sharedContext.destination);
-microPhoneManager.onaudioprocess = function(evt){
-};
-/*
- * jouer des sons grace aux objets AudioChunk
- */
-function AudioChunk(data){
-  if(undefined === sharedContext){
-    alert('Your browser does not support yet Web Audio API');
-    throw "no Web Audio API";
-    }
-  this.audioContext = sharedContext;
-  if('webkitAudioContext' in window){
-    this.start = "start";
-    }
-  else{
-    this.start = "start";
-    }
-  this.buffer = null;
-  this.source = null;
-  this.log = "";
-  this.endedEvt=SC.sensor("ended");
-  this.loadedEvt = SC.sensor("AC_"+this.idx+"_loaded");
-  this.data = data;
-  this.playEvt = SC.evt("play");
-  this.pauseEvt = SC.evt("pause");
-  this.resumeEvt = SC.evt("resume");
-  this.stopEvt = SC.evt("stop");
-  this.idx = SC_ClientTools.audioToolbox.sFXs.length;
-  SC_ClientTools.audioToolbox.sFXs.push(this);
-  SC_ClientTools.audioToolbox.waittingLoad.add(SC.await(this.loadedEvt));
-  SC_ClientTools.addProgram(
-    SC.repeat(SC.forever
-      , SC.kill(this.stopEvt
-          , SC.seq(
-              SC.await(this.playEvt)
-              , SC.action(this.play.bind(this))
-              , SC.par(
-                  SC.seq(
-                    SC.repeat(SC.forever
-                      , SC.await(this.pauseEvt)
-                      , SC.action(this.pause.bind(this))
-                      , SC.await(this.resumeEvt)
-                      , SC.action(this.resume.bind(this))
+if(null !== sharedContext){
+  /*
+   * Mic not yet implemented
+   */
+  var microPhoneManager = sharedContext.createScriptProcessor(512);
+  microPhoneManager.connect(sharedContext.destination);
+  microPhoneManager.onaudioprocess = function(evt){
+  };
+  /*
+   * jouer des sons grace aux objets AudioChunk
+   */
+  function AudioChunk(data){
+    if(undefined === sharedContext){
+      //alert('Your browser does not support yet Web Audio API');
+      //throw "no Web Audio API";
+      console.log("no Web Audio API");
+      return;
+      }
+    this.audioContext = sharedContext;
+    if('webkitAudioContext' in window){
+      this.start = "start";
+      }
+    else{
+      this.start = "start";
+      }
+    this.buffer = null;
+    this.source = null;
+    this.log = "";
+    this.endedEvt=SC.sensor("ended");
+    this.loadedEvt = SC.sensor("AC_"+this.idx+"_loaded");
+    this.data = data;
+    this.playEvt = SC.evt("play");
+    this.pauseEvt = SC.evt("pause");
+    this.resumeEvt = SC.evt("resume");
+    this.stopEvt = SC.evt("stop");
+    this.idx = SC_ClientTools.audioToolbox.sFXs.length;
+    SC_ClientTools.audioToolbox.sFXs.push(this);
+    SC_ClientTools.audioToolbox.waittingLoad.add(SC.await(this.loadedEvt));
+    SC_ClientTools.addProgram(
+      SC.repeat(SC.forever
+        , SC.kill(this.stopEvt
+            , SC.seq(
+                SC.await(this.playEvt)
+                , SC.action(this.play.bind(this))
+                , SC.par(
+                    SC.seq(
+                      SC.repeat(SC.forever
+                        , SC.await(this.pauseEvt)
+                        , SC.action(this.pause.bind(this))
+                        , SC.await(this.resumeEvt)
+                        , SC.action(this.resume.bind(this))
+                        )
                       )
+                    , SC.seq(SC.await(this.endedEvt), SC.generate(this.stopEvt))
                     )
-                  , SC.seq(SC.await(this.endedEvt), SC.generate(this.stopEvt))
-                  )
-              )
-          , SC.action(this.stop.bind(this))
-          )
-      )
-    );
-  }
-AudioChunk.prototype = {
-  load : function(){
-    var decodedStr = atob(this.data);
-    var len = decodedStr.length;
-    var arrayBuff = new Uint8Array(len);
-    for(var n = 0 ; n < len; n++){
-      arrayBuff[n] = decodedStr.charCodeAt(n);
-      }
-    this.audioContext.decodeAudioData(arrayBuff.buffer, (function (me){ return function(audioData){
-      me.buffer = audioData;
-      SC_ClientTools.m.generateEvent(me.loadedEvt);
-      SC.writeInConsole("loaded"+me.idx+"\n");
-      }})(this));
+                )
+            , SC.action(this.stop.bind(this))
+            )
+        )
+      );
     }
-  , toString : function(){
-      return "AudioToolbox";
-      }
-  , setDestination : function(dest){
-      this.dest = dest;
-      if(null !=  this.source){
-        this.source.disconnect();
-        this.source.connect(this.dest);
+  AudioChunk.prototype = {
+    load : function(){
+      var decodedStr = atob(this.data);
+      var len = decodedStr.length;
+      var arrayBuff = new Uint8Array(len);
+      for(var n = 0 ; n < len; n++){
+        arrayBuff[n] = decodedStr.charCodeAt(n);
         }
+      this.audioContext.decodeAudioData(arrayBuff.buffer, (function (me){ return function(audioData){
+        me.buffer = audioData;
+        SC_ClientTools.m.generateEvent(me.loadedEvt);
+        SC.writeInConsole("loaded"+me.idx+"\n");
+        }})(this));
       }
-  , pause : function(){
-      if(null !=  this.source){
-        this.source.disconnect();
+    , toString : function(){
+        return "AudioToolbox";
         }
-      }
-  , resume : function(){
-      if(null !=  this.source){
-        this.source.connect((undefined !== this.dest)?this.dest
-                               :this.audioContext.destination);
+    , setDestination : function(dest){
+        this.dest = dest;
+        if(null !=  this.source){
+          this.source.disconnect();
+          this.source.connect(this.dest);
+          }
         }
-      }
-  , i : function(msg){
-      return this.log += msg;
-      }
-  , play : function(){
-      if(null != this.source){
-        return;
+    , pause : function(){
+        if(null !=  this.source){
+          this.source.disconnect();
+          }
         }
-      this.source = this.audioContext.createBufferSource();
-      this.source.buffer = this.buffer;
-      if(undefined !== this.dest){
-        this.source.connect(this.dest);
+    , resume : function(){
+        if(null !=  this.source){
+          this.source.connect((undefined !== this.dest)?this.dest
+                                 :this.audioContext.destination);
+          }
         }
-      else{
-        this.source.connect(this.audioContext.destination);
+    , i : function(msg){
+        return this.log += msg;
         }
-      this.source[this.start](0);
-      this.source.onended = (function(me) { return function(evt){
-          SC_ClientTools.m.generateEvent(me.endedEvt);
-          if(me.dbg){
-            console.log("stop");
-            }
-          me.stop();
-        }})(this);
-      }
-  , stop : function(){
-      if(null != this.source){
-        this.source.stop(0);
+    , play : function(){
+        if(null != this.source){
+          return;
+          }
+        this.source = this.audioContext.createBufferSource();
+        this.source.buffer = this.buffer;
+        if(undefined !== this.dest){
+          this.source.connect(this.dest);
+          }
+        else{
+          this.source.connect(this.audioContext.destination);
+          }
+        this.source[this.start](0);
+        this.source.onended = (function(me) { return function(evt){
+            SC_ClientTools.m.generateEvent(me.endedEvt);
+            if(me.dbg){
+              console.log("stop");
+              }
+            me.stop();
+          }})(this);
         }
-      this.source = null;
-      }
+    , stop : function(){
+        if(null != this.source){
+          this.source.stop(0);
+          }
+        this.source = null;
+        }
+    }
   }
 
 SC_ClientTools = {
@@ -354,13 +587,13 @@ SC_ClientTools = {
         tmp = new Image();
         }
       activateElement(tmp);
-      return finishElement(tmp, args);
+      return finishElement.call(this, tmp, args);
       }
   , audioContext : sharedContext
   , activateElement : activateElement
   , configureElement : finishElement
   , energize : function(p){
-      var tmp = finishElement(
+      var tmp = finishElement.call(this,
                activateElement(document.currentScript.previousElementSibling)
                , p
                );
@@ -374,7 +607,7 @@ SC_ClientTools = {
         w.getFPS = function(){return "NA";}
         }
       }
-  , addProgram(p){
+  , addProgram : function(p){
       throw "Not well initialized !";
       }
   , appStartedEvt : SC.evt("appStarted")
@@ -390,11 +623,14 @@ SC_ClientTools = {
         window.addEventListener("load", function(){
             this.m.addProgram(SC.seq(
                   (this.appInited)?SC.await(this.appStartedEvt):SC.nothing()
-                  , this.programsToAdd)
-                  );
-            this.addProgram = function(p){
-              this.m.addProgram(p);
-              }
+                  , SC.action(function(){
+                    this.addProgram = function(p){
+                      this.m.addProgram(p);
+                      }
+                    this.m.addProgram(this.programsToAdd);
+                    }.bind(this))
+                  )
+                );
             }.bind(this));
         }
       else{
@@ -407,8 +643,10 @@ SC_ClientTools = {
         this.m.generateEvent.apply(this.m, arguments);
         }
       }
-  , loadData : function(url, m){
-      var resEvt = SC.sensor("lodingData("+url+")");
+  , loadData : function(url, m,  resEvt){
+      if(undefined === resEvt){
+	resEvt = SC.sensor("lodingData("+url+")");
+        }
       var xmlHttpReq = new XMLHttpRequest();
       xmlHttpReq.open("GET", url, true);
       xmlHttpReq.send(null);
@@ -423,6 +661,7 @@ SC_ClientTools = {
             }
           })(m, xmlHttpReq, resEvt)
           );
+      return resultEvt;
       }
   , m : null
   , initPanel: function(){
@@ -631,22 +870,122 @@ SC_ClientTools = {
                  });
         }
     }
-  , appInit(config){
+  , appInit: function(config){
       this.appInited = true;
-      document.write("<title>"+config.appTitle+"</title>");
-      document.write("<meta name='athor' content='"+config.appAuthors+"'/>");
-      document.write("<meta name='description' content='"+config.appDescription+"'/>");
-      document.write("<meta name='viewport' content='width=device-width,height=device-height,user-scalable=no'/>");
+      if(undefined !== config.appTitle.text){
+        document.write("<title"
+                          +((undefined === config.appTitle.lang)
+                                    ?"":" lang='"+config.appTitle.lang+"'")
+                          +">"
+                       +config.appTitle.text+"</title>");
+        }
+      else{
+        document.write("<title>"+config.appTitle+"</title>");
+        }
+      if(undefined !== config.appAuthors.content){
+        document.write("<meta name='athor'"
+                          +((undefined === config.appAuthors.lang)
+                                    ?"":" lang='"+config.appAuthors.lang+"'")
+                        +" content='"+config.appAuthors.content+"'/>");
+        }
+      else{
+        document.write("<meta name='athor' content='"+config.appAuthors+"'/>");
+        }
+      if(undefined !== config.appDescription){
+        if(undefined !== config.appDescription.content){
+          document.write("<meta name='description' content='"
+                            +((undefined === config.appDescription.lang)
+                                      ?"":" lang='"+config.appDescription.lang+"'")
+                         +config.appDescription.content+"'/>");
+        }
+        else{
+          document.write("<meta name='description' content='"+config.appDescription+"'/>");
+          }
+        }
+      if(undefined !== config.appKeywords){
+        if(undefined !== config.appKeywords.content){
+          document.write("<meta name='athor'"
+                            +((undefined === config.appKeywords.lang)
+                                      ?"":" lang='"+config.appKeywords.lang)+"'"+">"
+                          +" content='"+config.appKeywords.content+"'/>");
+          }
+        else{
+          document.write("<meta name='athor' content='"+config.appKeywords+"'/>");
+          }
+        }
+      if(undefined === config.viewport){
+        document.write("<meta name='viewport' content='width=device-width,height=device-height,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no'/>");
+        }
+      else{
+        var tmp_vprt = "<meta name='viewport' content='"
+        var data = config.viewport;
+        var first = true;
+        if(undefined !== data.width){
+          tmp_vprt += (first?"":",")+"width="+data.width;
+          first = false;
+          }
+        if(undefined !== data.height){
+          tmp_vprt += (first?"":",")+"height="+data.height;
+          first = false;
+          }
+        if(undefined !== data.init_scale){
+          tmp_vprt += (first?"":",")+"initial-scale="+data.init_scale;
+          first = false;
+          }
+        if(undefined !== data.max){
+          tmp_vprt += (first?"":",")+"maximum-scale="+data.max;
+          first = false;
+          }
+        if(undefined !== data.min){
+          tmp_vprt += (first?"":",")+"minimum-scale="+data.min;
+          first = false;
+          }
+        if(undefined !== data.scalable){
+          tmp_vprt += (first?"":",")+"user-scalable="+data.scalable;
+          first = false;
+          }
+        tmp_vprt += "'/>"
+        document.write(tmp_vprt);
+        }
       document.write("<meta name='apple-mobile-web-app-capable' content='yes'>");
-      document.write("<meta name='apple-mobile-web-app-status-bar-style' content='translucent black'>");
+      if(undefined !== config.statusBarConfig){
+        document.write("<meta name='apple-mobile-web-app-status-bar-style'"
+                     + " content='"+config.statusBarConfig+"'>");
+        }
+      else{
+        document.write("<meta name='apple-mobile-web-app-status-bar-style'"
+                     + " content='translucent white'>");
+        }
       document.write("<meta name='apple-touch-fullscreen' content='yes'>");
       if(undefined !== config.startup_img){
         for(var i in config.startup_img){
-          document.write("<link href='"+config.startup_img[i].rsrc+"' media='"+config.startup_img[i].media+"' rel='apple-touch-startup-image'>");
+          document.write("<link href='"+config.startup_img[i].rsrc+"'"
+                       + ((undefined !== config.startup_img[i].media)
+                            ?" media='"+config.startup_img[i].media+"'"
+                            :"")
+                       + " rel='apple-touch-startup-image'/>");
           }
         }
       if(undefined !== config.controler_style){
         document.write("<link rel ='stylesheet' type='text/css' href='"+config.controler_style+"' title='Style'/>");
+        }
+      if(undefined !== config.iconSet){
+        for(var j in config.iconSet){
+          var i = config.iconSet[j];
+          var base_tmp = "<link"
+                  + " sizes='"+i.size+"'"
+                  + " href='"+i.url+"'";
+          document.write(base_tmp
+                  + " rel='apple-touch-icon"
+                           + ((true == i.precomp)?"-precomposed":"")+"'/>"
+                  );
+          document.write(base_tmp
+                  + " rel='icon'/>"
+                  );
+          document.write(base_tmp
+                  + " rel='shortcut icon'/>"
+                  );
+          }
         }
       var m = SC.machine(config.tickTime, config.machineConfig);
       this.init(m);
@@ -677,8 +1016,13 @@ SC_ClientTools = {
                    +((undefined !== config.splashConfig.title_style)?(" style='"+config.splashConfig.title_style +"'"):"")
                    + ">"+config.splashConfig.title+"</span></div> "
                    + "<div class='SC_splashH3'"
-                   + " onclick='window.SC_ClientTools.m.generateEvent("
-                   + "SC_ClientTools.splashScreen.clickStartEvt); window.SC_ClientTools.m.react();'"
+                   + " onclick='"
+		   + "if((window.applicationCache.IDLE !== window.applicationCache.status)"
+		   //+ "    ||(window.applicationCache.UNCACHED !== window.applicationCache.status)"
+		   + "    &&(window.applicationCache.UNCACHED !== window.applicationCache.status)){return;};"
+		   + "window.SC_ClientTools.m.generateEvent("
+                   + "SC_ClientTools.splashScreen.clickStartEvt);"
+		   + " window.SC_ClientTools.m.react();'"
                    + ">"+config.splashConfig.start
                    +"</div></div>"
             }
@@ -790,10 +1134,10 @@ SC_ClientTools = {
             this.extension = this.altextension;
             }
           }
-      , newAudioChunck(data){
+      , newAudioChunck:function(data){
           return new AudioChunk(data);
           }
-      , mkBQFilter(p){
+      , mkBQFilter:function(p){
           var tmp = SC.tools.audioContext.createBiquadFilter();
           tmp.connect(SC.tools.audioContext.destination);
           tmp.type = (undefined !== p.type)?p.type:"bandpass";
@@ -826,6 +1170,80 @@ SC_ClientTools = {
               }
           }
     }
+  , initTouchTracker : function(){
+      this.touchTrackers = [];
+      this.touchSensor = SC.sensor("sensTracking");
+      window.addEventListener(
+        "touchstart"
+        , function(evt){
+            var changes = evt.changedTouches;
+            for(var i=0; i < changes.length; i++){
+              var id = changes[i].identifier;
+              var tracker = undefined;
+              if(undefined == this.touchTrackers[id]){
+                tracker = this.touchTrackers[id] = this.makeDiv({inH:""+id});
+                tracker.style.position="fixed";
+                tracker.trackID = id;
+                tracker.style.background = "yellow";
+                tracker.style.padding = "20px";
+                tracker.style.borderRadius="20px";
+                document.body.appendChild(tracker);
+                }
+              else{
+                tracker = this.touchTrackers[id];
+                }
+              this.generateEvent(tracker.css_topEvt, (changes[i].screenY-tracker.clientHeight/2)+"px");
+              this.generateEvent(tracker.css_leftEvt, (changes[i].screenX-tracker.clientWidth/2)+"px");
+              this.generateEvent(this.touchSensor, {x:changes[i].pageX, y:changes[i].pageY
+                      , cx:changes[i].clientX, cy:changes[i].clientY
+                      , sx:changes[i].screenX, sy:changes[i].screenY
+                      , id:changes[i].identifier
+                      });
+              }
+            }.bind(this)
+        );
+      window.addEventListener(
+        "touchmove"
+        , function(evt){
+            var changes = evt.changedTouches;
+            for(var i=0; i < changes.length; i++){
+              var id = changes[i].identifier;
+              var tracker = this.touchTrackers[id];
+              this.generateEvent(tracker.css_topEvt, (changes[i].screenY-tracker.clientHeight/2)+"px");
+              this.generateEvent(tracker.css_leftEvt, (changes[i].screenX-tracker.clientWidth/2)+"px");
+              this.generateEvent(this.touchSensor, {x:changes[i].pageX, y:changes[i].pageY
+                      , cx:changes[i].clientX, cy:changes[i].clientY
+                      , sx:changes[i].screenX, sy:changes[i].screenY
+                      , id:changes[i].identifier
+                      });
+              }
+            }.bind(this)
+        );
+      window.addEventListener(
+        "touchend"
+        , function(evt){
+            var changes = evt.changedTouches;
+            for(var i=0; i < changes.length; i++){
+              var id = changes[i].identifier;
+              var tracker = this.touchTrackers[id];
+              tracker.parentNode.removeChild(tracker);
+              this.touchTrackers[id] = undefined;
+              }
+            }.bind(this)
+        );
+      window.addEventListener(
+        "touchcancel"
+        , function(evt){
+            var changes = evt.changedTouches;
+            for(var i=0; i < changes.length; i++){
+              var id = changes[i].identifier;
+              var tracker = this.touchTrackers[id];
+              tracker.parentNode.removeChild(tracker);
+              this.touchTrackers[id] = undefined;
+              }
+            }.bind(this)
+        );
+      }
   };
 /**/
 /* DOM Element Inspector */
@@ -1340,7 +1758,7 @@ SC_ClientTools.initInspector = function(){
       SC.writeInConsole("mise à jour disponible (redémarrez l'appli)\n");
       this.splashScreen.innerHTML="<div> <div><span class='SC_splashH1'>Une mise à jour vient d'être téléchargée</span><br>Cliquez sur le bouton redémarrer:</div> "
                      +"<div class='SC_splashRestart'"
-                     +" onclick='window.location = window.location;'"
+                     +" onclick='window.location.reload();'"
                      +">Redémarrer</div></div>";
       document.body.appendChild(this.splashScreen);
       }.bind(SC_ClientTools));

@@ -88,13 +88,16 @@ var _SC = {
                return o;
                }
              else{
+	       if(typeof t == "function"){
+		 t = t.bind(this);
+	         }
                return t;
                }
              }
            return o;
            }.bind(cube);
       }
-  , bindIt(targetAcion){
+  , bindIt : function(targetAcion){
       if((undefined !== targetAcion.t)
          &&(undefined !== targetAcion.f)){
         var tmp = targetAcion.t[targetAcion.f];
@@ -104,6 +107,55 @@ var _SC = {
           }
         }
       return targetAcion;
+      }
+  , isEvent : function(evt){
+      if(undefined == evt){
+        return false;
+        }
+      return (evt instanceof SC_Event)||(evt instanceof SC_Sensor);
+      }
+  , checkEvent : function(evt){
+      if(! this.isEvent(evt)){
+        if(/^[a-zA-Z0-9_$]+$/.test(evt)){
+            return this.b_(evt);
+          }
+        throw "evt is an invalid event";
+        }
+      return evt;
+      }
+  , isStrictEvent : function(evt){
+      if(undefined == evt){
+        return false;
+        }
+      return (evt instanceof SC_Event)
+             ||(evt instanceof SC_CubeBinding);
+      }
+  , checkStrictEvent : function(evt){
+      if(! this.isStrictEvent(evt)){
+        if(/^[a-zA-Z0-9_$]+$/.test(evt)){
+            return this.b_(evt);
+          }
+        throw evt+" is an invalid event";
+        }
+        return evt;
+      }
+  , isConfig : function(cfg){
+      if(undefined == cfg){
+        return false;
+        }
+      return (cfg instanceof SC_Or) || (cfg instanceof SC_OrBin)
+             || (cfg instanceof SC_And) || (cfg instanceof SC_AndBin)
+             || (cfg instanceof SC_CubeBinding)
+             || this.isEvent(cfg);
+      }
+  , checkConfig : function(cfg){
+      if(! this.isConfig(cfg)){
+        if(/^[a-zA-Z0-9_$]+$/.test(cfg)){
+            return this.b_(cfg);
+          }
+        throw cfg+" is an invalid config";
+        }
+      return cfg;
       }
   }
 /*
@@ -134,7 +186,7 @@ function SC_cubify(){
                           );
   Object.defineProperty(this, "$SC_cellMaker"
                            , { enumerable:false
-                               , value:SC.cell({init:null, sideEffect: function(val, evts){
+                               , value:SC.cell({init:null, sideEffect: function(val, evts, m){
                                      var cellifyRequests = evts[this.SC_cubeCellifyEvt];
                                      for(var i = 0 ; i < (undefined === cellifyRequests)?0:cellifyRequests.length; i++){
                                        var tmp = cellifyRequests[i];
@@ -296,7 +348,7 @@ SC_Event.prototype = {
   , getAllValues : function(m, vals){
       vals[this] = this.getValues(m);
       }
-  , iterateOnValues(combiner){
+  , iterateOnValues : function(combiner){
       if((undefined === combiner.iterateOn)
          ||("function" != typeof(combiner.iterate))){
         throw "invalid combiner";
@@ -306,7 +358,7 @@ SC_Event.prototype = {
         combiner.iterateOn(this.vals[i]);
         }
       }
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var copy = this;
       return copy;
       }
@@ -363,7 +415,7 @@ SC_RelativeJump.prototype = {
     this.seq.idx += this.relativeJump;
     return SC_Instruction_State.TERM;
     }
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var copy = new SC_RelativeJump(this.relativeJump);
       copy.seq = seq;
       return copy;
@@ -373,12 +425,97 @@ SC_RelativeJump.prototype = {
       }
 }
 
-function SC_RepeatPointForever(){
+function SC_LoopPointForever(end){
   this.seq = null;
+  this.mseq = null;
+  this.stopInst = null;
+  this.end = end;
+}
+SC_LoopPointForever.prototype = {
+  activate : function(m){
+    if(this.mseq.exits > 0){
+      this.mseq.exits--;
+      this.seq.idx += this.end;
+      this.reset(m);
+      return SC_Instruction_State.TERM;
+      }
+    if(null === this.stopInst || (this.stopInst != m.getInstantNumber())){
+      this.stopInst = m.getInstantNumber();
+      return SC_Instruction_State.TERM;
+      }
+    return SC_Instruction_State.STOP;
+    }
+  , reset : function(m){
+      this.stopInst = null;
+      }
+  , toString : function(){
+      return "loop forever ";
+      }
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      var copy = new SC_LoopPointForever(this.end);
+      copy.seq = seq;
+      copy.mseq = masterSeq;
+      copy.seq.register4Reset(copy);
+      return copy;
+      }
+  }
+// *** SC_LoopPoint
+function SC_LoopPoint(times, end){
+  if(times < 0){
+    return new SC_LoopPointForever(end);
+    }
+  this.count = this.it = times;
+  this.stopInst = null;
+  this.seq = null;
+  this.mseq = null;
+  this.end = end;
+  }
+SC_LoopPoint.prototype = {
+  activate : function(m){
+    if(0 === this.count||(this.mseq.exits > 0)){
+      this.mseq.exits--;
+      this.seq.idx += this.end;
+      this.reset(m);
+      return SC_Instruction_State.TERM;
+      }
+    if(null === this.stopInst || (this.stopInst != m.getInstantNumber())){
+      this.stopInst = m.getInstantNumber();
+      this.count --;
+      return SC_Instruction_State.TERM;
+      }
+    return SC_Instruction_State.STOP;
+    }
+  , reset : function(m){
+      this.stopInst = null;
+      this.count = this.it;
+      }
+  , toString : function(){
+      return "repeat "
+                  +((this.it<0)?"forever ":this.count+"/"+this.it+" times ");
+      }
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      var copy = new SC_LoopPoint(this.it, this.end);
+      copy.seq = seq;
+      copy.mseq = masterSeq;
+      copy.seq.register4Reset(copy);
+      return copy;
+      }
+  }
+
+function SC_RepeatPointForever(end){
+  this.seq = null;
+  this.mseq = null;
   this.stopped = true;
+  this.end = end;
 }
 SC_RepeatPointForever.prototype = {
   activate : function(m){
+    if(this.mseq.exits > 0){
+      this.mseq.exits--;
+      this.seq.idx += this.end;
+      this.reset(m);
+      return SC_Instruction_State.TERM;
+      }
     if(this.stopped){
       this.stopped = false;
       return SC_Instruction_State.TERM;
@@ -392,9 +529,10 @@ SC_RepeatPointForever.prototype = {
   , toString : function(){
       return "repeat forever ";
       }
-  , bindTo : function(parbranch, engine, seq, path, cube){
-      var copy = new SC_RepeatPointForever();
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      var copy = new SC_RepeatPointForever(this.end);
       copy.seq = seq;
+      copy.mseq = masterSeq;
       copy.seq.register4Reset(copy);
       return copy;
       }
@@ -402,16 +540,18 @@ SC_RepeatPointForever.prototype = {
 // *** SC_RepeatPoint
 function SC_RepeatPoint(times, end){
   if(times < 0){
-    return new SC_RepeatPointForever();
+    return new SC_RepeatPointForever(end);
     }
   this.count = this.it = times;
   this.stopped = true;
   this.seq = null;
+  this.mseq = null;
   this.end = end;
   }
 SC_RepeatPoint.prototype = {
   activate : function(m){
-    if(0 === this.count){
+    if(0 === this.count||(this.mseq.exits > 0)){
+      this.mseq.exits--;
       this.seq.idx += this.end;
       this.reset(m);
       return SC_Instruction_State.TERM;
@@ -432,10 +572,36 @@ SC_RepeatPoint.prototype = {
       return "repeat "
                   +((this.it<0)?"forever ":this.count+"/"+this.it+" times ");
       }
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var copy = new SC_RepeatPoint(this.it, this.end);
       copy.seq = seq;
+      copy.mseq = masterSeq;
       copy.seq.register4Reset(copy);
+      return copy;
+      }
+  }
+// *** SC_Exit
+function SC_Exit(n){
+  if(undefined == n){
+    n = 1;
+    }
+  this.n = n;
+  this.mseq = null;
+  }
+SC_Exit.prototype = {
+  activate : function(m){
+    this.mseq.exits = this.n;
+    return SC_Instruction_State.TERM;
+    }
+  , reset : function(m){
+      }
+  , toString : function(){
+      return "exit "
+                  +((this.n>1)?"("+this.n+") ":" ");
+      }
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      var copy = new SC_Exit(this.n);
+      copy.mseq = masterSeq;
       return copy;
       }
   }
@@ -466,10 +632,10 @@ SC_Await.prototype = {
   , reset : function(m){
       this.config.unregister(this);
       }
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
       var bound_config = binder(this.config);
-      var copy = new SC_Await(bound_config.bindTo(parbranch, engine, seq, path, cube));
+      var copy = new SC_Await(bound_config.bindTo(engine, parbranch, seq, masterSeq, path, cube));
       copy._config = this.config;
       copy.path = path;
       return copy;
@@ -508,7 +674,7 @@ SC_GenerateForeverLateEvtNoVal.prototype =
           this.evt = this._evt;
           this.activate = this.firstAct;
           }
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
            var copy = new SC_GenerateForeverLateEvtNoVal(this._evt);
            copy._evt = this._evt;
            return copy;
@@ -533,7 +699,7 @@ SC_GenerateForeverLateVal.prototype =
            this.evt.generate(m);
            return SC_Instruction_State.STOP;
            }
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
            var binder = _SC._b(cube);
            var bound_evt = binder(this.evt);
            var bound_value = binder(this.val);
@@ -557,6 +723,7 @@ SC_GenerateForeverLateVal.prototype =
            copy.itsParent = parbranch;
            copy._evt = this.evt;
            copy._val = this.val;
+           parbranch.hasPotential = true;
            return copy;
            }
   , reset : _SC.nop
@@ -591,7 +758,7 @@ function SC_GenerateForeverNoVal(evt){
 SC_GenerateForeverNoVal.prototype = 
 {
   activate : SC_GenerateForeverLateEvtNoVal.prototype.activate
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
            var copy = new SC_GenerateForeverNoVal(this.evt);
            copy._evt = this.evt;
            return copy;
@@ -616,7 +783,7 @@ SC_GenerateForever.prototype = {
     return SC_Instruction_State.STOP;
     }
   , reset : SC_GenerateForeverNoVal.prototype.reset
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
       var bound_evt = binder(this.evt);
       var bound_value = binder(this.val);
@@ -640,6 +807,7 @@ SC_GenerateForever.prototype = {
       copy.itsParent = parbranch;
       copy._evt = this.evt;
       copy._val = this.val;
+      parbranch.hasPotential = true;
       return copy;
       }
   , generateValues : function(m){
@@ -668,7 +836,7 @@ SC_GenerateOneNoVal.prototype = {
     this.evt.generate(m);
     return SC_Instruction_State.TERM;
     }
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
       var tmp_evt = binder(this.evt);
       var copy = new SC_GenerateOneNoVal(tmp_evt);
@@ -698,9 +866,12 @@ SC_GenerateOne.prototype = {
     this.evt.generate(m);
     return SC_Instruction_State.TERM;
     }
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
       var copy = null;
+      if(this.evt === null){
+        this.evt = engine.traceEvt;
+        }
       var tmp_evt = binder(this.evt);
       var tmp_val = binder(this.val);
       if(undefined === tmp_val){
@@ -712,6 +883,7 @@ SC_GenerateOne.prototype = {
       copy.itsParent = parbranch;
       copy._evt = this.evt;
       copy._val = this.val;
+      parbranch.hasPotential = true;
       return copy;
       }
   , reset : _SC.nop
@@ -757,7 +929,7 @@ SC_Generate.prototype = {
   , reset : function(m){
       this.count = this.times;
       }
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var copy = null;
       var binder = _SC._b(cube);
       var tmp_times = binder(this.times);
@@ -779,6 +951,7 @@ SC_Generate.prototype = {
       copy._times = this.times;
       copy._evt = this.evt;
       copy._val = this.val;
+      parbranch.hasPotential = true;
       return copy;
       }
   , generateValues : SC_GenerateForever.prototype.generateValues
@@ -804,7 +977,7 @@ SC_GenerateNoVal.prototype = {
     return SC_Instruction_State.STOP;
     }
   , reset : SC_Generate.prototype.reset
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var copy = null;
       var binder = _SC._b(cube);
       var tmp_times = binder(this.times);
@@ -826,7 +999,7 @@ SC_GenerateNoVal.prototype = {
       copy._evt = this.evt;
       return copy;
       }
-  , generateValues : SC_GenerateForever.prototype.generateValues
+  //, generateValues : SC_GenerateForever.prototype.generateValues
   , toString : function(){
       return "generate "+this.evt.toString()+" for "
           b   +this.count+"/"+this.times+" times ";
@@ -835,7 +1008,7 @@ SC_GenerateNoVal.prototype = {
 // *** Filters Instructions
 function SC_FilterForeverNoSens(sensor, filterFun, evt){
   if(!(sensor instanceof SC_Sensor) && !(sensor instanceof SC_CubeBinding)){
-      console.log(sensor, sensor instanceof SC_Sensor)
+      //console.log(sensor, sensor instanceof SC_Sensor)
       throw "sensor required !";
     }
   if(undefined === filterFun){
@@ -863,7 +1036,7 @@ SC_FilterForeverNoSens.prototype = {
       /*if("clickTarget" == this.evt.name){
         console.log("sensor present");
         }*/
-      this.val = this.filterFun(this.sensor.getValues(m));
+      this.val = this.filterFun(this.sensor.getValues(m), m);
       /*if("clickTarget" == this.evt.name){
         console.log("val computed", this.val);
         }*/
@@ -894,7 +1067,7 @@ SC_FilterForeverNoSens.prototype = {
   , reset : function(m){
       this.sensor.unregister(this);
       }
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
       var bound_sensor = binder(this.sensor);
       var bound_fun = binder(this.filterFun);
@@ -915,6 +1088,7 @@ SC_FilterForeverNoSens.prototype = {
       copy.itsParent = parbranch;
       copy.path = path;
       //console.log(parbranch);
+      parbranch.hasPotential = true;
       return copy;
       }
   , generateValues : function(m){
@@ -924,8 +1098,7 @@ SC_FilterForeverNoSens.prototype = {
   , toString : function(){
       return "filter "+this.sensor.toString()
                +" with fun{"+this.filterFun+"} generate "+this.evt+" "
-               +((1 != this.times)?
-                      ((-1 == this.times )?" forever ":(" for "+this.count+"/"+this.times+" times ")):"");
+               +" forever ";
       }
   }
 
@@ -957,7 +1130,7 @@ function SC_FilterForever(sensor, filterFun, evt, no_sens){
 SC_FilterForever.prototype = {
   activate : function(m){
     if(this.sensor.isPresent(m)){
-      this.val = this.filterFun(this.sensor.getValues(m));
+      this.val = this.filterFun(this.sensor.getValues(m), m);
       if(null != this.val){
         this.itsParent.registerForProduction(this);
         this.evt.generate(m);
@@ -969,7 +1142,7 @@ SC_FilterForever.prototype = {
     return SC_Instruction_State.STOP;
     }
   , reset : _SC.nop
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
       var bound_sensor = binder(this.sensor);
       var bound_fun = binder(this.filterFun);
@@ -999,6 +1172,7 @@ SC_FilterForever.prototype = {
       copy._noSens_evt = this.noSens_evt;
       copy.itsParent = parbranch;
       copy.path = path;
+      parbranch.hasPotential = true;
       return copy;
       }
   , generateValues : function(m){
@@ -1007,9 +1181,8 @@ SC_FilterForever.prototype = {
       }
   , toString : function(){
       return "filter "+this.sensor.toString()
-               +" with fun{"+this.filterFun+"} generate "+this.evt+" "
-               +((1 != this.times)?
-                      ((-1 == this.times )?" forever ":(" for "+this.count+"/"+this.times+" times ")):"");
+               +" with fun{"+this.filterFun+"} generate "+this.evt+" or "+this.noSens_evt
+               +" forever ";
       }
   }
 // *** SC_FilterOne
@@ -1034,7 +1207,7 @@ function SC_FilterOneNoSens(sensor, filterFun, evt){
 SC_FilterOneNoSens.prototype = {
   activate : function(m){
     if(this.sensor.isPresent(m)){
-      this.val = this.filterFun(this.sensor.getValues(m));
+      this.val = this.filterFun(this.sensor.getValues(m), m);
       if(null != this.val){
         this.itsParent.registerForProduction(this);
         this.evt.generate(m);
@@ -1043,7 +1216,7 @@ SC_FilterOneNoSens.prototype = {
     return SC_Instruction_State.TERM;
     }
   , reset : _SC.nop
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
       var bound_sensor = binder(this.sensor);
       var bound_fun = binder(this.filterFun);
@@ -1067,6 +1240,7 @@ SC_FilterOneNoSens.prototype = {
       copy._noSens_evt = this.noSens_evt;
       copy.itsParent = parbranch;
       copy.path = path;
+      parbranch.hasPotential = true;
       return copy;
       }
   , generateValues : function(m){
@@ -1108,7 +1282,7 @@ function SC_FilterOne(sensor, filterFun, evt, no_sens){
 SC_FilterOne.prototype = {
   activate : function(m){
     if(this.sensor.isPresent(m)){
-      this.val = this.filterFun(this.sensor.getValues(m));
+      this.val = this.filterFun(this.sensor.getValues(m), m);
       if(null != this.val){
         this.itsParent.registerForProduction(this);
         this.evt.generate(m);
@@ -1120,7 +1294,7 @@ SC_FilterOne.prototype = {
     return SC_Instruction_State.TERM;
     }
   , reset : _SC.nop
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
       var bound_sensor = binder(this.sensor);
       var bound_fun = binder(this.filterFun);
@@ -1144,6 +1318,7 @@ SC_FilterOne.prototype = {
       copy._noSens_evt = this.noSens_evt;
       copy.itsParent = parbranch;
       copy.path = path;
+      parbranch.hasPotential = true;
       return copy;
       }
   , generateValues : function(m){
@@ -1191,7 +1366,7 @@ SC_FilterNoSens.prototype = {
           }
         }
       else{
-        this.val = this.filterFun(this.sensor.getValues(m));
+        this.val = this.filterFun(this.sensor.getValues(m), m);
         }
       if(null != this.val){
         this.itsParent.registerForProduction(this);
@@ -1215,7 +1390,7 @@ SC_FilterNoSens.prototype = {
       this.sensor.unregister(this);
       this.count = this.times;
       }
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
       var bound_sensor = binder(this.sensor);
       var bound_fun = binder(this.filterFun);
@@ -1254,6 +1429,7 @@ SC_FilterNoSens.prototype = {
       copy._times = this.times;
       copy.itsParent = parbranch;
       copy.path = path;
+      parbranch.hasPotential = true;
       return copy;
       }
   , generateValues : SC_FilterForever.prototype.generateValues
@@ -1297,7 +1473,7 @@ SC_Filter.prototype = {
           }
         }
       else{
-        this.val = this.filterFun(this.sensor.getValues(m));
+        this.val = this.filterFun(this.sensor.getValues(m), m);
         }
       if(null != this.val){
         this.itsParent.registerForProduction(this);
@@ -1321,7 +1497,7 @@ SC_Filter.prototype = {
       this.sensor.unregister(this);
       this.count = this.times;
       }
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
       var bound_sensor = binder(this.sensor);
       var bound_fun = binder(this.filterFun);
@@ -1360,6 +1536,7 @@ SC_Filter.prototype = {
       copy._times = this.times;
       copy.itsParent = parbranch;
       copy.path = path;
+      parbranch.hasPotential = true;
       return copy;
       }
   , generateValues : SC_FilterForever.prototype.generateValues
@@ -1370,7 +1547,106 @@ SC_Filter.prototype = {
                       (" for "+this.count+"/"+this.times+" times "):"");
       }
   }
-
+// -- Send
+function SC_Send(evt, value, times){
+  if(0 == times){
+    return SC_Nothing;
+    }
+  if((undefined === times) || (1 == times)){
+    return new SC_SendOne(evt, value);
+    }
+  if(times < 0){
+    return new SC_SendForever(evt, value);
+    }
+  this.evt = evt;
+  this.count = this.times = times;
+  this.value = value;
+  }
+SC_Send.prototype = {
+  activate : function(m){
+    if(this.count-- > 0){
+      m.generateEvent(this.evt, this.value);
+      return SC_Instruction_State.STOP;
+      }
+    this.reset(m);
+    return SC_Instruction_State.TERM;
+    }
+  , reset : function(m){
+      this.count = this.times;
+      }
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      var binder = _SC._b(cube);
+      var bound_evt = binder(this.evt);
+      var bound_times = binder(this.times);
+      var copy = null;
+      if(0 === bound_times){
+        return SC_Nothing;
+        }
+      if((undefined === bound_times) || (1 == bound_times)){
+        copy = SC_SendOne(bound_evt, this.value);
+        }
+      else if(bound_times < 0){
+        copy = SC_SendForever(bound_evt, this.value);
+        }
+      else{
+        copy = new SC_Send(bound_evt, this.value, bound_times);
+        }
+      copy._evt = this.evt;
+      copy._times = this.times;
+      return copy;
+      }
+  , toString : function(){
+      return "send "+this.evt.toString()
+               +"("+this.value.toString()+")"
+               +((1 != this.times)?
+                      (" for "+this.count+"/"+this.times+" times "):"");
+      }
+  }
+// -- SC_SendOne
+function SC_SendOne(evt, value){
+  this.evt = evt;
+  this.value = value;
+  }
+SC_SendOne.prototype = {
+  activate : function(m){
+    m.generateEvent(this.evt, this.value);
+    return SC_Instruction_State.TERM;
+    }
+  , reset : function(m){}
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      var binder = _SC._b(cube);
+      var copy = new SC_SendOne(binder(this.evt), this.value);
+      copy._evt = this.evt;
+      return copy;
+      }
+  , toString : function(){
+      return "send "+this.evt.toString()
+               +"("+this.value.toString()+")"
+      }
+  }
+// -- SendForever
+function SC_SendForever(evt, value){
+  this.evt = evt;
+  this.value = value;
+  }
+SC_SendForever.prototype = {
+  activate : function(m){
+    m.generateEvent(this.evt, this.value);
+    return SC_Instruction_State.STOP;
+    }
+  , reset : function(m){}
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      var binder = _SC._b(cube);
+      var copy = SC_SendForever(binder(this.evt), this.value);
+      copy._evt = this.evt;
+      return copy;
+      }
+  , toString : function(){
+      return "send "+this.evt.toString()
+               +"("+this.value.toString()+")"
+               +" forever ";
+      }
+  }
 /*******************************************************************************
  * Nothing Object
  ******************************************************************************/
@@ -1379,7 +1655,7 @@ var SC_Nothing = {
     return SC_Instruction_State.TERM;
   },
   reset : function(m){},
-  bindTo : function(parbranch, engine, seq, path, cube){
+  bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
     return this;
   },
   toString : function(){
@@ -1398,7 +1674,7 @@ SC_PauseForever = {
     return SC_Instruction_State.HALT;
     }
   , reset : _SC.nop
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       return this;
       }
   , toString : function(){
@@ -1428,7 +1704,7 @@ SC_Pause.prototype = {
   , reset : function(m){
       this.count = this.times;
       }
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
       var bound_times = binder(this.times);
       var copy = null;
@@ -1470,7 +1746,7 @@ SC_CubePause.prototype = {
   , reset : function(m){
       this.count = -1;
       }
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
       var copy = new SC_Pause(binder(this.cell));
       copy._cell = this.cell;
@@ -1501,7 +1777,7 @@ SC_PauseRT.prototype = {
   , reset : function(m){
       this.startTime = -1;
       }
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
       var copy = new SC_PauseRT(binder(this.duration));
       copy._duration = this.duration;
@@ -1520,6 +1796,7 @@ function SC_Seq(seqElements){
   this.seqElements = [];
   var targetIDx = 0;
   this.path = null;
+  this.exits = 0;
   for(var i = 0; i < seqElements.length; i++){
     var prg = seqElements[i];
     if(prg instanceof SC_Seq){
@@ -1578,12 +1855,16 @@ SC_Seq.prototype = {
         }
       this.idx = -1;
       this.activate = this.first;
+      this.exits = 0;
       }
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var copy = new SC_Seq(new Array(this.seqElements.length));
+      if(undefined === masterSeq){
+        masterSeq = copy;
+        }
       for(var i = 0; i < this.seqElements.length; i++){
-        copy.seqElements[i] = this.seqElements[i].bindTo(parbranch, engine, copy
-                                                                      , copy, cube);
+        copy.seqElements[i] = this.seqElements[i].bindTo(engine, parbranch, copy
+                                                         , masterSeq, copy, cube);
         }
       copy.path = path;
       return copy;
@@ -1609,18 +1890,11 @@ SC_ActionForever.prototype.activate = function(m){
   m.addFun(this.closure);
   return SC_Instruction_State.STOP;
   }
-SC_ActionForever.prototype.reset = function(m){
-}
-SC_ActionForever.prototype.bindTo = function(parbranch, engine, seq, path, cube){
+SC_ActionForever.prototype.reset = function(m){}
+SC_ActionForever.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
   var binder = _SC._b(cube);
   var copy = new SC_ActionForever(binder(this.action));
   copy._action = this.action;
-  /*if(copy.action.f && copy.action.t){
-    copy.closure = copy.action.t[copy.action.f].bind(copy.action.t);
-    }
-  else{
-    copy.closure = copy.action;
-    }*/
   copy.closure = _SC.bindIt(copy.action);
   return copy;
 }
@@ -1655,7 +1929,7 @@ SC_Action.prototype.activate = function(m){
 SC_Action.prototype.reset = function(m){
   this.count = this.times;
 }
-SC_Action.prototype.bindTo = function(parbranch, engine, seq, path, cube){
+SC_Action.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
   var binder = _SC._b(cube);
   var copy = new SC_Action(binder(this.action), binder(this.times));
   copy._action = this.action;
@@ -1682,15 +1956,11 @@ SC_SimpleAction.prototype.activate = function(m){
   return SC_Instruction_State.TERM;
   }
 SC_SimpleAction.prototype.reset = function(m){}
-SC_SimpleAction.prototype.bindTo = function(parbranch, engine, seq, path, cube){
+SC_SimpleAction.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
   var binder = _SC._b(cube);
-  //console.log(cube);
-  //console.log(this.action);
-  //console.log(binder(this.action));
   var copy = new SC_SimpleAction(binder(this.action));
   copy._action = this.action;
   if(copy.action.f && copy.action.t){
-    //console.log("SimpleAction", copy.action);
     copy.closure = copy.action.t[copy.action.f].bind(copy.action.t);
     }
   else{
@@ -1732,10 +2002,11 @@ SC_ActionOnEventForeverNoDef.prototype.reset = function(m){
   this.evtFun.config.unregister(this);
   this.toRegister = true;
   }
-SC_ActionOnEventForeverNoDef.prototype.bindTo = function(parbranch, engine, seq, path, cube){
+SC_ActionOnEventForeverNoDef.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
+  var binder = _SC._b(cube);
   var copy = new SC_ActionOnEventForeverNoDef(
-                       this.evtFun.config.bindTo(parbranch, engine, seq, path, cube)
-                       , this.evtFun.action);
+                       binder(this.evtFun.config).bindTo(engine, parbranch, seq, masterSeq, path, cube)
+                       , binder(this.evtFun.action));
   copy.path = path;
   return copy;
 }
@@ -1775,11 +2046,12 @@ SC_ActionOnEventForever.prototype.eoi = function(m){
     }
   m.addFun(this.defaultAct);
   }
-SC_ActionOnEventForever.prototype.bindTo = function(parbranch, engine, seq, path, cube){
+SC_ActionOnEventForever.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
+  var binder = _SC._b(cube);
   var copy = new SC_ActionOnEventForever(
-                       this.evtFun.config.bindTo(parbranch, engine, seq, path, cube)
-                       , this.evtFun.action
-                       , this.defaultAct);
+                       binder(this.evtFun.config).bindTo(engine, parbranch, seq, masterSeq, path, cube)
+                       , binder(this.evtFun.action)
+                       , binder(this.defaultAct));
   copy.path = path;
   return copy;
 }
@@ -1834,10 +2106,11 @@ SC_ActionOnEventNoDef.prototype.eoi = function(m){
     this.count--;
     }
   }
-SC_ActionOnEventNoDef.prototype.bindTo = function(parbranch, engine, seq, path, cube){
-  var copy = new SC_ActionOnEventNoDef(this.evtFun.config.bindTo(parbranch, engine, seq, path, cube)
-                               , this.evtFun.action
-                               , this.times);
+SC_ActionOnEventNoDef.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
+  var binder = _SC._b(cube);
+  var copy = new SC_ActionOnEventNoDef(binder(this.evtFun.config).bindTo(engine, parbranch, seq, masterSeq, path, cube)
+                               , binder(this.evtFun.action)
+                               , binder(this.times));
   copy.path = path;
   return copy;
 }
@@ -1894,10 +2167,11 @@ SC_ActionOnEventNoDef.prototype.eoi = function(m){
     m.addFun(this.defaultAct);
     }
   }
-SC_ActionOnEventNoDef.prototype.bindTo = function(parbranch, engine, seq, path, cube){
-  var copy = new SC_ActionOnEventNoDef(this.evtFun.config.bindTo(parbranch, engine, seq, path, cube)
-                               , this.evtFun.action
-                               , this.times);
+SC_ActionOnEventNoDef.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
+  var binder = _SC._b(cube);
+  var copy = new SC_ActionOnEventNoDef(binder(this.evtFun.config).bindTo(engine, parbranch, seq, masterSeq, path, cube)
+                               , binder(this.evtFun.action)
+                               , binder(this.times));
   copy.path = path;
   return copy;
 }
@@ -1963,10 +2237,12 @@ SC_ActionOnEvent.prototype.eoi = function(m){
     m.addFun(this.defaultAct);
     }
   }
-SC_ActionOnEvent.prototype.bindTo = function(parbranch, engine, seq, path, cube){
-  var copy = new SC_ActionOnEvent(this.evtFun.config.bindTo(parbranch, engine, seq, path, cube)
-                               , this.evtFun.action
-                               , this.defaultAct, this.times);
+SC_ActionOnEvent.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
+  var binder = _SC._b(cube);
+  var copy = new SC_ActionOnEvent(binder(this.evtFun.config).bindTo(engine, parbranch, seq, masterSeq, path, cube)
+                               , binder(this.evtFun.action)
+                               , binder(this.defaultAct)
+                               , binder(this.times));
   copy.path = path;
   return copy;
 }
@@ -1982,41 +2258,51 @@ function SC_SimpleActionOnEventNoDef(c, act){
   this.toRegister = true;
   this.terminated = false;
 }
-SC_SimpleActionOnEventNoDef.prototype.activate = function(m){
-  if(this.terminated){
-    this.reset(m);
-    return SC_Instruction_State.TERM;
-    }
-  if(this.evtFun.config.isPresent(m)){
-    m.addEvtFun(this.evtFun);
-    this.reset(m);
-    return SC_Instruction_State.TERM;
-    }
-  if(this.toRegister){
-    this.evtFun.config.registerInst(m, this);
-    this.toRegister = false;
-    }
-  return SC_Instruction_State.WEOI;
-  }
-SC_SimpleActionOnEventNoDef.prototype.wakeup = SC_ActionOnEvent.prototype.wakeup;
-SC_SimpleActionOnEventNoDef.prototype.reset = SC_ActionOnEventForever.prototype.wakeup
-SC_SimpleActionOnEventNoDef.prototype.eoi = function(m){
-  if(false){ // Debug
-    if(this.evtFun.config.isPresent(m)){
-      throw "heu buh dummy error";
+SC_SimpleActionOnEventNoDef.prototype = {
+  activate : function(m){
+    if(this.terminated){
+      this.reset(m);
+      return SC_Instruction_State.TERM;
       }
-    } // Debug
+    if(this.evtFun.config.isPresent(m)){
+      m.addEvtFun(this.evtFun);
+      this.reset(m);
+      return SC_Instruction_State.TERM;
+      }
+    if(this.toRegister){
+      this.evtFun.config.registerInst(m, this);
+      this.toRegister = false;
+      }
+    return SC_Instruction_State.WEOI;
+    }
+  , wakeup : SC_ActionOnEvent.prototype.wakeup
+  , reset : function(m){
+      this.evtFun.config.unregister(this);
+      this.toRegister = true;
+      this.terminated = false;
+      }
+  , eoi : function(m){
+      if(false){
+        if(this.evtFun.config.isPresent(m)){
+          throw "heu buh dummy error";
+          }
+        }
+      this.terminated = true;
+      }
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      var binder = _SC._b(cube);
+      var copy = new SC_SimpleActionOnEventNoDef(
+                     binder(this.evtFun).config.bindTo(engine, parbranch, seq, masterSeq, path, cube)
+                     , binder(this.evtFun.action));
+      copy.path = path;
+      return copy;
+      }
+  , toString : function(){
+      var res ="on "+this.evtFun.config.toString();
+      return res+"call("+this.evtFun.action.toString()+") ";
+      }
   }
-SC_SimpleActionOnEventNoDef.prototype.bindTo = function(parbranch, engine, seq, path, cube){
-  var copy = new SC_SimpleActionOnEventNoDef(this.evtFun.config.bindTo(parbranch, engine, seq, path, cube)
-                               , this.evtFun.action);
-  copy.path = path;
-  return copy;
-}
-SC_SimpleActionOnEventNoDef.prototype.toString = function(){
-  var res ="on "+this.evtFun.config.toString();
-  return res+"call("+this.evtFun.action.toString()+") ";
-}
+
 function SC_SimpleActionOnEvent(c, act, defaultAct){
   if(undefined === defaultAct){
     return new SC_SimpleActionOnEventNoDef(c, act);
@@ -2027,29 +2313,34 @@ function SC_SimpleActionOnEvent(c, act, defaultAct){
   this.toRegister = true;
   this.terminated = false;
 }
-SC_SimpleActionOnEvent.prototype.activate = SC_SimpleActionOnEventNoDef.prototype.activate;
-SC_SimpleActionOnEvent.prototype.wakeup = SC_SimpleActionOnEvent.prototype.wakeup;
-SC_SimpleActionOnEvent.prototype.reset = SC_ActionOnEventForever.prototype.wakeup
-SC_SimpleActionOnEvent.prototype.eoi = function(m){
-  if(false){ // Debug
-    if(this.evtFun.config.isPresent(m)){
-      throw "heu buh dummy error";
+SC_SimpleActionOnEvent.prototype = {
+  activate : SC_SimpleActionOnEventNoDef.prototype.activate
+  , wakeup : SC_SimpleActionOnEventNoDef.prototype.wakeup
+  , reset : SC_SimpleActionOnEventNoDef.prototype.reset
+  , eoi : function(m){
+      if(false){ // Debug
+        if(this.evtFun.config.isPresent(m)){
+          throw "heu buh dummy error";
+          }
+        } // Debug
+      m.addFun(this.defaultAct);
+      this.terminated = true;
       }
-    } // Debug
-  m.addFun(this.defaultAct);
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      var binder = _SC._b(cube);
+      var copy = new SC_SimpleActionOnEvent(binder(this.evtFun.config)
+                                                          .bindTo(engine, parbranch, seq, masterSeq, path, cube)
+                                              , binder(this.evtFun.action)
+                                              , binder(this.defaultAct));
+      copy.path = path;
+      return copy;
+      }
+  , toString : function(){
+      var res ="on "+this.evtFun.config.toString();
+      return res+"call("+this.evtFun.action.toString()+") "
+          +"else call("+this.defaultAct.toString()+") ";
+      }
   }
-SC_SimpleActionOnEvent.prototype.bindTo = function(parbranch, engine, seq, path, cube){
-  var copy = new SC_SimpleActionOnEvent(this.evtFun.config.bindTo(parbranch, engine, seq, path, cube)
-                               , this.evtFun.action
-                               , this.defaultAct);
-  copy.path = path;
-  return copy;
-}
-SC_SimpleActionOnEvent.prototype.toString = function(){
-  var res ="on "+this.evtFun.config.toString();
-  return res+"call("+this.evtFun.action.toString()+") "
-      +"else call("+this.defaultAct.toString()+") ";
-}
 
 /*********
  * ParBranch Class
@@ -2063,10 +2354,12 @@ function ParBranch(p, par, prg){
   this.par = par;
   this.hasProduction = false;
   this.potentials = [];
+  this.hasPotential = false;
   this.path = null;
 }
 ParBranch.prototype.registerForProduction = function(gen){
   this.potentials[this.potentials.length] = gen;
+  this.hasProduction = true;
   if(null != this.itsParent){
     /*if(this.dynamicPar){
       console.log("---");
@@ -2117,6 +2410,7 @@ ParBranch.prototype.generateValues = function(m){
     this.potentials[i].generateValues(m);
   }
   this.potentials = [];
+  this.hasProduction = false;
 }
 
 /*********
@@ -2233,6 +2527,9 @@ Par.prototype.setPurgeable = function(flag){
   this.purgeable = flag;
 }
 Par.prototype.add = function(p){
+  if(undefined == p){
+    throw "adding branch to par, p is undefined";
+    }
   if(p instanceof Par){
     for(var n = 0; n < p.branches.length; n++){
       this.add(p.branches[n].prg);
@@ -2253,16 +2550,21 @@ Par.prototype.addBranch = function(p, pb, engine){
   else{
     /*if(this instanceof SC_ParDyn){
       console.log("addBranch with", pb);
+      (engine, parbranch, seq, masterSeq, path, cube)
     }*/
     var b = new ParBranch(pb, this, SC_Nothing);
-    b.prg = p.bindTo(b, engine, null, b, this.cube);
+    b.prg = p.bindTo(engine, b, null, this.mseq, b, this.cube);
     b.path = this;
     this.branches[this.branches.length] = b;
     this.suspended.append(b);
-    if(b.potentials.length != 0){
+    if(b.hasPotential){
+      if(undefined != b.itsParent){
+        if(!b.itsParent.hasPotential){
+          throw "Here we are, invalid registration of potential emmiters";
+          }
+        }
       if(this.prodBranches.indexOf(b)<0){
-        throw "not well registered for production";
-        //this.prodBranches[this.prodBranches] = b;
+        this.prodBranches[this.prodBranches.length] = b;
         }
       }
     }
@@ -2417,22 +2719,33 @@ Par.prototype.registerForProduction = function(b){
   /*if(this instanceof SC_ParDyn){
     console.log("register");
   }*/
-  this.prodBranches[this.prodBranches.length] = b;
+  //this.prodBranches[this.prodBranches.length] = b;
   this.hasProduction = true;
   }
-Par.prototype.bindTo = function(parbranch, engine, seq, path, cube){
+Par.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
   var copy = new Par();
+  copy.mseq = masterSeq;
   copy.cube = cube;
   var tmp = this.suspended.start;
   while(null != tmp){
     var b = new ParBranch(parbranch, copy, SC_Nothing);
-    if(null != parbranch){
-      //parbranch.registerForProduction(b);
-      }
-    b.prg = tmp.prg.bindTo(b, engine, null, b, cube);
+    //if(null != parbranch){
+    //  //parbranch.registerForProduction(b);
+    //  }
+    b.prg = tmp.prg.bindTo(engine, b, null, masterSeq, b, cube);
     b.path = copy
     copy.branches[copy.branches.length] = b;
     copy.suspended.append(b);
+    if(b.hasPotential){
+      if(undefined != b.itsParent){
+        //if(!b.itsParent.hasPotential){
+            b.itsParent.hasPotential = true;
+          //}
+        }
+      if(copy.prodBranches.indexOf(b)<0){
+        copy.prodBranches[copy.prodBranches.length] = b;
+        }
+      }
     tmp = tmp.next;
     }
   copy.path = path;
@@ -2456,9 +2769,11 @@ Par.prototype.generateValues = function(m){
   }*/
   for(var nb = 0; nb < this.prodBranches.length; nb++){
     var b = this.prodBranches[nb];
-    b.generateValues(m);
+    if(b.hasProduction){
+      b.generateValues(m);
+      }
     }
-  this.prodBranches = [];
+  //this.prodBranches = [];
   this.hasProduction = false;
   }
 
@@ -2656,15 +2971,16 @@ SC_ParDyn.prototype.reset = function(m){
   this.toRegister = true;
 }
 SC_ParDyn.prototype.registerForProduction = Par.prototype.registerForProduction;
-SC_ParDyn.prototype.bindTo = function(parbranch, engine, seq, path, cube){
+SC_ParDyn.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
   //console.log(parbranch);
   var copy = new SC_ParDyn(this.channel);
+  copy.mseq = masterSeq;
   copy.itsParent = parbranch;
   copy.cube = cube;
   var tmp = this.suspended.start;
   while(null != tmp){
     var b = new ParBranch(parbranch, copy, SC_Nothing);
-    b.prg = tmp.prg.bindTo(b, engine, null, b, cube);
+    b.prg = tmp.prg.bindTo(engine, b, null, masterSeq, b, cube);
     b.path = copy;
     //b.dynamicPar = true;
     copy.branches[copy.branches.length] = b;
@@ -2699,11 +3015,11 @@ SC_AndBin.prototype.getAllValues = function(m,vals){
   this.c1.getAllValues(m,vals);
   this.c2.getAllValues(m,vals);
   }
-SC_AndBin.prototype.bindTo = function(parbranch, engine, seq, path, cube){
+SC_AndBin.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
   var binder = _SC._b(cube);
   var copy = new SC_AndBin();
-  copy.c1 = binder(this.c1).bindTo(parbranch, engine, seq, path, cube)
-  copy.c2 = binder(this.c2).bindTo(parbranch, engine, seq, path, cube)
+  copy.c1 = binder(this.c1).bindTo(engine, parbranch, seq, masterSeq, path, cube)
+  copy.c2 = binder(this.c2).bindTo(engine, parbranch, seq, masterSeq, path, cube)
   return copy;
   }
 SC_AndBin.prototype.toString = function(){
@@ -2747,11 +3063,11 @@ SC_And.prototype.getAllValues = function(m,vals){
     this.c[i].getAllValues(m,vals);
     }
   }
-SC_And.prototype.bindTo = function(parbranch, engine, seq, path, cube){
+SC_And.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
   var binder = _SC._b(cube);
   var tmp_configs = [];
   for(var i in this.c){
-    tmp_configs.push(binder(this.c[i]).bindTo(parbranch, engine, seq, path, cube));
+    tmp_configs.push(binder(this.c[i]).bindTo(engine, parbranch, seq, masterSeq, path, cube));
     }
   var copy = new SC_And(tmp_configs);
   return copy;
@@ -2764,44 +3080,87 @@ SC_And.prototype.toString = function(){
   return res+") ";
   }
 SC_And.prototype.unregister = function(i){
-  for(var i in this.c){
-    this.c[i].unregister(i);
+  for(var j in this.c){
+    this.c[j].unregister(i);
     }
   }
 SC_And.prototype.registerInst = function(m,i){
-  for(var i in this.c){
-    this.c[i].registerInst(m,i);
+  for(var j in this.c){
+    this.c[j].registerInst(m,i);
     }
   }
 
 /*********
  * Or Class
  *********/
-function SC_Or(c1,c2){
+function SC_OrBin(c1,c2){
   this.c1 = c1;
   this.c2 = c2;
   }
-SC_Or.prototype.isPresent = function(m){
+SC_OrBin.prototype ={
+  isPresent : function(m){
   return this.c1.isPresent(m) || this.c2.isPresent(m);
   }
-SC_Or.prototype.getAllValues = function(m,vals){
-  this.c1.getAllValues(m,vals);
-  this.c2.getAllValues(m,vals);
+  , getAllValues : SC_AndBin.prototype.getAllValues
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+    var binder = _SC._b(cube);
+    var copy = new SC_OrBin();
+    copy.c1 = binder(this.c1).bindTo(engine, parbranch, seq, masterSeq, path, cube)
+    copy.c2 = binder(this.c2).bindTo(engine, parbranch, seq, masterSeq, path, cube)
+    return copy;
+    }
+  , toString : function(){
+    var res ="(";
+    res += this.c1.toString()
+            res += " \/ "+this.c2.toString()
+            return res+") ";
+    }
+  , unregister : SC_AndBin.prototype.unregister
+  , registerInst : SC_AndBin.prototype.registerInst
   }
-SC_Or.prototype.bindTo = function(parbranch, engine, seq, path, cube){
-  var copy = new SC_Or();
-  copy.c1 = this.c1.bindTo(parbranch, engine, seq, path, cube);
-  copy.c2 = this.c2.bindTo(parbranch, engine, seq, path, cube);
-  return copy;
+
+function SC_Or(configsArray){
+  if((undefined == configsArray)||!(configsArray instanceof Array)){
+    throw "no valid configuration for And combinator";
+    }
+  if(2 > configsArray.length){
+    throw "not enough elements to combine with And operator ("+configsArray.length+")";
+    }
+  if(2 == configsArray.length){
+    return new SC_OrBin(configsArray[0], configsArray[1])
+    }
+  this.c = configsArray;
   }
-SC_Or.prototype.toString = function(){
-  var res ="(";
-  res += this.c1.toString()
-          res += " \/ "+this.c2.toString()
-          return res+") ";
+SC_Or.prototype = {
+  isPresent : function(m){
+    for(var i in this.c){
+      if(this.c[i].isPresent(m)){
+        return true
+        }
+      }
+    return false;
+    }
+  , getAllValues : SC_And.prototype.getAllValues
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      var binder = _SC._b(cube);
+      var tmp_configs = [];
+      //console.log("binding n-ary or", this.c);
+      for(var i in this.c){
+        tmp_configs.push(binder(this.c[i]).bindTo(engine, parbranch, seq, masterSeq, path, cube));
+        }
+      var copy = new SC_Or(tmp_configs);
+      return copy;
+      }
+  , toString : function(){
+    var res ="("+this.c[0].toString();
+    for(var i in this.c){
+      res += " \/ "+this.c[i].toString()
+      }
+    return res+") ";
+    }
+  , unregister : SC_And.prototype.unregister
+  , registerInst : SC_And.prototype.registerInst
   }
-SC_Or.prototype.unregister = SC_AndBin.prototype.unregister;
-SC_Or.prototype.registerInst = SC_AndBin.prototype.registerInst;
 
 /*
  * Cells
@@ -2852,7 +3211,7 @@ SC_Cell.prototype.val = function(){
 SC_Cell.prototype.reset = function(m){}
 /*Cell.prototype.eoi = function(m){
   }*/
-SC_Cell.prototype.bindTo = function(parbranch, engine, seq, path, cube){
+SC_Cell.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
   return this;
   }
 SC_Cell.prototype.toString = function(){
@@ -2903,7 +3262,7 @@ SC_ReCell.prototype.val = function(){
   return this.target[this.field];
   }
 SC_ReCell.prototype.reset = function(m){}
-SC_ReCell.prototype.bindTo = function(parbranch, engine, seq, path, cube){
+SC_ReCell.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
   return this;
   }
 SC_ReCell.prototype.toString = function(){
@@ -2925,7 +3284,7 @@ SC_CubeCell.prototype.activate = function(m){
 SC_CubeCell.prototype.reset = function(m){
   this.cell.reset();
   }
-SC_CubeCell.prototype.bindTo = function(parbranch, engine, seq, path, cube){
+SC_CubeCell.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
   var copy = new SC_CubeCell(this.cellName);
   copy.cell = cube[this.cellName];
   copy.cube = cube;
@@ -2938,7 +3297,7 @@ SC_CubeCell.prototype.toString = function(){
 /*********
  * Machine Class
  *********/
-function Machine(delay,params){
+function Machine(delay, params){
   this.prg = new Par([]);
   //this.moved = true;
   this.instantNumber = 1;
@@ -2961,18 +3320,28 @@ function Machine(delay,params){
   if(undefined != params){
     this.setStdOut(params.sortie);
     }
+  this.traceEvt = SC.evt("traceEvt");
+  this.traces = [];
+  this.addTrace = function(msg){
+    this.traces.push(msg);
+    }
   this.addCellFun = function(aCell){
     this.cells[this.cells.length] = aCell;
     }
   this.generateEvent = function(evt,val){
+    if(undefined == evt){
+      throw "undefined event !";
+      }
     this.pending[this.pending.length] = {e:evt,v:val};
     }
   this.addProgram = function(p){
-          this.pendingPrograms[this.pendingPrograms.length] = p;
-  }
+    if(undefined == p){
+      throw "program to add not defined";
+      }
+    this.pendingPrograms[this.pendingPrograms.length] = p;
+    }
   this.addEvtFun = function(f){
-    this.actionsOnEvents[this.actionsOnEvents.length]
-                                        = f;
+    this.actionsOnEvents[this.actionsOnEvents.length] = f;
     }
   this.addFun = function(fun){
     this.actions[this.actions.length] = fun;
@@ -3002,6 +3371,9 @@ function Machine(delay,params){
   }
   if(undefined != params && undefined != params.init){
     this.addProgram(params.init);
+    }
+  else{
+    this.addProgram(SC.pauseForever());
     }
   this.react = function(){
     var res = SC_Instruction_State.STOP;
@@ -3052,7 +3424,7 @@ function Machine(delay,params){
         zeCell.futur = t[a.f].call(t,zeCell.state,vals);
         }
       else{*/
-      zeCell.futur = zeCell.sideEffect(zeCell.state, vals);
+      zeCell.futur = zeCell.sideEffect(zeCell.state, vals, this);
         //}
       }
     for(var i in this.actionsOnEvents){
@@ -3063,10 +3435,10 @@ function Machine(delay,params){
       if(null != a.f){
         var t = a.t;
         if(null == t) continue;
-        t[a.f].call(t,vals);
+        t[a.f].call(t,vals, this);
         }
       else{
-        a(vals);
+        a(vals, this);
         }
       }
     for(var i in this.actions){
@@ -3087,6 +3459,9 @@ function Machine(delay,params){
     for(var i = 0; i < this.parActions.length; i++){
       this.parActions[i].computeAndAdd(this);
       }
+    if(this.traceEvt.isPresent(this)){
+      console.log.call(console, this.traceEvt.getValues(this));
+      }
     this.instantNumber++;
     if(this.delay > 0 && res == SC_Instruction_State.TERM && (null != this.timer)){
       window.clearInterval(this.timer)
@@ -3106,6 +3481,10 @@ function Machine(delay,params){
         this.reactMeasuring = window.performance.now();
         }
       }
+    if(this.traces.length>0){
+      console.log.call(console, this.traces);
+      this.traces = [];
+    }
     if(SC_Instruction_State.TERM == res){
       console.log("machine stops");
       }
@@ -3323,11 +3702,11 @@ Kill.prototype.reset = function(m){
   }
   this.state = SC_Instruction_State.SUSP;
 }
-Kill.prototype.bindTo = function(parbranch, engine, seq, path, cube){
+Kill.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
   var copy = new Kill();
-  copy.c = this.c.bindTo(parbranch, engine, null, copy, cube);
-  copy.p = this.p.bindTo(parbranch, engine, null, copy, cube);
-  copy.h = this.h.bindTo(parbranch, engine, null, copy, cube);
+  copy.c = this.c.bindTo(engine, parbranch, null, masterSeq, copy, cube);
+  copy.p = this.p.bindTo(engine, parbranch, null, masterSeq, copy, cube);
+  copy.h = this.h.bindTo(engine, parbranch, null, masterSeq, copy, cube);
   copy.path = path;
   return copy;
 }
@@ -3437,10 +3816,10 @@ Control.prototype.reset = function(m){
   this.toRegister = true;
   this.state = SC_Instruction_State.SUSP;
 }
-Control.prototype.bindTo = function(parbranch, engine, seq, path, cube){
+Control.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
   var copy = new Control();
-  copy.c = this.c.bindTo(parbranch, engine, null, copy, cube);
-  copy.p = this.p.bindTo(parbranch, engine, null, copy, cube);
+  copy.c = this.c.bindTo(engine, parbranch, null, masterSeq, copy, cube);
+  copy.p = this.p.bindTo(engine, parbranch, null, masterSeq, copy, cube);
   copy.path = path;
   return copy;
 }
@@ -3475,7 +3854,7 @@ SC_Cube.prototype = {
   , addFirst : function(p){
     this.toAdd.push(p);
     }
-  , bindTo : function(parbranch, engine, seq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var tmp_par = SC.par();
       var tmp_par_dyn;
       if(undefined !== this.o.SC_cubeAddBehaviorEvt){
@@ -3495,9 +3874,9 @@ SC_Cube.prototype = {
                          , this.p
                         ));
       for(var i = 0 ; i < this.toAdd.length; i++){
-	tmp_par_dyn.add(this.toAdd[i]);
+        tmp_par_dyn.add(this.toAdd[i]);
         }
-      var copy = new SC_Cube(this.o, tmp_par.bindTo(parbranch, engine, null, path, this.o));
+      var copy = new SC_Cube(this.o, tmp_par.bindTo(engine, parbranch, null, masterSeq, path, this.o));
       copy.dynamic = tmp_par_dyn;
       copy.toAdd = undefined;
       copy.addProgram = copy.addSecond;
@@ -3573,11 +3952,11 @@ When.prototype.reset = function(m){
   this.choice = null;
   this.c.unregister(this);
 }
-When.prototype.bindTo = function(parbranch, engine, seq, path, cube){
+When.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
   var copy = new When();
-  copy.c = this.c.bindTo(parbranch, engine, null, copy, cube)
-  copy.t = this.t.bindTo(parbranch, engine, null, copy, cube)
-  copy.e = this.e.bindTo(parbranch, engine, null, copy, cube)
+  copy.c = this.c.bindTo(engine, parbranch, null, masterSeq, copy, cube)
+  copy.t = this.t.bindTo(engine, parbranch, null, masterSeq, copy, cube)
+  copy.e = this.e.bindTo(engine, parbranch, null, masterSeq, copy, cube)
   copy.path = path;
   return copy;
 }
@@ -3631,10 +4010,10 @@ Test.prototype.reset = function(m){
   }
   this.choice = null;
 }
-Test.prototype.bindTo = function(parbranch, engine, seq, path, cube){
+Test.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
   var copy = new Test(this.b);
-  copy.t = this.t.bindTo(parbranch, engine, null, copy, cube);
-  copy.e = this.e.bindTo(parbranch, engine, null, copy, cube);
+  copy.t = this.t.bindTo(engine, parbranch, null, masterSeq, copy, cube);
+  copy.e = this.e.bindTo(engine, parbranch, null, masterSeq, copy, cube);
   copy.path = path;
   return copy;
 }
@@ -3687,10 +4066,10 @@ Match.prototype.reset = function(m){
   }
   this.choice = null;
 }
-Match.prototype.bindTo = function(parbranch, engine, seq, path, cube){
+Match.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
   var copy = new Match(this.v,new Array(this.cases.length));
   for(var n in this.cases){
-    copy.cases[n] = this.cases[n].bindTo(parbranch, engine, null, copy, cube);
+    copy.cases[n] = this.cases[n].bindTo(engine, parbranch, null, masterSeq, copy, cube);
   }
   copy.path = path;
   return copy;
@@ -3703,6 +4082,26 @@ Match.prototype.toString = function(){
   return "match "+this.v+" selsect "+choices
           +" end match ";
   }
+
+/*********
+ * SC_Trace Class
+ *********/
+function SC_Trace(msg){
+  this.msg = msg;
+}
+SC_Trace.prototype = {
+  activate : function(m){
+    m.addTrace(this.msg);
+    return SC_Instruction_State.TERM;
+    }
+  , reset : function(m){}
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      return new SC_Trace(this.msg);
+      }
+  , toString : function(){
+      return "trace(\""+this.msg+"\") ";
+  }
+};
 
 
 function SC_ValueWrapper(tgt, n){
@@ -3721,8 +4120,8 @@ SC = {
   sensor: function(name){
     return new SC_Sensor(name);
     },
-  machine: function(delay, console){
-    return new Machine(delay, console);
+  machine: function(delay, initParams){
+    return new Machine(delay, initParams);
     },
   pauseForever: function(){
     return SC_PauseForever;
@@ -3751,8 +4150,11 @@ SC = {
   action: function(fun, times){
     return new SC_Action(_SC.b_(fun), _SC.b_(times));
   },
-  actionOn: function(c,fun,deffun,times){
-    return new SC_ActionOnEvent(c, fun, deffun, times);
+  actionOn: function(c, fun, deffun, times){
+    if(undefined == c){
+      throw "config not defined";
+      }
+    return new SC_ActionOnEvent(_SC.b_(c), _SC.b_(fun), _SC.b_(deffun), _SC.b_(times));
   },
   act: function(fun){
     return new SC_Action(fun);
@@ -3767,11 +4169,39 @@ SC = {
     }
     return new Par(prgs, evt);
   },
+  nextInput: function(evt, v, t){
+    return new SC_Send(_SC.b_(evt), v, _SC.b_(t));
+  },
   generateForever: function(evt, v){
     return new SC_GenerateForever(_SC.b_(evt), v);
   },
   generate: function(evt, v, times){
-    return new SC_Generate(_SC.b_(evt), v, _SC.b_(times));
+    return new SC_Generate(_SC.checkStrictEvent(evt)
+                                , v, _SC.b_(times));
+  },
+  generateWrapped: function(evt, v, times){
+    return new SC_Generate(_SC.b_(evt), _SC.b_(v), _SC.b_(times));
+  },
+  loop: function(n){
+    var prgs = [];
+    var jump = 1;
+    prgs[0] = new SC_LoopPoint(n);
+    for(var i = 1 ; i < arguments.length; i++){
+      prgs[i] = arguments[i];
+      if(prgs[i] instanceof SC_Seq){
+        jump+= prgs[i].seqElements.length;
+        }
+      else{
+        jump++;
+        }
+    }
+    var end = new SC_RelativeJump(-(jump+1));
+    prgs[prgs.length] = end;
+    //end.relativeJump = -prgs.length;
+    prgs[0].end = jump;
+    //var t = new Repeat(n, prgs);
+    var t = new SC_Seq(prgs);
+    return t;
   },
   repeat: function(n){
     var prgs = [];
@@ -3794,6 +4224,9 @@ SC = {
     var t = new SC_Seq(prgs);
     return t;
   },
+  exit: function(n){
+    return new SC_Exit(n);
+  },
   and: function(){
     var tmp = [];
     for(var i in arguments){
@@ -3801,13 +4234,20 @@ SC = {
       }
     return new SC_And(tmp);
   },
-  or: function(c1,c2){
-    return new SC_Or(_SC.b_(c1), _SC.b_(c2));
+  or: function(){
+    var tmp = [];
+    for(var i in arguments){
+      tmp.push(_SC.b_(arguments[i]));
+      }
+    //console.log("or with ", tmp);
+    return new SC_Or(tmp);
   },
   kill: function(c,p,h){
+    _SC.checkConfig(c);
     return new Kill(c, p, h);
   },
   control: function(c){
+    _SC.checkConfig(c);
     var prgs = [];
     for(var i = 1 ; i < arguments.length; i++){
       prgs[i-1] = arguments[i];
@@ -3815,6 +4255,7 @@ SC = {
    return new Control(c, new SC_Seq(prgs));
   },
   when: function(c,t,e){
+    _SC.checkConfig(c);
     return new When(c,t,e);
   },
   test: function(b,t,e){
@@ -3848,6 +4289,9 @@ SC = {
   },
   cell: function(params){
     return new SC_Cell(params);
+    },
+  trace: function(msg){
+    return new SC_GenerateOne(null, msg);
     },
   log: function(msg){
     function act(msg){
@@ -3907,7 +4351,10 @@ SC = {
   linkToCube:function(s){
     return _SC.b_(s);
     },
-  writeInConsole(){
+  my: function(field){
+    return _SC.b_(field);
+    },
+  writeInConsole:function(){
     console.log.call(console,arguments);
     },
   forever: -1
@@ -3920,7 +4367,7 @@ Mark.prototype.activate = function(m){
   this.f(m);
   return SC_Instruction_State.TERM;
   }
-Mark.prototype.bindTo = function(parbranch, engine, seq, path, cube){
+Mark.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
   var copy = new Mark(this.f);
   return copy;
 }
