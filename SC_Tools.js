@@ -401,6 +401,7 @@ SC.tools = (function(){
       elt.beh.addProgram(p.beh);
       }
     if(undefined !== elt.beh){
+      //console.log("adding beh to machine ", elt.beh);
       ((undefined === p.m)?SC_ClientTools:p.m).addProgram(elt.beh);
       }
     return elt;
@@ -643,7 +644,7 @@ SC_ClientTools = {
         this.m.generateEvent.apply(this.m, arguments);
         }
       }
-  , loadData : function(url, m,  resEvt){
+  , loadData : function(url, resEvt, engine){
       if(undefined === resEvt){
 	resEvt = SC.sensor("lodingData("+url+")");
         }
@@ -655,13 +656,13 @@ SC_ClientTools = {
             if(4 == me.readyState){
               //console.log(me.responseText);
               if(200 == me.status || 0 == me.status){
-                machine.generateEvent(resultEvt, me.responseText);
+                machine.generateEvent(act, me.responseText);
                 }
               }
             }
-          })(m, xmlHttpReq, resEvt)
+          })(((undefined != engine)?engine:this.m), xmlHttpReq, resEvt)
           );
-      return resultEvt;
+      return resEvt;
       }
   , m : null
   , initPanel: function(){
