@@ -411,8 +411,8 @@ SC.tools = (function(){
       var tmp = document.createElement(elt);
       activateElement(tmp);
       if(undefined === p){
-	p = {};
-	}
+        p = {};
+        }
       return finishElement.call(this,tmp, p);
       }
     }
@@ -646,22 +646,20 @@ SC_ClientTools = {
       }
   , loadData : function(url, resEvt, engine){
       if(undefined === resEvt){
-	resEvt = SC.sensor("lodingData("+url+")");
+        resEvt = SC.sensor("lodingData("+url+")");
         }
+      console.log("loading data tool", resEvt);
       var xmlHttpReq = new XMLHttpRequest();
       xmlHttpReq.open("GET", url, true);
-      xmlHttpReq.send(null);
-      xmlHttpReq.addEventListener('readystatechange'
-                               , (function(machine, me, act){ return function(){
-            if(4 == me.readyState){
-              //console.log(me.responseText);
+      xmlHttpReq.onload= (function(machine, me, act){ return function(){
+              console.log("onload", me.status);
               if(200 == me.status || 0 == me.status){
-                machine.generateEvent(act, me.responseText);
+                SC.tools.addProgram(SC.send(machine, act, me.responseText));
                 }
               }
-            }
           })(((undefined != engine)?engine:this.m), xmlHttpReq, resEvt)
-          );
+          ;
+      xmlHttpReq.send(null);
       return resEvt;
       }
   , m : null
@@ -990,7 +988,7 @@ SC_ClientTools = {
         }
       var m = SC.machine(config.tickTime, config.machineConfig);
       this.init(m);
-      var tmp_par = SC.par(SC.pause(50));
+      var tmp_par = SC.par(SC.pause(10));
       if(config.audioSupport){
         this.audioToolbox.init();
         tmp_par.add(SC.await(this.audioToolbox.audioLoaded));
@@ -1008,6 +1006,9 @@ SC_ClientTools = {
         this.t.push(res = this.energize(p));
         return res;
         }.bind(this);
+      this.splashScreen = this.makeDiv({
+          id:"App_splashScreen"
+          });
       if(undefined !== config.splashConfig){
         this.splashScreen = this.makeDiv({
             id:"App_splashScreen"
@@ -1016,28 +1017,41 @@ SC_ClientTools = {
                    +"> <div><span class='SC_splashH1'"
                    +((undefined !== config.splashConfig.title_style)?(" style='"+config.splashConfig.title_style +"'"):"")
                    + ">"+config.splashConfig.title+"</span></div> "
-                   + "<div class='SC_splashH3'"
+                   + "<img id='SC_splash_FB_loading' src='/images/gif/CP48_spinner.gif'/>"
+                   + "<div class='SC_splashH3' style='display:none;'"
                    + " onclick='"
-		   + "if((window.applicationCache.IDLE !== window.applicationCache.status)"
-		   //+ "    ||(window.applicationCache.UNCACHED !== window.applicationCache.status)"
-		   + "    &&(window.applicationCache.UNCACHED !== window.applicationCache.status)){return;};"
-		   + "window.SC_ClientTools.m.generateEvent("
+                   + "if((window.applicationCache.IDLE !== window.applicationCache.status)"
+                   + "    &&(window.applicationCache.UNCACHED !== window.applicationCache.status)){"
+                   //+ "console.log(\"cache update pending\");"
+                   + "return;};"
+                   //+ "console.log(\"démarrage\");"
+                   + "window.SC.tools.m.generateEvent("
                    + "SC_ClientTools.splashScreen.clickStartEvt);"
-		   + " window.SC_ClientTools.m.react();'"
+                   + ((config.voiceSupport)?" window.speechSynthesis.speak(new SpeechSynthesisUtterance(\"Démarrer\"));":"")
+                   + " window.SC.tools.m.react();'"
                    + ">"+config.splashConfig.start
                    +"</div></div>"
             }
             );
         this.splashScreen.clickStartEvt = SC.sensor("startClick");
         this.splashScreen.SCSS_allLoaded = SC.evt("All Loaded");
-        this.splashScreen.btn = this.splashScreen.children[0].children[1];
+        this.splashScreen.btn = this.splashScreen.children[0].children[2];
         //console.log(this.splashScreen.btn, this.splashScreen.btn.classList)
         window.addEventListener("load"
           , function(sp){
-              document.body.appendChild(this.splashScreen);
+            this.appPageLoaded = true;
+            console.log("page loaded", window.applicationCache.status, window.applicationCache.IDLE, window.applicationCache.CHECKING);
+            if(window.applicationCache.IDLE !== window.applicationCache.status && window.applicationCache.UNCACHED !== window.applicationCache.status){
+              console.log("still waiting for cache",window.applicationCache.status);
+              return;
+              }
+              console.log("dismissing splash");
+              this.splashScreen.children[0].children[1].style.display="none";
+              this.splashScreen.children[0].children[2].style.display="";
               this.m.addProgram(
                 SC.seq(
-                  SC.await(this.splashScreen.SCSS_allLoaded)
+                  SC.log("awaiting evt")
+                  , SC.await(this.splashScreen.SCSS_allLoaded)
                   , SC.action(function(m){
                       this.splashScreen.parentElement.removeChild(
                                                             this.splashScreen);
@@ -1052,19 +1066,39 @@ SC_ClientTools = {
         this.m.addProgram(
           SC.seq(
             SC.await(this.splashScreen.clickStartEvt)
+            //, SC.log("start clicked")
             , SC.action(function(m){
                 this.audioToolbox.loadAll();
                 this.splashScreen.btn.innerHTML="Loading..."
                 }.bind(this)
                 )
+            //, SC.log("button reaction")
             , tmp_par
+            , SC.log("tmp par done")
             , SC.generate(this.splashScreen.SCSS_allLoaded)
             )
           );
         }
+        else{
+          this.m.addProgram(
+            SC.seq(SC.pause(10),SC.generate((this.appStartedEvt)/*,SC.log("appstarted")*/))
+            );
+          }
         if(true == config.inspectorEnabled){
           this.initInspector();
           }
+      }
+  , displaySplash : function(){
+      if(!this.appInited){
+        console.log("Application Not inited, can't call this one.");
+        return;
+        }
+      if(undefined == this.splashScreen){
+        console.log("No splash Screen defined.");
+        return;
+
+        }
+      document.body.appendChild(this.splashScreen);
       }
   , audioToolbox : {
       audioFormats:["audio/mp3", "audio/mp4"]
@@ -1182,19 +1216,22 @@ SC_ClientTools = {
               var id = changes[i].identifier;
               var tracker = undefined;
               if(undefined == this.touchTrackers[id]){
-                tracker = this.touchTrackers[id] = this.makeDiv({inH:""+id});
+                tracker = this.touchTrackers[id] = this.makeDiv({inH:" "});
                 tracker.style.position="fixed";
                 tracker.trackID = id;
                 tracker.style.background = "yellow";
                 tracker.style.padding = "20px";
                 tracker.style.borderRadius="20px";
+                tracker.style.display="none";
+                tracker.style.transform="transform: translate(-50%, -50%);";
                 document.body.appendChild(tracker);
                 }
               else{
                 tracker = this.touchTrackers[id];
                 }
-              this.generateEvent(tracker.css_topEvt, (changes[i].screenY-tracker.clientHeight/2)+"px");
-              this.generateEvent(tracker.css_leftEvt, (changes[i].screenX-tracker.clientWidth/2)+"px");
+              this.generateEvent(tracker.css_topEvt, changes[i].screenY+"px");
+              this.generateEvent(tracker.css_leftEvt, changes[i].screenX+"px");
+              this.generateEvent(tracker.css_displayEvt, "");
               this.generateEvent(this.touchSensor, {x:changes[i].pageX, y:changes[i].pageY
                       , cx:changes[i].clientX, cy:changes[i].clientY
                       , sx:changes[i].screenX, sy:changes[i].screenY
@@ -1244,6 +1281,364 @@ SC_ClientTools = {
               }
             }.bind(this)
         );
+      }
+    /**
+      * Liste des paramètres :
+      * { start_evt:null, end_evt:null , r_delay:0 , rm :null , speech:"" , repeat:1 }
+      * - start_evt : événement SC de début du talk
+      * - end_evt : événement SC de fin du talk
+      * - r_delay : délais d'attente de réaction de la machine reactive à la
+      *             fin du talk sur l'événement de fin du talk
+      * - rm : machine réactive gérant le comportement du talk
+      * - speech : texte du talk
+      * - repeat : nombre de répétition du talk (SC.forever : répétition infinie)
+      */
+  , speech : function(params){
+      params.get = function(field, d){
+        return (undefined !== this[field])?this[field]:d;
+        }
+      var speeckable = new SpeechSynthesisUtterance(params.get("speech",""));
+      speeckable.sc_startSpeakEvt = params.get("start_evt",SC.evt("start"));
+      speeckable.sc_endedEvt = params.get("end_evt",SC.evt("stop"));
+      speeckable.sc_delay = params.get("r_delay",0);
+      speeckable.sc_m = params.get("rm",null);
+      speeckable.sc_speak = function(){
+        window.speechSynthesis.speak(this);
+        };
+      speeckable.sc_initSpeakable = function(m){
+        this.sc_m = m;
+        };
+      speeckable.onend = function(){
+        if(null == this.sc_m){
+          console.log('no speak reactive machine !');
+          return;
+          }
+        this.sc_m.generateEvent(this.sc_endedEvt);
+        setTimeout(this.sc_m.react.bind(this.sc_m), this.sc_delay); 
+        }.bind(speeckable);
+      if(null !== speeckable.sc_m){
+        var tmp_b =  SC.seq(
+           SC.await(SC.my("sc_startSpeakEvt"))
+           //, SC.log("speakable item realy start talking")
+           , SC.action(SC.my("sc_speak"))
+           , SC.await(SC.my("sc_endedEvt"))
+           //, SC.log("speakable item realy ends talking")
+           );
+        speeckable.sc_m.addProgram(SC.seq(
+               SC.cube(speeckable
+                 , SC.seq(
+                     SC.action(SC.my("sc_initSpeakable"))
+                     //, SC.log("speackable item init...")
+                     , SC.pause()
+                     , (undefined !== params.repeat)?
+                         SC.repeat(params.repeat, tmp_b)
+                         : tmp_b
+                     //, SC.log("speakable item terminates")
+                     )
+                 )
+               //, SC.log("speakable item garbageable")
+               )
+             );
+        }
+        return speeckable;
+      }
+  , initNotificationSupport: function(){
+      SC.tools.makeNotification = function(){}
+      Notification.requestPermission(
+           function(status){
+             console.log(status); // les notifications ne seront affichées que si "autorisées"
+             if(SC.tools.notificationGranted = ("granted" === status)){
+               SC.tools.makeNotification = function(params){
+                 var n = new Notification(params.title, params.p); // this also shows the notification
+                 }
+               }
+             });
+                 //var n = new Notification("Bonjour,", {body: "Merci d'avoir autorisé les notification pour ce site. Cette focntionnalité vous permettra d'être informé rapidement des modifications et des nouveautés qui seront publiées au fur et à mesure."});
+      }
+   /**
+      * Liste des paramètres :
+      * { prt:null }
+      * - prt : élément DOM parent de la bubbleView.
+      */
+  , initSpeakingBubble : function(params){
+      /*
+       * Bulle de commentaire.
+       */
+      const killEvt = SC.evt("writting");
+      const stopItEvt = SC.evt("stop it");
+      const talkOKEvt = SC.evt("talkOK");
+      const writeOKEvt = SC.evt("writeOKEvt");
+      const propagateEvt = SC.evt("propagateEvt");
+      const pauseAfterEnd = "pauseAfterEnd";
+      const waitClick = "waitClick";
+      const textSize = "textSize";
+      const RESET = "reset";
+      const setNewText = "setNewText";
+      const progressiveText = "progressiveText";
+      const displayNextBtn = "displayNextBtn";
+      const talkMachine = SC.machine(undefined,{init:SC.pauseForever()})
+      const bubble_frame = SC.tools.makeDiv({});
+      const bubble_view = SC.tools.makeDiv({
+        cl : "JFSCSS_text_bubble_0"
+        , inH : ""
+        , beh: SC.par(
+            SC.seq(
+              SC.await(killEvt)
+              , SC.pause()
+              , SC.repeat(SC.forever
+                  , SC.kill(killEvt
+                      , SC.seq(
+                          SC.repeat(SC.my(textSize)
+                            , SC.action(SC.my(progressiveText))
+                            , SC.pause()
+                            )
+                          , SC.send(talkMachine, writeOKEvt)
+                          )
+                      , SC.generate(propagateEvt)
+                      )
+                  //, SC.log("typewritting finished")
+                  , SC.when(propagateEvt
+                      , SC.nop("no propagation")
+                      , SC.test(SC.my(waitClick)
+                          , SC.seq(SC.nop("wait ok")
+			      , SC.action(SC.my(displayNextBtn))
+			      , SC.await(SC.or(killEvt,stopItEvt))
+			      , SC.actionWhen(killEvt, SC.NO_ACTION, SC.my(RESET))
+			      )
+                          , SC.seq(SC.nop("no wait")
+			      , SC.pause(SC.my(pauseAfterEnd))
+			      , SC.action(SC.my(RESET))
+			      )
+                          )
+                       )
+                  , SC.await(SC.or(killEvt,propagateEvt))
+                  )
+              )
+            , SC.action(SC.my("activeTalk"))
+            , SC.actionOn(killEvt
+                , SC.my(setNewText)
+                , undefined
+                , SC.forever
+                )
+            )
+        });
+      bubble_view.writtingEvt = killEvt;
+      bubble_view.stopItEvt = stopItEvt;
+      bubble_view.talkOKEvt = talkOKEvt;
+      bubble_view.activeTalk = function(){
+        this.talkMachine.reactASAP();
+        };
+      bubble_view.waitClick = function(){
+        /*console.log("waitClick ?", this._wc);*/
+        return this._wc;
+        };
+      bubble_view.pauseAfterEnd = 0;
+      bubble_view.text = "";
+      bubble_view.toWriteTxt = "";
+      bubble_view.toWriteTxtIdx = 0;
+      bubble_view.displayNextBtn = function(){
+        const ok = document.createElement("div");
+        ok.style.textAlign="right";
+        ok.innerHTML = "<em style='font-size:10px;cursor:pointer'>OK</em>";
+        ok.onclick = function(){
+          SC.tools.generateEvent(this.stopItEvt);
+          this.talkMachine.generateEvent(this.talkOKEvt);
+          this.talkMachine.reactASAP();
+          }.bind(this)
+        this.appendChild(ok);
+        }
+      bubble_view.textSize = function(){
+        //console.log("get text Size : "+this.toWriteTxt.length);
+        return this.toWriteTxt.length;
+        };
+      bubble_view.setNewText = function(val){
+        function _(data){
+          if(typeof data == "function"){
+            return data();
+            }
+          return data;
+          }
+        var msg = val[this.writtingEvt][0];
+        this.reset();
+        if((undefined == msg)||(undefined == msg.txt)){
+          console.log("no valid message sent to the bubble");
+          return;
+          }
+        this.hidden=false;
+        this.toWriteTxt = msg.txt;
+        if(undefined !== msg.max_w){
+          this.style.maxWidth=msg.max_w;
+          }
+        else{
+          this.style.maxWidth="";
+          }
+        if(undefined !== msg.min_w){
+          this.style.minWidth=msg.min_w;
+          }
+        else{
+          this.style.minWidth="";
+          }
+        switch(msg.dir){
+          case 0:{
+            this.dir = 0;
+            this.classList.remove(this.classList[0]);
+            this.classList.add("JFSCSS_text_bubble_0");
+            this.frame.style.bottom = "";
+            this.frame.style.right = "";
+            this.frame.style.left = msg.x;
+            this.frame.style.top = msg.y;
+            break;
+            }
+          case 1:{
+            this.dir = 1;
+            this.classList.remove(this.classList[0]);
+            this.classList.add("JFSCSS_text_bubble_1");
+            this.frame.style.bottom = "";
+            this.frame.style.right = "";
+            this.frame.style.left = msg.x;
+            this.frame.style.top = msg.y;
+            break;
+            }
+          case 2:{
+            this.dir = 2;
+            this.classList.remove(this.classList[0]);
+            this.classList.add("JFSCSS_text_bubble_2");
+            this.frame.style.bottom = "";
+            this.frame.style.right = "";
+            this.frame.style.left = msg.x;
+            this.frame.style.top = msg.y;
+            break;
+            }
+          case 3:{
+            this.dir = 3;
+            this.classList.remove(this.classList[0]);
+            this.classList.add("JFSCSS_text_bubble_3");
+            this.frame.style.top = "";
+            this.frame.style.right = "";
+            this.frame.style.left = msg.x;
+            this.frame.style.bottom = _(msg.y);
+            break;
+            }
+          case 4:{
+            this.dir = 4;
+            this.classList.remove(this.classList[0]);
+            this.classList.add("JFSCSS_text_bubble_4");
+            this.frame.style.top = "";
+            this.frame.style.left = "";
+            this.frame.style.right = _(msg.x);
+            this.frame.style.bottom = _(msg.y);
+            break;
+            }
+          case 5:{
+            this.dir = 5;
+            this.classList.remove(this.classList[0]);
+            this.classList.add("JFSCSS_text_bubble_5");
+            this.frame.style.bottom = "";
+            this.frame.style.left = "";
+            this.frame.style.right = _(msg.x);
+            this.frame.style.top = _(msg.y);
+            break;
+            }
+          default: {
+            this.frame.style.top = msg.y;
+            this.frame.style.left = msg.x;
+            this.frame.style.bottom = "";
+            this.frame.style.right = "";
+            break;
+            }
+          }
+        this._wc = (undefined != msg.waitClick)?msg.waitClick:false;
+        this.pauseAfterEnd = (undefined != msg.pauseAfterEnd)?msg.pauseAfterEnd:0;
+        this.frame.style.position=("fixed" == msg.mode)?"fixed":"absolute";
+        };
+      bubble_view.reset = function(){
+        this.toWriteTxtIdx = 0;
+        this.innerHTML = "";
+        this.toWriteTxtIdx = 0;
+        this.toWriteTxt = "";
+        this.hidden = true;
+        };
+        /**
+           * Liste des paramètres :
+           * { start_evt:null, end_evt:null , r_delay:0 , rm :null , speech:"" , repeat:1 }
+           * - start_evt : événement SC de début du talk
+           * - end_evt : événement SC de fin du talk
+           * - r_delay : délais d'attente de réaction de la machine reactive à la
+           *             fin du talk sur l'événement de fin du talk
+           * - rm : machine réactive gérant le comportement du talk
+           * - speech : texte du talk
+           * - repeat : nombre de répétition du talk (SC.forever : répétition infinie)
+           */
+      bubble_view.display = function(data){
+        var tmp = SC.tools.speech({
+          rm : this.talkMachine
+          , speech: data.speech
+          , r_delay: data.r_delay
+          });
+        this.talkMachine.addProgram(SC.seq(
+            SC.next()
+            , SC.pause()
+            //, SC.log("talkingM: enterring pre talk beh")
+            , SC.purge(data.pre)
+            //, SC.log("talkingM: start talking")
+            , SC.generate(tmp.sc_startSpeakEvt)
+            , SC.send(SC.tools.m, this.writtingEvt, data)
+            , SC.await(tmp.sc_endedEvt)
+            ///, SC.log("talkingM: talk finished")
+            , SC.purge(data.post)
+            , SC.next()
+            //, SC.log("talkingM: end of post talk beh")
+            ));
+        }
+      bubble_view.progressiveText = function(){
+        if(this.toWriteTxtIdx > this.toWriteTxt.length){
+          return;
+          }
+        if("<" == this.toWriteTxt.charAt(this.toWriteTxtIdx)){
+          //console.log("HTML tag");
+          while(">" != this.toWriteTxt.charAt(this.toWriteTxtIdx)){
+            this.toWriteTxtIdx++;
+            }
+          }
+        this.toWriteTxtIdx++;
+        this.innerHTML = this.toWriteTxt.substring(0,this.toWriteTxtIdx);
+        }
+      bubble_view.writeOKEvt = writeOKEvt;
+      bubble_view.talkMachine = talkMachine;
+      talkMachine.addProgram(SC.log("talk M inited"));
+      bubble_view.hidden=true;
+      bubble_frame.style.position="absolute";
+      bubble_view.frame = bubble_frame;
+      bubble_frame.style.zIndex="18";
+      if((undefined !== params) && (undefined !== params.prt)){
+        params.prt.appendChild(bubble_frame);
+        }  
+      bubble_frame.appendChild(bubble_view);
+      return bubble_view;
+      }
+  , setCookie: function(cname, cvalue, params){
+      var exdays = (params.days != undefined)?params.days:1;
+      const d = new Date();
+      d.setTime(d.getTime() + (exdays*24*60*60*1000));
+      const expires = "expires="+d.toUTCString();
+      const cookieString = cname + "=" + cvalue + ";" + expires + ";path=/"
+          +((params.dmn != undefined)?";domain="+params.dmn:"");
+      console.log(cookieString);
+      document.cookie = cookieString;
+      }
+  , getCookie: function(cname){
+      var name = cname + "=";
+      var ca = document.cookie.split(';');
+      for(var i = 0; i < ca.length; i++){
+        var c = ca[i];
+        while(c.charAt(0) == ' '){
+          c = c.substring(1);
+          }
+        if(c.indexOf(name) == 0){
+          return c.substring(name.length, c.length);
+          }
+        }
+      return "";
       }
   };
 /**/
@@ -1770,7 +2165,20 @@ SC_ClientTools.initInspector = function(){
       SC.writeInConsole("Chargement de la ressource "+evt.loaded+" sur "
                                 +evt.total+"\n");
       }.bind(SC_ClientTools));
+    WebAppcache.addEventListener('noupdate', function(evt){
+      SC.writeInConsole("no cache update found\n");
+      if(undefined !== this.splashScreen && this.appPageLoaded){
+        this.splashScreen.children[0].children[1].style.display="none";
+        this.splashScreen.children[0].children[2].style.display="";
+        }
+      }.bind(SC_ClientTools));
+    }
+  SC.speak = function(msg){
+    return SC.action(function(m){ window.speechSynthesis.speak(this); }.bind(msg));
+    };
+  SC.click = function(clickable){
+    return SC.action( function(){ this.dispatchEvent(new Event("click")); }.bind(clickable));
     }
   return SC_ClientTools;
-})();
 
+})();

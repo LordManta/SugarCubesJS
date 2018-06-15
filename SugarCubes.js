@@ -4,12 +4,27 @@
  * Created : 2/12/2014 9:23 PM
  * version : 5.0 alpha
  * implantation : 0.8.3
- * Copyright 2014-2015.
+ * Copyright 2014-2017.
  */
 
-SC = (function(){
+;
+var SC = (function(){
+
+const VOID_NODE = {};
 
 function NO_FUN(){}
+
+const SC_Instruction_state_str = [
+  "undefined !"
+  , "SUSP"
+  , "WEOI"
+  , "OEOI"
+  , "STOP"
+  , "WAIT"
+  , "HALT"
+  , "TERM"
+  ];
+Object.freeze(SC_Instruction_state_str);
 
 const SC_Instruction_State = {
   SUSP:1
@@ -19,19 +34,11 @@ const SC_Instruction_State = {
   , WAIT:5
   , HALT:6
   , TERM:7
-  , str :[ "undefined !"
-    , "SUSP:1"
-    , "WEOI:2"
-    , "OEOI:3"
-    , "STOP:4"
-    , "WAIT:5"
-    , "HALT:6"
-    , "TERM:7"
-    ]
   , toString: function(state){
-      return str[state];
+      return SC_Instruction_state_str[state]+":"+state;
       }
 };
+Object.freeze(SC_Instruction_State);
 
 /*
  * le binding présente différents cas de figure :
@@ -42,6 +49,7 @@ const SC_Instruction_State = {
  *   ex : SC.repeat(fun(), ...)
  *                  ^^^^^
  */
+
 /*
  * SC_CubeBinding : permet de gérer l'accès aux ressources non définit à
  * l'écriture d'un programme.
@@ -52,35 +60,53 @@ function SC_CubeBinding(name){
     }
   this.name = name;
   this.cube = null;
-  this.isFun = false;
   this.args = null;
   }
 SC_CubeBinding.prototype = {
-  resolve : function(){
-    if(null == this.cube){
-      throw "cube is null or undefined !";
+  constructor: SC_CubeBinding
+  , resolve : function(){
+      if(null === this.cube){
+        throw "cube is null or undefined !";
+        }
+      var tgt = this.cube[this.name];
+      if(undefined === tgt){
+        //console.log("target not found");
+        throw "target not found";
+        //return this;
+        }
+      if(null !== this.args){
+        console.log("SC_CubeBinding.resolve(): args added", this.args);
+        tgt = tgt.bind(this.cube, this.args);
+        }
+      else if("function" == typeof(tgt)){
+        tgt = tgt.bind(this.cube);
+        }
+      return tgt;
       }
-    var tgt = this.cube[this.name];
-    if(undefined == tgt){
-      return this;
-      }
-    if(this.isFun){
-      tgt = tgt.bind(this.cube, this.args);
-      }
-    else if("function" == typeof(tgt)){
-      tgt = tgt.bind(this.cube);
-      }
-    return tgt;
-    }
-  , setArgs(a){
-      this.isFun = true;
+  , setArgs : function(a){
       this.args = a;
+      }
+  , setCube : function(aCube){
+      this.cube = aCube;
       }
   , toString : function(){
       return "@."+this.name+"";
       }
-  , isBinding : true
+  , clone : function(){
+        var copy = new SC_CubeBinding(this.name);
+        if(null !== this.args){
+          copy.setArgs(this.args);
+          }
+        return copy;
+        }
   };
+Object.defineProperty(SC_CubeBinding.prototype, "isBinding"
+                          , {enumerable:false
+                             , value:true
+                             , writable: false
+                             }
+                          );
+
 /*
  * Methodes utilitaires utilisées dans l'implantation des SugarCubes.
  */
@@ -115,15 +141,16 @@ var _SC = {
 /*
  * Fonction permettant de résoudre le binding d'un paramètre SC_CubeBinding. Si
  * ce binding n'est pas encore définit, on retourne le l'objet SC_CubeBinding
- * en fixant l'objet cube sur lquel il porte pour réaliser une late binding ou
+ * en fixant l'objet cube sur lequel il porte pour réaliser une late binding ou
  * un binding dynamique.
  */
   , _b : function(cube){
       return function(o){
            if(o instanceof SC_CubeBinding){
-             if((undefined != o.cube) && (this !== o.cube)){
-               throw "invalid cube set on binding : "+o.cube;
-               }
+             /*if((undefined != o.cube) && (this !== o.cube)){
+               //throw "invalid cube set on binding : "+o.cube;
+               }*/
+             o = o.clone();
              o.cube = this;
              return o.resolve();
              }
@@ -198,6 +225,16 @@ var _SC = {
         }
       return cfg;
       }
+  , lateBindProperty : function(copy, name, param){
+      if(param instanceof SC_CubeBinding){
+        delete copy[name];
+        Object.defineProperty(copy, name,{get : param.resolve.bind(param.o)});
+        }
+      if("function" == typeof param){
+        delete copy[name];
+        Object.defineProperty(copy, name,{get : param});
+        }
+      }
   }
 /*
  * Fonstion qui étend un cube pour implanter quelques fonctions de base :
@@ -210,6 +247,12 @@ function SC_cubify(){
   Object.defineProperty(this, "SC_cubeAddBehaviorEvt"
                           , {enumerable:false
                              , value:SC.evt("addBehaviorEvt")
+                             , writable: false
+                             }
+                          );
+  Object.defineProperty(this, "SC_cubeKillEvt"
+                          , {enumerable:false
+                             , value:SC.evt("killSelf")
                              , writable: false
                              }
                           );
@@ -330,9 +373,11 @@ function SC_Event(name){
   this.vals = [];
   this.registeredInst = [];
   this.registeredInst2 = [];
+  this.m = null;
 }
 SC_Event.prototype = {
-  isEvent:true
+  constructor : SC_Event
+  , isEvent:true
   , isEventOrSensor:true
   , isPresent : function(m){
       return this.its == m.instantNumber;
@@ -346,6 +391,7 @@ SC_Event.prototype = {
   , wakeupAll : function(m, flag){
       var n = 0;
       var tmp = this.registeredInst;
+      //console.log("wakeUpAll = ",tmp);
       for(var idx = 0; idx < tmp.length; idx++){
         if(!(tmp[idx].wakeup(m,flag))){
           this.registeredInst2[n++]=tmp[idx];
@@ -356,18 +402,29 @@ SC_Event.prototype = {
       this.registeredInst2 = tmp;
       }
   , generate : function(m, flag){
+      //console.log("genereate = ",this.registeredInst);
       if(!this.isPresent(m)){
         this.its = m.instantNumber;
         this.vals = [];
         this.wakeupAll(m, flag);
         }
       }
+  //, nbd : 0
   , generateValues : function(m, val){
+      /*if(("requestDisplay" == this.name)
+         &&("Terre" == val.name)){
+        console.log("tjs vivante"+this.vals.length);
+        }*/
+      /*if(("requestDisplay" == this.name)
+          &&("Terre" == val.name && this.nbd++>100000)){
+        console.log(this.vals.length);
+        this.nbd = 0;
+        }*/
       if(undefined !== val){
         this.vals.push(val);
         }
       else{
-	console.log("generating undefined value...");
+        //console.log("generating undefined value...");
         }
       }
   , unregister : function(i){
@@ -381,7 +438,9 @@ SC_Event.prototype = {
         throw "SugarCubesLib : Internal error";
         return;
         }
+      //console.log("register inst = "+inst+" on "+this);
       this.registeredInst[this.registeredInst.length] = inst;
+      //console.log("registered = ",this.registeredInst);
       }
   , getValues : function(m){
       if(!this.isPresent(m)){
@@ -403,6 +462,12 @@ SC_Event.prototype = {
         }
       }
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      if(null == this.m){
+        this.m = engine;
+        }
+      if(this.m !== engine){
+        console.log('warning bound event ('+this.name+') problem', this.m, engine);
+        }
       var copy = this;
       return copy;
       }
@@ -420,7 +485,8 @@ function SC_Sensor(name){
   this.registeredInst2 = [];
 }
 SC_Sensor.prototype = {
-  isSenor:true
+  constructor : SC_Sensor
+  , isSenor:true
   , isEventOrSensor:true
   , isPresent : SC_Event.prototype.isPresent
   , wakeupAll : SC_Event.prototype.wakeupAll
@@ -455,10 +521,11 @@ function SC_RelativeJump(jump){
   this.seq = null;
   }
 SC_RelativeJump.prototype = {
-  activate : function(m){
-    this.seq.idx += this.relativeJump;
-    return SC_Instruction_State.TERM;
-    }
+  constructor : SC_RelativeJump
+  , activate : function(m){
+      this.seq.idx += this.relativeJump;
+      return SC_Instruction_State.TERM;
+      }
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var copy = new SC_RelativeJump(this.relativeJump);
       copy.seq = seq;
@@ -469,6 +536,43 @@ SC_RelativeJump.prototype = {
       }
 }
 
+// *** While
+/* Not yet realy implemented */
+function SC_WhilePoint(cond, end){
+  this.seq = null;
+  this.mseq = null;
+  this.stopInst = null;
+  this.end = end;
+  }
+SC_WhilePoint.prototype = {
+  constructor : SC_WhilePoint
+  , activate : function(m){
+      if(this.mseq.exits > 0){
+        this.mseq.exits--;
+        this.seq.idx += this.end;
+        this.reset(m);
+        return SC_Instruction_State.TERM;
+        }
+      if(null === this.stopInst || (this.stopInst != m.getInstantNumber())){
+        return SC_Instruction_State.TERM;
+        }
+      return SC_Instruction_State.STOP;
+      }
+  , reset : function(m){
+      this.stopInst = null;
+      }
+  , toString : function(){
+      return "loop forever ";
+      }
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      var copy = new SC_WhilePoint(this.end);
+      copy.seq = seq;
+      copy.mseq = masterSeq;
+      copy.seq.register4Reset(copy);
+      return copy;
+      }
+  }
+
 // *** Loops
 function SC_LoopPointForever(end){
   this.seq = null;
@@ -477,19 +581,20 @@ function SC_LoopPointForever(end){
   this.end = end;
 }
 SC_LoopPointForever.prototype = {
-  activate : function(m){
-    if(this.mseq.exits > 0){
-      this.mseq.exits--;
-      this.seq.idx += this.end;
-      this.reset(m);
-      return SC_Instruction_State.TERM;
+  constructor : SC_LoopPointForever
+  , activate : function(m){
+      if(this.mseq.exits > 0){
+        this.mseq.exits--;
+        this.seq.idx += this.end;
+        this.reset(m);
+        return SC_Instruction_State.TERM;
+        }
+      if(null === this.stopInst || (this.stopInst != m.getInstantNumber())){
+        this.stopInst = m.getInstantNumber();
+        return SC_Instruction_State.TERM;
+        }
+      return SC_Instruction_State.STOP;
       }
-    if(null === this.stopInst || (this.stopInst != m.getInstantNumber())){
-      this.stopInst = m.getInstantNumber();
-      return SC_Instruction_State.TERM;
-      }
-    return SC_Instruction_State.STOP;
-    }
   , reset : function(m){
       this.stopInst = null;
       }
@@ -515,20 +620,21 @@ function SC_LoopPoint(times, end){
   this.end = end;
   }
 SC_LoopPoint.prototype = {
-  activate : function(m){
-    if(0 === this.count||(this.mseq.exits > 0)){
-      this.mseq.exits--;
-      this.seq.idx += this.end;
-      this.reset(m);
-      return SC_Instruction_State.TERM;
+  constructor : SC_LoopPoint
+  , activate : function(m){
+      if(0 === this.count||(this.mseq.exits > 0)){
+        this.mseq.exits--;
+        this.seq.idx += this.end;
+        this.reset(m);
+        return SC_Instruction_State.TERM;
+        }
+      if(null === this.stopInst || (this.stopInst != m.getInstantNumber())){
+        this.stopInst = m.getInstantNumber();
+        this.count --;
+        return SC_Instruction_State.TERM;
+        }
+      return SC_Instruction_State.STOP;
       }
-    if(null === this.stopInst || (this.stopInst != m.getInstantNumber())){
-      this.stopInst = m.getInstantNumber();
-      this.count --;
-      return SC_Instruction_State.TERM;
-      }
-    return SC_Instruction_State.STOP;
-    }
   , reset : function(m){
       this.stopInst = null;
       this.count = this.it;
@@ -609,14 +715,29 @@ SC_RepeatPoint.prototype = {
     }
   , reset : function(m){
       this.stopped = true;
-      this.count = this.it;
+      this.activate = function(m){
+        //console.log("repeat first");
+        this.count = this.it;
+        delete this.activate;
+        //this.activate = this.__proto__.activate;
+        return this.activate(m);
+        }
+      //this.count = this.it;
       }
   , toString : function(){
       return "repeat "
                   +((this.it<0)?"forever ":this.count+"/"+this.it+" times ");
       }
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      var copy = new SC_RepeatPoint(this.it, this.end);
+      var binder = _SC._b(cube);
+      var bound_it = binder(this.it);      
+      //console.log("repeat "+bound_it);
+      var copy = new SC_RepeatPoint(bound_it, this.end);
+      if("function" == typeof bound_it){
+        Object.defineProperty(copy, "it",{get : bound_it});
+        copy.reset(engine);
+        }
+      copy._it = this.it;
       copy.seq = seq;
       copy.mseq = masterSeq;
       copy.seq.register4Reset(copy);
@@ -651,40 +772,42 @@ SC_Exit.prototype = {
 /*******************************************************************************
  * SC_Await Instruction
  ******************************************************************************/
-function SC_Await(config){
-  this.config = config;
+function SC_Await(aConfig){
+  this.config = aConfig;
   this.path = null;
 }
-SC_Await.prototype = {
-  activate : function(m){
-    if(this.config.isPresent(m)){
-      this.reset(m);
-      return SC_Instruction_State.TERM;
-      }
-    this.config.registerInst(m, this);
-    return SC_Instruction_State.WAIT;
+SC_Await.prototype.activate = function(aMachine){
+  //console.log("await.activate()");
+  if(this.config.isPresent(aMachine)){
+    this.reset(aMachine);
+    return SC_Instruction_State.TERM;
     }
-  , wakeup : function(m, flag){
-      var res = this.config.isPresent(m);
-      if(res){
-        res = this.path.awake(m, flag);
-        }
-      return res;
-      }
-  , reset : function(m){
-      this.config.unregister(this);
-      }
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      var binder = _SC._b(cube);
-      var bound_config = binder(this.config);
-      var copy = new SC_Await(bound_config.bindTo(engine, parbranch, seq, masterSeq, path, cube));
-      copy._config = this.config;
-      copy.path = path;
-      return copy;
-      }
-  , toString : function(){
-      return "await "+this.config.toString()+" ";
-      }
+  //console.log("await.activate(): on s'enregistre");
+  this.config.registerInst(aMachine, this);
+  return SC_Instruction_State.WAIT;
+  }
+SC_Await.prototype.wakeup = function(m, flag){
+  var res = this.config.isPresent(m);
+  if(res){
+    res = this.path.awake(m, flag);
+    }
+  return res;
+  }
+SC_Await.prototype.reset = function(m){
+  this.config.unregister(this);
+  }
+SC_Await.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
+  //console.log("await bind", this.config);
+  var binder = _SC._b(cube);
+  var bound_config = binder(this.config);
+  //console.log("bound_config = ", bound_config, this.config === bound_config);
+  var copy = new SC_Await(bound_config.bindTo(engine, parbranch, seq, masterSeq, path, cube));
+  copy._config = this.config;
+  copy.path = path;
+  return copy;
+  }
+SC_Await.prototype.toString = function(){
+  return "await "+this.config.toString()+" ";
   }
 
 /*******************************************************************************
@@ -780,6 +903,9 @@ SC_GenerateForeverLateVal.prototype =
         }
       else{
         this.evt.generateValues(m, this.val);
+        /*if("requestDisplay" == this.evt.name && "Terre" == this.val.name){
+          console.log("buh");
+          }*/
         }
       }
   , toString : function(){
@@ -801,7 +927,8 @@ function SC_GenerateForeverNoVal(evt){
 }
 SC_GenerateForeverNoVal.prototype = 
 {
-  activate : SC_GenerateForeverLateEvtNoVal.prototype.activate
+  constructor : SC_GenerateForeverNoVal
+  , activate : SC_GenerateForeverLateEvtNoVal.prototype.activate
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
            var copy = new SC_GenerateForeverNoVal(this.evt);
            copy._evt = this.evt;
@@ -809,7 +936,7 @@ SC_GenerateForeverNoVal.prototype =
            }
   , reset : NO_FUN
   , toString : SC_GenerateForeverLateEvtNoVal.prototype.toString
-  }
+  };
 
 //--- Forever
 function SC_GenerateForever(evt, val){
@@ -887,9 +1014,9 @@ function SC_GenerateOne(evt, val){
   if(undefined === val){
     return new SC_GenerateOneNoVal(evt);
     }
-  /*if("setBorder"==evt.name){
+  /*if("requestDisplay"==evt.name){
     console.log("building", this);
-    } */
+    }*/ 
   this.evt = evt;
   this.val = val;
   this.itsParent = null;
@@ -1035,7 +1162,7 @@ SC_GenerateNoVal.prototype = {
       }
   , toString : function(){
       return "generate "+this.evt.toString()+" for "
-          b   +this.count+"/"+this.times+" times ";
+              +this.count+"/"+this.times+" times ";
       }
   }
 // *** Filters Instructions
@@ -1688,7 +1815,7 @@ SC_SendForever.prototype = {
 /*******************************************************************************
  * Nothing Object
  ******************************************************************************/
-var SC_Nothing = {
+const SC_Nothing = {
   activate: function(m){
     return SC_Instruction_State.TERM;
   },
@@ -1705,12 +1832,11 @@ var SC_Nothing = {
  * SC_Pause Instructions
  ******************************************************************************/
 // *** SC_PauseForever
-var SC_PauseForever = {
-}
-SC_PauseForever = {
+const SC_PauseForever = {
   activate : function(m){
-    return SC_Instruction_State.HALT;
-    }
+      //console.log("halted");
+      return SC_Instruction_State.HALT;
+      }
   , reset : NO_FUN
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       return this;
@@ -1721,26 +1847,62 @@ SC_PauseForever = {
   }
 
 // *** SC_Pause
+function SC_PauseOne(){
+  this.res = false;
+  }
+SC_PauseOne.prototype = {
+  constructor : SC_PauseOne
+  , activate : function(m){
+      if(this.res){
+        this.reset(m);
+        return SC_Instruction_State.TERM;
+        }
+      this.res = true;
+      return SC_Instruction_State.STOP;
+      }
+  , reset : function(m){
+      this.res = false;
+      }
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      var copy = new SC_PauseOne();
+      return copy;
+      }
+  , toString : function(){
+      return "pause ";
+      }
+  }
+
+// *** SC_Pause
 function SC_Pause(times){
   if(times < 0){
     return SC_PauseForever;
     }
-  if(0 == times){
+  if(0 === times){
     return SC_Nothing;
     }
   this.count = this.times = (undefined == times)?1:times;
+  if(1 === this.time){
+    return new SC_PauseOne();
+    }
+  //console.log("pause n times : "+this.times, this.count);
 }
 SC_Pause.prototype = {
-  activate : function(m){
-    if(0 == this.count){
-      this.reset(m);
-      return SC_Instruction_State.TERM;
+  constructor : SC_Pause
+  , activate : function(m){
+      if(0 == this.count){
+        this.reset(m);
+        return SC_Instruction_State.TERM;
+        }
+      this.count--;
+      return SC_Instruction_State.STOP;
       }
-    this.count--;
-    return SC_Instruction_State.STOP;
-    }
-  , reset : function(m){
+  , first : function(m){
       this.count = this.times;
+      delete this.activate;
+      return this.activate(m);
+      }
+  , reset : function(m){
+      this.activate = this.first;
       }
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
@@ -1752,6 +1914,8 @@ SC_Pause.prototype = {
       else{
         copy = new SC_Pause(bound_times);
         }
+      var tmp = copy.times;
+      _SC.lateBindProperty(copy, "times", copy.times)
       copy._times = this.times;
       return copy;
       }
@@ -1843,6 +2007,9 @@ function SC_Seq(seqElements){
         }
       }
     else{
+      if(prg === VOID_NODE){
+        continue;
+        }
       this.seqElements[targetIDx++] = seqElements[i];
       }
     }
@@ -1850,72 +2017,81 @@ function SC_Seq(seqElements){
   this.activate = this.first;
   this.toReset = [];
   }
-SC_Seq.prototype = {
-  register4Reset : function(client){
-    this.toReset[this.toReset.length] = client;
-    }
-  , act : function(m){
-      //console.log("Seq_act", this.idx, this.seqElements.length);
-      var res = SC_Instruction_State.TERM;
-      while(SC_Instruction_State.TERM == res){
-        if(this.idx >= this.seqElements.length){
-           this.reset(m);
-           return SC_Instruction_State.TERM;
-          }
-        res = this.seqElements[this.idx].activate(m);
-        if(SC_Instruction_State.TERM == res){
-          this.idx++;
-          }
-        }
-      return res;
-      }
-  , awake : function(m, flag){
-      return this.path.awake(m, flag);
-      }
-  , first : function(m){
-      this.idx = 0;
-      this.activate = this.act;
-      var tmp = this.activate(m);
-      return tmp;
-      }
-  , eoi : function(m){
-      this.seqElements[this.idx].eoi(m);
-      }
-  , reset : function(m){
-      if(-1 == this.idx){
-        return;
-        }
-      if(this.idx < this.seqElements.length){
-        this.seqElements[this.idx].reset(m);
-      }
-      for(var i = 0; i < this.toReset.length; i++){
-        this.toReset[i].reset(m);
-        }
-      this.idx = -1;
-      this.activate = this.first;
-      this.exits = 0;
-      }
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      var copy = new SC_Seq(new Array(this.seqElements.length));
-      if(undefined === masterSeq){
-        masterSeq = copy;
-        }
-      for(var i = 0; i < this.seqElements.length; i++){
-        copy.seqElements[i] = this.seqElements[i].bindTo(engine, parbranch, copy
-                                                         , masterSeq, copy, cube);
-        }
-      copy.path = path;
-      return copy;
-      }
-  , toString : function(){
-      var res ="[";
-      for(var i = 0; i < this.seqElements.length; i++){
-        res += this.seqElements[i].toString();
-        res += (i<this.seqElements.length-1)?";":"";
-      }
-      return res+"] ";
-      }
+SC_Seq.prototype.add = function(inst){
+  //console.log("adding to seq", inst);
+  this.seqElements.push(inst);
   }
+SC_Seq.prototype.register4Reset = function(client){
+  this.toReset[this.toReset.length] = client;
+  }
+SC_Seq.prototype.act = function(m){
+  //console.log("Seq_act", this.idx, this.seqElements.length);
+  var res = SC_Instruction_State.TERM;
+  while(SC_Instruction_State.TERM == res){
+    if(this.idx >= this.seqElements.length){
+       this.reset(m);
+       return SC_Instruction_State.TERM;
+      }
+    //console.log("seq_act : ", this.seqElements[this.idx]);
+    res = this.seqElements[this.idx].activate(m);
+    if(SC_Instruction_State.TERM == res){
+      this.idx++;
+      }
+    }
+  return res;
+  }
+SC_Seq.prototype.awake = function(m, flag){
+  //console.log("seq awaking");
+  return this.path.awake(m, flag);
+  }
+SC_Seq.prototype.first = function(m){
+  this.idx = 0;
+  this.activate = this.act;
+  var tmp = this.activate(m);
+  return tmp;
+  }
+SC_Seq.prototype.eoi = function(m){
+  this.seqElements[this.idx].eoi(m);
+  }
+SC_Seq.prototype.reset = function(m){
+  if(-1 == this.idx){
+    return;
+    }
+  if(this.idx < this.seqElements.length){
+    this.seqElements[this.idx].reset(m);
+  }
+  for(var i = 0; i < this.toReset.length; i++){
+    this.toReset[i].reset(m);
+    }
+  this.idx = -1;
+  this.activate = this.first;
+  this.exits = 0;
+  }
+SC_Seq.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
+  //console.log("seq bind to ", this.seqElements.length);
+  var copy = new SC_Seq(new Array(this.seqElements.length));
+  if(undefined === masterSeq){
+    //console.log("as master seq");
+    masterSeq = copy;
+    }
+  for(var i = 0; i < this.seqElements.length; i++){
+    //console.log("adding to bound", this.seqElements[i]);
+    copy.seqElements[i] = this.seqElements[i].bindTo(engine, parbranch, copy
+                                                     , masterSeq, copy, cube);
+    }
+  //console.log("end seq bound");
+  copy.path = path;
+  return copy;
+  }
+SC_Seq.prototype.toString = function(){
+  var res ="[";
+  for(var i = 0; i < this.seqElements.length; i++){
+    res += this.seqElements[i].toString();
+    res += (i<this.seqElements.length-1)?";":"";
+    }
+  return res+"] ";
+  }
+
 /*******************************************************************************
  * SC_Action Instruction
  ******************************************************************************/
@@ -1928,7 +2104,7 @@ SC_ActionForever.prototype.activate = function(m){
   m.addFun(this.closure);
   return SC_Instruction_State.STOP;
   }
-SC_ActionForever.prototype.reset = function(m){}
+SC_ActionForever.prototype.reset = NO_FUN
 SC_ActionForever.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
   var binder = _SC._b(cube);
   var copy = new SC_ActionForever(binder(this.action));
@@ -1965,13 +2141,20 @@ SC_Action.prototype.activate = function(m){
   return SC_Instruction_State.STOP;
   }
 SC_Action.prototype.reset = function(m){
-  this.count = this.times;
+  this.activate = function(m){
+    this.count = this.times;
+    delete this.activate;
+    return this.activate(m);
+    };
 }
 SC_Action.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
   var binder = _SC._b(cube);
   var copy = new SC_Action(binder(this.action), binder(this.times));
   copy._action = this.action;
   copy._times = this.times;
+  if("function" == typeof copy.times){
+    Object.defineProperty(copy, "times",{get : copy.times});
+    }
   if(copy.action.f && copy.action.t){
     copy.closure = copy.action.t[copy.action.f].bind(copy.action.t);
     }
@@ -1987,6 +2170,9 @@ SC_Action.prototype.toString = function(){
 }
 // *** SC_SimpleAction
 function SC_SimpleAction(f){
+  if(undefined === f){
+    throw "undefined action";
+    }
   this.action = f;
   }
 SC_SimpleAction.prototype.activate = function(m){
@@ -2004,6 +2190,7 @@ SC_SimpleAction.prototype.bindTo = function(engine, parbranch, seq, masterSeq, p
   else{
     copy.closure = copy.action.bind(cube);
     }
+  //console.log("action.bound");
   return copy;
 }
 SC_SimpleAction.prototype.toString = function(){
@@ -2381,82 +2568,81 @@ SC_SimpleActionOnEvent.prototype = {
   }
 
 /*********
- * ParBranch Class
+ * SC_ParBranch Class
  *********/
-function ParBranch(p, par, prg){
+function SC_ParBranch(aParent, aPar, prg){
   this.prev = null;
   this.next = null;
   this.prg = prg;
   this.flag = SC_Instruction_State.SUSP;
-  this.itsParent = p;
-  this.par = par;
+  this.itsParent = aParent;
+  this.itsPar = aPar;
   this.hasProduction = false;
   this.emitters = [];
   this.hasPotential = false;
   this.path = null;
   this.idxInProd = -1;
 }
-ParBranch.prototype = {
-  declarePotential : function(){
-    if(this.hasPotential){
-      return;
+
+SC_ParBranch.prototype = {
+  constructor : SC_ParBranch
+  , declarePotential : function(){
+      if(this.hasPotential){
+        return;
+        }
+      this.hasPotential = true;
+      if(null != this.itsPar){
+        this.idxInProd = this.itsPar.registerInProdBranch(this);
+        }
+      if(null != this.itsParent){
+        this.itsParent.declarePotential();
+        }
       }
-    this.hasPotential = true;
-    if(null != this.par){
-      this.idxInProd = this.par.registerInProdBranch(this);
-      }
-    if(null != this.itsParent){
-      this.itsParent.declarePotential();
-      }
-    }
   , registerForProduction : function(gen){
-      this.emitters[this.emitters.length] = gen;
+      this.emitters.push(gen);
       this.hasProduction = true;
       if(null != this.itsParent){
         this.itsParent.registerForProduction(this);
         }
       else{
-        this.par.registerForProduction(this);
+        this.itsPar.registerForProduction(this);
         }
       }
   , awake : function(m, flag){
-    var res = false;
-    switch(this.flag){
-      case SC_Instruction_State.WEOI:{
-        res = this.path.awake(m, flag);
-        if(res){
-          this.par.waittingEOI.remove(this);
-          ((flag)?this.par.suspended:this.par.suspendedChain).append(this);
-          this.flag = SC_Instruction_State.SUSP;
+      var res = false;
+      switch(this.flag){
+        case SC_Instruction_State.WEOI:{
+          res = this.path.awake(m, flag);
+          if(res){
+            this.itsPar.waittingEOI.remove(this);
+            ((flag)?this.itsPar.suspended:this.itsPar.suspendedChain).append(this);
+            this.flag = SC_Instruction_State.SUSP;
+            }
+          break;
           }
-        break;
-        }
-      case SC_Instruction_State.WAIT:{
-        res = this.path.awake(m, flag);
-        if(res){
-          this.par.waitting.remove(this);
-          /*if((undefined !== this.prg.evt)&&("clickTarget" == this.prg.evt.name)){
-            //console.log("unsuspend flag, par, path",flag,this.par.suspended,this.path);
-            }*/
-          ((flag)?this.par.suspended:this.par.suspendedChain).append(this);
-          this.flag = SC_Instruction_State.SUSP;
+        case SC_Instruction_State.WAIT:{
+          res = this.path.awake(m, flag);
+          if(res){
+            this.itsPar.waitting.remove(this);
+            ((flag)?this.itsPar.suspended:this.itsPar.suspendedChain).append(this);
+            this.flag = SC_Instruction_State.SUSP;
+            }
+          break;
           }
-        break;
+        case SC_Instruction_State.SUSP:{
+          return true;
+          }
         }
-      case SC_Instruction_State.SUSP:{
-        return true;
-        }
+      return res;
       }
-    return res;
-    }
   , generateValues : function(m){
-    for(var i = 0; i < this.emitters.length; i++){
-      this.emitters[i].generateValues(m);
-    }
-    this.emitters = [];
-    this.hasProduction = false;
-    }
-}
+      for(var i = 0; i < this.emitters.length; i++){
+        this.emitters[i].generateValues(m);
+        }
+      this.emitters = [];
+      this.hasProduction = false;
+      }
+  };
 
 /*********
  * Queues
@@ -2466,16 +2652,17 @@ function SC_Queues(){
   this.end = null;
 }
 SC_Queues.prototype = {
-  append : function(elt){
-    if(null == this.end){
-      this.start = this.end = elt;
+  constructor : SC_Queues
+  , append : function(elt){
+      if(null == this.end){
+        this.start = this.end = elt;
+        }
+      else{
+        this.end.next = elt;
+        elt.prev = this.end;
+        this.end = elt;
+        }
       }
-    else{
-      this.end.next = elt;
-      elt.prev = this.end;
-      this.end = elt;
-      }
-    }
   , pull : function(){
       if(null == this.end){
         return null;
@@ -2542,13 +2729,13 @@ SC_Queues.prototype = {
       }
   , isEmpty : function(){
       return (null == this.start);
-    }
-}
+      }
+  };
 
 /*********
- * Par Class
+ * SC_Par Class
  *********/
-function Par(args, channel){
+function SC_Par(args, channel){
   if(undefined !== channel){
     return new SC_ParDyn(channel, args);
     }
@@ -2565,42 +2752,50 @@ function Par(args, channel){
   this.hasProduction = false;
   this.path = null;
   this.itsParent = null;
+  this.cube = null;
   for(var i in args){
-    this.branches[i] = new ParBranch(null, this, args[i]);
+    this.branches[i] = new SC_ParBranch(null, this, args[i]);
     this.suspended.append(this.branches[i]);
     }
   }
-Par.prototype = {
-  setPurgeable : function(flag){
-    this.purgeable = flag;
-    }
+SC_Par.prototype = {
+  constructor : SC_Par
+  , setPurgeable : function(flag){
+      this.purgeable = flag;
+      }
   , add : function(p){
       if(undefined == p){
         throw "adding branch to par, p is undefined";
         }
-      if(p instanceof Par){
+      if(p instanceof SC_Par){
         for(var n = 0; n < p.branches.length; n++){
           this.add(p.branches[n].prg);
           }
         }
       else{
-        var b = new ParBranch(null, null, p);
+        var b = new SC_ParBranch(null, null, p);
         this.branches[this.branches.length] = b;
         this.suspended.append(b);
         }
       }
   , addBranch : function(p, pb, engine){
-      if(p instanceof Par){
+      if(p instanceof SC_Par){
+        //console.log("adding a par -> exploring");
         for(var n = 0 ; n < p.branches.length; n ++){
           this.addBranch(p.branches[n].prg, pb, engine);
           }
         }
       else{
-        var b = new ParBranch(pb, this, SC_Nothing);
+        var b = new SC_ParBranch(pb, this, SC_Nothing);
         b.prg = p.bindTo(engine, b, null, this.mseq, b, this.cube);
         b.path = this;
-        this.branches[this.branches.length] = b;
+        /*if(this instanceof SC_ParDyn){
+          console.log("adding branch : ", this.branches)
+          }*/
+        this.branches.push(b);
+        //console.log(this.suspended.isEmpty());
         this.suspended.append(b);
+        //console.log(this.suspended.isEmpty());
         if(b.hasPotential){
           if(undefined != b.itsParent){
             if(!b.itsParent.hasPotential){
@@ -2614,8 +2809,10 @@ Par.prototype = {
         }
       }
   , registerInProdBranch : function(pb){
+      /*console.log('register in prod branches'
+                   , pb, this.prodBranches);*/
       var res = this.prodBranches.length;
-      this.prodBranches[this.prodBranches.length] = pb;
+      this.prodBranches.push(pb);
       return res;
       }
   , awake : function(m, flag){
@@ -2624,8 +2821,8 @@ Par.prototype = {
         }
       return true;
       }
-}
-Par.prototype.activate = function(m){
+  };
+SC_Par.prototype.activate = function(m){
   //console.log("par activate", this.suspended.isEmpty(), this.suspendedChain.isEmpty());
   var res = SC_Instruction_State.TERM;
   if(this.suspended.isEmpty() && (!this.suspendedChain.isEmpty()) ){
@@ -2676,7 +2873,7 @@ Par.prototype.activate = function(m){
     var t = this.suspended;
     this.suspended = this.suspendedChain;
     this.suspendedChain = t;
-    //console.log("Par -> SUSP");
+    //console.log("SUSP -> susp");
     return SC_Instruction_State.SUSP;
   }
   if(!this.waittingEOI.isEmpty()){
@@ -2701,9 +2898,10 @@ Par.prototype.activate = function(m){
   //this.suspended = this.terminated;
   //this.terminated = t;
   this.reset(m);
+  //console.log("par term");
   return SC_Instruction_State.TERM;
 }
-Par.prototype.eoi = function(m){
+SC_Par.prototype.eoi = function(m){
 /*  var tmp = this.suspended.start;
   while(null != tmp){
     tmp.prg.eoi(m);
@@ -2723,7 +2921,7 @@ Par.prototype.eoi = function(m){
     tmp = this.stopped.pop();
   }
 }
-Par.prototype.reset = function(m){
+SC_Par.prototype.reset = function(m){
   var tmp = this.suspended.start;
   while(null != tmp){
     tmp.prg.reset(m);
@@ -2764,20 +2962,20 @@ Par.prototype.reset = function(m){
     tmp = this.terminated.pop();
   }
 }
-Par.prototype.registerForProduction = function(b){
+SC_Par.prototype.registerForProduction = function(b){
   /*if(this instanceof SC_ParDyn){
     console.log("register");
   }*/
   //this.prodBranches[this.prodBranches.length] = b;
   this.hasProduction = true;
   }
-Par.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
-  var copy = new Par();
+SC_Par.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
+  var copy = new SC_Par();
   copy.mseq = masterSeq;
   copy.cube = cube;
   var tmp = this.suspended.start;
   while(null != tmp){
-    var b = new ParBranch(parbranch, copy, SC_Nothing);
+    var b = new SC_ParBranch(parbranch, copy, SC_Nothing);
     //if(null != parbranch){
     //  //parbranch.registerForProduction(b);
     //  }
@@ -2800,11 +2998,12 @@ Par.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
   copy.path = path;
   return copy;
   }
-Par.prototype.removeBranch = function(elt){
+SC_Par.prototype.removeBranch = function(elt){
+  //console.log("removing branch", elt);
   var i = this.branches.indexOf(elt);
   this.branches.splice(i,1);
   }
-Par.prototype.toString = function(){
+SC_Par.prototype.toString = function(){
   var res ="[";
   for(var i = 0; i < this.branches.length; i++){
     res += this.branches[i].prg.toString();
@@ -2812,10 +3011,12 @@ Par.prototype.toString = function(){
   }
   return res+"] ";
 }
-Par.prototype.generateValues = function(m){
-  /*if(this instanceof SC_ParDyn){
+SC_Par.prototype.generateValues = function(m){
+  /*if((this instanceof SC_ParDyn)
+    &&(this.prodBranches.length>2)
+    ){
     console.log("produce");
-  }*/
+    }*/
   for(var nb = 0; nb < this.prodBranches.length; nb++){
     var b = this.prodBranches[nb];
     if(b.hasProduction){
@@ -2826,11 +3027,15 @@ Par.prototype.generateValues = function(m){
   this.hasProduction = false;
   }
 
+/**
+  * Opérateur Parallele a extension dynamique...
+  * SC_ParDyn
+  */
 function SC_ParDyn(channel, args){
   if(undefined === channel){
     throw "Illegal dynamic Parrellel instruction use !";
     }
-  //console.log("Par Dyn !");
+  //console.log("SC_Par Dyn !");
   this.suspended = new SC_Queues();
   this.suspendedChain = new SC_Queues();
   this.waittingEOI = new SC_Queues();
@@ -2846,18 +3051,20 @@ function SC_ParDyn(channel, args){
   this.itsParent = null;
   this.originalBranches = [];
   for(var i in args){
-    this.originalBranches[i] = this.branches[i] = new ParBranch(null, this, args[i]);
+    this.originalBranches[i] = this.branches[i] = new SC_ParBranch(null, this, args[i]);
     this.suspended.append(this.branches[i]);
     }
   this.channel = channel;
   this.toRegister = true;
+  this.forceTermination = false;
   }
 SC_ParDyn.prototype = {
-  registerInProdBranch : Par.prototype.registerInProdBranch
-  , setPurgeable : Par.prototype.setPurgeable
-  , add : Par.prototype.add
-  , addBranch : Par.prototype.addBranch
-  , awake : Par.prototype.awake
+  constructor : SC_ParDyn
+  , registerInProdBranch : SC_Par.prototype.registerInProdBranch
+  , setPurgeable : SC_Par.prototype.setPurgeable
+  , add : SC_Par.prototype.add
+  , addBranch : SC_Par.prototype.addBranch
+  , awake : SC_Par.prototype.awake
 }
 SC_ParDyn.prototype.wakeup = function(m, flag){
   var res = this.channel.isPresent(m);
@@ -2869,6 +3076,10 @@ SC_ParDyn.prototype.wakeup = function(m, flag){
 SC_ParDyn.prototype.activate = function(m){
   var res = SC_Instruction_State.WAIT;
   //console.log("activate");
+  if(this.forceTermination){
+    this.reset(m);
+    return SC_Instruction_State.TERM;
+    }
   if(this.toRegister){
     this.channel.registerInst(m, this);
     this.toRegister = false;
@@ -2879,7 +3090,8 @@ SC_ParDyn.prototype.activate = function(m){
     this.suspendedChain = t;
   }
   var toActivate = this.suspended.pop();
-  while(null != toActivate){
+  //console.log("toActivate", toActivate, this.suspended.isEmpty());
+  while(null !== toActivate){
     switch(toActivate.flag = toActivate.prg.activate(m)){
       case SC_Instruction_State.SUSP:{
              this.suspendedChain.append(toActivate);
@@ -2927,11 +3139,11 @@ SC_ParDyn.prototype.activate = function(m){
     return SC_Instruction_State.WEOI;
   }
   if(!this.stopped.isEmpty()){
-    if(this.waitting.isEmpty()){
+/*    if(this.waitting.isEmpty()){
       var t = this.suspended;
       this.suspended = this.stopped;
       this.stopped = t;
-    }
+    }*/
     //console.log("STOP -> weoi");
     return SC_Instruction_State.WEOI;
   }
@@ -2940,7 +3152,11 @@ SC_ParDyn.prototype.activate = function(m){
     return SC_Instruction_State.WEOI;
     }
   //console.log("WAIT -> wait");
-  return SC_Instruction_State.WAIT;
+  return (this.suspended.isEmpty()
+          && this.waitting.isEmpty()
+          && this.halted.isEmpty()
+          )?SC_Instruction_State.WEOI
+           :SC_Instruction_State.WAIT;
   }
 SC_ParDyn.prototype.computeAndAdd = function(m){
   var vals = {};
@@ -2971,8 +3187,28 @@ SC_ParDyn.prototype.eoi = function(m){
     tmp = this.stopped.pop();
     }
   if(this.channel.isPresent(m)){
-    //console.log("ther's something to add");
+    console.log("there's something to add "+m.actions.length);
     m.addDynPar(this);
+    }
+  else{
+    /*console.log('par dyn testing at eoi'
+          //, this.suspended.isEmpty()
+          //, this.suspended.start
+          , this.suspended
+          //, this.waitting.isEmpty()
+          //, this.waitting.start
+          , this.waitting
+          //, this.halted.isEmpty()
+          //, this.halted.start
+          , this.halted
+          );*/
+    if(this.suspended.isEmpty()
+      && this.waitting.isEmpty()
+      && this.halted.isEmpty()
+      ){
+        //console.log("terminate !");
+        this.forceTermination = true;
+      }
     }
   }
 SC_ParDyn.prototype.reset = function(m){
@@ -3016,13 +3252,14 @@ SC_ParDyn.prototype.reset = function(m){
     tmp = this.terminated.pop();
   }
   for(var i = 0; i < this.originalBranches.length; i++){
-    //this.branches[i] = new ParBranch(null, this, args[i]);
+    //this.branches[i] = new SC_ParBranch(null, this, args[i]);
     this.suspended.append(this.originalBranches[i]);
     }
   this.channel.unregister(this);
   this.toRegister = true;
+  this.forceTermination = false;
 }
-SC_ParDyn.prototype.registerForProduction = Par.prototype.registerForProduction;
+SC_ParDyn.prototype.registerForProduction = SC_Par.prototype.registerForProduction;
 SC_ParDyn.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
   //console.log(parbranch);
   var copy = new SC_ParDyn(this.channel);
@@ -3031,7 +3268,7 @@ SC_ParDyn.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, c
   copy.cube = cube;
   var tmp = this.suspended.start;
   while(null != tmp){
-    var b = new ParBranch(parbranch, copy, SC_Nothing);
+    var b = new SC_ParBranch(parbranch, copy, SC_Nothing);
     b.prg = tmp.prg.bindTo(engine, b, null, masterSeq, b, cube);
     b.path = copy;
     //b.dynamicPar = true;
@@ -3042,7 +3279,7 @@ SC_ParDyn.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, c
         b.itsParent.hasPotential = true;
         }
       if(copy.prodBranches.indexOf(b)<0){
-        copy.prodBranches[copy.prodBranches.length] = b;
+        copy.prodBranches.push(b);
         }
       }
     copy.suspended.append(b);
@@ -3051,7 +3288,7 @@ SC_ParDyn.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, c
   copy.path = path;
   return copy;
   }
-SC_ParDyn.prototype.removeBranch = Par.prototype.removeBranch;
+SC_ParDyn.prototype.removeBranch = SC_Par.prototype.removeBranch;
 SC_ParDyn.prototype.toString = function(){
   var res ="[";
   for(var i = 0; i < this.branches.length; i++){
@@ -3060,7 +3297,7 @@ SC_ParDyn.prototype.toString = function(){
   }
   return res+"] ";
 }
-SC_ParDyn.prototype.generateValues = Par.prototype.generateValues;
+SC_ParDyn.prototype.generateValues = SC_Par.prototype.generateValues;
 /*********
  * And Class
  *********/
@@ -3361,10 +3598,10 @@ SC_CubeCell.prototype = {
 }
 
 /*********
- * Machine Class
+ * SC_Machine Class
  *********/
-function Machine(delay, params){
-  this.prg = new Par([]);
+function SC_Machine(delay, params){
+  this.prg = new SC_Par([]);
   //this.moved = true;
   this.instantNumber = 1;
   this.delay = delay;
@@ -3378,11 +3615,7 @@ function Machine(delay, params){
   this.name = ((undefined === params)||(undefined === params.name))?"machine_"+SC.count:params.name;
   SC_cubify.apply(this);
   this.prg.cube = this;
-  this.stdOut = function(){};
-  this.setStdOut = function(stdout){
-    this.stdOut = (undefined == stdout)? function(){}
-                                       : stdout;
-    }
+  this.stdOut = NO_FUN;
   if(undefined != params){
     this.setStdOut(params.sortie);
     }
@@ -3391,172 +3624,19 @@ function Machine(delay, params){
   this.addTrace = function(msg){
     this.traces.push(msg);
     }*/
-  this.addCellFun = function(aCell){
-    this.cells[this.cells.length] = aCell;
-    }
-  this.generateEvent = function(evt,val){
-    if(undefined == evt){
-      throw "undefined event !";
-      }
-    this.pending[this.pending.length] = {e:evt,v:val};
-    }
-  this.addProgram = function(p){
-    if(undefined == p){
-      throw "program to add not defined";
-      }
-    this.pendingPrograms[this.pendingPrograms.length] = p;
-    }
-  this.addEvtFun = function(f){
-    this.actionsOnEvents[this.actionsOnEvents.length] = f;
-    }
-  this.addFun = function(fun){
-    this.actions[this.actions.length] = fun;
-    }
-  this.getInstantNumber = function(){
-          return this.instantNumber;
-  }
-  this.getTopLevelParallelBranchesNumber = function(){
-          return this.prg.branches.length;
-  }
-  this.addDynPar = function(p){
-    this.parActions.push(p);
-    }
-  this.setKeepRunningTo = function(b){
-    if(this.timer != 0){
-      if(b){
-        return;
-      }
-      window.clearInterval(this.timer);
-      this.timer = 0;
-    }
-    else{
-      if(b){
-        this.timer = window.setInterval(function(){this.react();}.bind(this), delay);
-      }
-    }
-  }
   if(undefined != params && undefined != params.init){
     this.addProgram(params.init);
     }
   else{
     this.addProgram(SC.pauseForever());
     }
-  this.react = function(){
-    var res = SC_Instruction_State.STOP;
-    var tmp = this.pending;
-    this.pending=[];
-    for(var n in tmp){
-      if(tmp[n].e instanceof SC_Sensor){
-        tmp[n].e.systemGen(tmp[n].v, this, true);
-        }
-      else{
-        tmp[n].e.generate(this, true);
-        tmp[n].e.generateValues(this, tmp[n].v);
-        }
-      //this.moved = true;
-      }
-    tmp = this.pendingPrograms;
-    this.pendingPrograms = [];
-    for(var i in tmp){
-      this.prg.addBranch(tmp[i], null, this);
-      }
-    this.actions = [];
-    this.actionsOnEvents = [];
-    this.cells = [];
-    this.parActions = [];
-    this.stdOut("\n"+this.instantNumber+" -: ");
-    // Phase 1 : pure reactive execution
-    while(SC_Instruction_State.SUSP == (res = this.prg.activate(this)) /*&& this.moved*/){
-      //this.moved = false;
-    }
-    //this.moved = false;
-    if((SC_Instruction_State.SUSP == res)||(SC_Instruction_State.WEOI == res)){
-      this.prg.eoi(this);
-      res = SC_Instruction_State.STOP;
-    }
-    // Phase 2 : collecting event values
-    if(this.prg.hasProduction){
-      this.prg.generateValues(this);
-    }
-    // Phase 3 : atomic computations
-    for(var cell in this.cells){
-      this.cells[cell].prepare(this);
-      }
-    for(var i in this.actionsOnEvents){
-      var act = this.actionsOnEvents[i];
-      var a = act.action;
-      var vals = {};
-      act.config.getAllValues(this, vals);
-      if(null != a.f){
-        var t = a.t;
-        if(null == t) continue;
-        t[a.f].call(t,vals, this);
-        }
-      else{
-        a(vals, this);
-        }
-      }
-    for(var i in this.actions){
-      var act = this.actions[i];
-      if(null != act.f){
-        var t = act.t;
-        if(null == t) continue;
-        t[act.f].call(t,this);
-        }
-      else{
-        act(this);
-        }
-      }
-    // Phase 4 : swap states
-    for(var cell in this.cells){
-      this.cells[cell].swap();
-      //var zeCell = this.cells[cell];
-      //zeCell.state = zeCell.futur;
-      }
-    for(var i = 0; i < this.parActions.length; i++){
-      this.parActions[i].computeAndAdd(this);
-      }
-    if(this.traceEvt.isPresent(this)){
-      console.log.call(console, this.traceEvt.getValues(this));
-      }
-    this.instantNumber++;
-    if(this.delay > 0 && res == SC_Instruction_State.TERM && (null != this.timer)){
-      window.clearInterval(this.timer)
-    }
-    if(0 == this.instantNumber%256){
-      if(0 != this.reactMeasuring){
-        this.ips = Math.floor(this.instantNumber*10000
-                          /(window.performance.now()-this.reactMeasuring))/10;
-      }
-      else{
-        if(undefined == window.performance){
-          window.performance = {now:function(){
-                       return new Date().getTime();
-                       }
-                     };
-        }
-        this.reactMeasuring = window.performance.now();
-        }
-      }
-    /*if(this.traces.length>0){
-      console.log.call(console, this.traces);
-      this.traces = [];
-    }*/
-    if(SC_Instruction_State.TERM == res){
-      console.log("machine stops");
-      }
-    return res != SC_Instruction_State.TERM;
-    }
   this.ips = 0;
   this.reactMeasuring = 0;
-  this.getIPS = function(){
-    return this.ips;
-    }
-  if(delay > 0){
+  if(this.delay > 0){
     this.timer = window.setInterval(
-    (function(m){ return function(){m.react();}
-    })(this)
-    , delay);
+        (function(m){ return function(){m.react();}
+         })(this)
+        , this.delay);
     }
   else{
     this.delay = -1;
@@ -3595,6 +3675,8 @@ function Machine(delay, params){
                     , cx:evt.clientX, cy:evt.clientY
                     , sx:evt.screenX, sy:evt.screenY
                     , btn:((undefined == evt.button)?-1:evt.button)
+                    , which: evt.which
+                    , buttons : evt.buttons
                     });
       }.bind(this),
     "mousemove" : function(evt, e){
@@ -3602,6 +3684,8 @@ function Machine(delay, params){
                     , cx:evt.clientX, cy:evt.clientY
                     , sx:evt.screenX, sy:evt.screenY
                     , btn:((undefined == evt.button)?-1:evt.button)
+                    , which: evt.which
+                    , buttons : evt.buttons
                     });
       }.bind(this),
     "mouseup" : function(evt, e){
@@ -3609,6 +3693,8 @@ function Machine(delay, params){
                     , cx:evt.clientX, cy:evt.clientY
                     , sx:evt.screenX, sy:evt.screenY
                     , btn:((undefined == evt.button)?-1:evt.button)
+                    , which: evt.which
+                    , buttons : evt.buttons
                     });
       }.bind(this),
     "touchstart" : function(evt, e){
@@ -3680,6 +3766,188 @@ function Machine(delay, params){
     }
   }
 }
+SC_Machine.prototype = 
+{
+  constructor : SC_Machine
+  , setStdOut : function(stdout){
+      this.stdOut = NO_FUN;
+      if((undefined != stdout)&&("function" == typeof(stdout))){
+        this.stdOut = stdout;
+        }
+      }
+  /* internal */
+  , addCellFun : function(aCell){
+      this.cells.push(aCell);
+      }
+  , generateEvent : function(evt, val){
+      if(undefined == evt){
+        throw "undefined event !";
+        }
+      this.pending.push({e:evt, v:val});
+      }
+  , addProgram : function(p){
+      if(undefined == p){ /* more checks to do */
+        throw "program to add not defined";
+        }
+      this.pendingPrograms.push(p);
+      }
+  , addEvtFun : function(f){
+      this.actionsOnEvents.push(f);
+      }
+  , addFun : function(fun){
+      this.actions.push(fun);
+      }
+  , getInstantNumber : function(){
+      return this.instantNumber;
+      }
+  , getTopLevelParallelBranchesNumber : function(){
+      return this.prg.branches.length;
+      }
+  , addDynPar : function(p){
+      this.parActions.push(p);
+      }
+  , setRunningDelay : function(d){
+      if(isNan(d) || d <= 0){
+        console.log("negative delay");
+        return;
+        }
+      this.delay = d;
+      if(this.timer != 0){
+        window.clearInterval(this.timer);
+        this.timer = 0;
+        }
+      this.timer = window.setInterval(function(){this.react();}.bind(this), this.delay);
+      }
+  , setKeepRunningTo : function(b){
+      if(this.timer != 0){
+        if(b){
+          return;
+          }
+        window.clearInterval(this.timer);
+        this.timer = 0;
+        }
+      else{
+        if(b){
+          this.timer = window.setInterval(function(){this.react();}.bind(this), this.delay);
+          }
+        }
+      }
+  , react : function(){
+      var res = SC_Instruction_State.STOP;
+      var tmp = this.pending;
+      this.pending=[];
+      for(var n in tmp){
+        if(tmp[n].e instanceof SC_Sensor){
+          tmp[n].e.systemGen(tmp[n].v, this, true);
+          }
+        else{
+          tmp[n].e.generate(this, true);
+          tmp[n].e.generateValues(this, tmp[n].v);
+          }
+        //this.moved = true;
+        }
+      tmp = this.pendingPrograms;
+      this.pendingPrograms = [];
+      for(var i in tmp){
+        this.prg.addBranch(tmp[i], null, this);
+        }
+      this.actions = [];
+      this.actionsOnEvents = [];
+      this.cells = [];
+      this.parActions = [];
+      this.stdOut("\n"+this.instantNumber+" -: ");
+      // Phase 1 : pure reactive execution
+      while(SC_Instruction_State.SUSP == (res = this.prg.activate(this)) /*&& this.moved*/){
+        //this.moved = false;
+      }
+      //console.log("res = ",res);
+      //this.moved = false;
+      if((SC_Instruction_State.SUSP == res)||(SC_Instruction_State.WEOI == res)){
+        this.prg.eoi(this);
+        res = SC_Instruction_State.STOP;
+      }
+      // Phase 2 : collecting event values
+      if(this.prg.hasProduction){
+        this.prg.generateValues(this);
+      }
+      // Phase 3 : atomic computations
+      for(var cell in this.cells){
+        this.cells[cell].prepare(this);
+        }
+      for(var i = 0; i < this.actionsOnEvents.length; i++){
+        var act = this.actionsOnEvents[i];
+        var a = act.action;
+        var vals = {};
+        act.config.getAllValues(this, vals);
+        if(null != a.f){
+          var t = a.t;
+          if(null == t) continue;
+          t[a.f].call(t,vals, this);
+          }
+        else{
+          a(vals, this);
+          }
+        }
+      for(var i = 0; i < this.actions.length; i++){
+        var act = this.actions[i];
+        if(null != act.f){
+          var t = act.t;
+          if(null == t) continue;
+          t[act.f].call(t,this);
+          }
+        else{
+          act(this);
+          }
+        }
+      // Phase 4 : swap states
+      for(var cell in this.cells){
+        this.cells[cell].swap();
+        //var zeCell = this.cells[cell];
+        //zeCell.state = zeCell.futur;
+        }
+      for(var i = 0; i < this.parActions.length; i++){
+        this.parActions[i].computeAndAdd(this);
+        }
+      if(this.traceEvt.isPresent(this)){
+        console.log.call(console, this.traceEvt.getValues(this));
+        }
+      this.instantNumber++;
+      if(this.delay > 0 && res == SC_Instruction_State.TERM && (null != this.timer)){
+        window.clearInterval(this.timer)
+      }
+      if(0 == this.instantNumber%256){
+        if(0 != this.reactMeasuring){
+          this.ips = Math.floor(this.instantNumber*10000
+                            /(window.performance.now()-this.reactMeasuring))/10;
+        }
+        else{
+          if(undefined == window.performance){
+            window.performance = {now:function(){
+                         return new Date().getTime();
+                         }
+                       };
+          }
+          this.reactMeasuring = window.performance.now();
+          }
+        }
+      /*if(this.traces.length>0){
+        console.log.call(console, this.traces);
+        this.traces = [];
+      }*/
+      if(SC_Instruction_State.TERM == res){
+        console.log("machine stops");
+        }
+      return res != SC_Instruction_State.TERM;
+      }
+  , getIPS : function(){
+      return this.ips;
+      }
+  , reactASAP : function(){
+      window.setInterval(
+          (function(m){ return function(){m.react();}
+           })(this));
+      }
+  };
 
 /*********
  * Kill Class
@@ -3760,8 +4028,14 @@ Kill.prototype.reset = function(m){
   this.state = SC_Instruction_State.SUSP;
 }
 Kill.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
+  var binder = _SC._b(cube);  
   var copy = new Kill();
-  copy.c = this.c.bindTo(engine, parbranch, null, masterSeq, copy, cube);
+  if(this.c instanceof SC_CubeBinding){
+    copy.c = binder(this.c);
+    }
+  else{
+    copy.c = this.c.bindTo(engine, parbranch, null, masterSeq, copy, cube);
+    }
   copy.p = this.p.bindTo(engine, parbranch, null, masterSeq, copy, cube);
   copy.h = this.h.bindTo(engine, parbranch, null, masterSeq, copy, cube);
   copy.path = path;
@@ -3889,32 +4163,37 @@ Control.prototype.toString = function(){
 /*********
  * SC_Cube Class
  *********/
-function SC_Cube(o, p){
+function SC_Cube(o, p, lastWill){
   this.o = o;
   this.p = p;
+  this.lastWill = (undefined != lastWill)?lastWill:NO_FUN;
+  //console.log("cube last will", this.lastWill);
   this.toAdd = [];
-  this.addProgram = this.addFirst;
+  //this.addProgram = this.addFirst;
 }
 SC_Cube.prototype = {
-  activate : function(m){
-    return this.p.activate(m);
-    }
+  constructor : SC_Cube
+  , activate : function(m){
+      return this.p.activate(m);
+      }
   , eoi : function(m){
     this.p.eoi(m);
     }
   , reset : function(m){
+      m.addFun(this.lastWill);
       this.p.reset(m);
       }
-  , addSecond: function(p){
+  /*, addSecond: function(p){
     //console.log("adding second", p);
     this.dynamic.addBranch(p, this.pb, this.m);
-    }
-  , addFirst : function(p){
+    }*/
+  , addProgram : function(p){
     //console.log("adding first", p);
     this.toAdd.push(p);
     }
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       //console.log("adding on bind");
+      var binder = _SC._b(this);
       var tmp_par = SC.par();
       var tmp_par_dyn;
       if(undefined !== this.o.SC_cubeAddBehaviorEvt){
@@ -3930,17 +4209,31 @@ SC_Cube.prototype = {
              )
            );
         }
-      tmp_par.add(tmp_par_dyn = SC.parex(this.o.SC_cubeAddBehaviorEvt
+      const dieEvt = this.o.SC_cubeKillEvt;
+      tmp_par.add(SC.seq(tmp_par_dyn = SC.parex(this.o.SC_cubeAddBehaviorEvt
                          , this.p
-                        ));
+                        )
+                     //, SC.log("cube finished will die")
+                     , SC.generate(dieEvt)
+                     ));
       for(var i = 0 ; i < this.toAdd.length; i++){
         //console.log("adding on bind", this.toAdd[i]);
         tmp_par_dyn.add(this.toAdd[i]);
         }
-      var copy = new SC_Cube(this.o, tmp_par.bindTo(engine, parbranch, null, masterSeq, path, this.o));
+      var tmp_beh = SC.kill(
+        dieEvt
+        , tmp_par
+        );
+      var copy = new SC_Cube(this.o, tmp_beh.bindTo(engine, parbranch, null, masterSeq, path, this.o), binder(this.lastWill));
+      if(copy.lastWill.f && copy.lastWill.t){
+        copy.lastWill = copy.lastWill.t[copy.lastWill.f].bind(copy.lastWill.t);
+        }
+      else{
+        copy.lastWill = copy.lastWill;
+        }
       copy.dynamic = tmp_par_dyn;
       copy.toAdd = undefined;
-      copy.addProgram = copy.addSecond;
+      //copy.addProgram = copy.addSecond;
       copy.m = engine;
       copy.pb = parbranch;
       return copy;
@@ -3953,6 +4246,9 @@ SC_Cube.prototype = {
   , its : function(nom){
       return this.o["$"+nom];
       }
+/*  , me : function(){
+    return this.o;
+    }*/
   , addCell : function(nom, init, el, fun){
       var tgt = this.o;
       if(undefined !== fun){
@@ -4057,31 +4353,32 @@ function SC_Test(b, t, e){
   this.path = null;
 }
 SC_Test.prototype = {
-  activate : function(m){
-    if(null != this.choice){
+  constructor : SC_Test
+  , activate : function(m){
+      if(null != this.choice){
+        var res = this.choice.activate(m);
+        if(SC_Instruction_State.TERM == res){
+          this.reset(m);
+          }
+        return res;
+        }
+      if(this.test(m)){
+        this.choice = this.t;
+        }
+      else{
+        this.choice = this.e;
+        }
       var res = this.choice.activate(m);
       if(SC_Instruction_State.TERM == res){
         this.reset(m);
         }
       return res;
       }
-    if(this.test(m)){
-      this.choice = this.t;
-      }
-    else{
-      this.choice = this.e;
-      }
-    var res = this.choice.activate(m);
-    if(SC_Instruction_State.TERM == res){
-      this.reset(m);
-      }
-    return res;
-    }
   , test : function(m){
       if("function" == typeof(this.b)){
         return this.b(m);
         }
-      return (((null == this.b.t)?eval(this.b.f):this.b.t[this.b.f]));
+      return (((null == this.b.t)?this.b:this.b.t[this.b.f]));
       }
   , awake : function(m, flag){
       return this.path.awake(m, flag);
@@ -4098,7 +4395,9 @@ SC_Test.prototype = {
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
       var copy = new SC_Test(binder(this.b));
+      //console.log("testing : ", copy.b);
       copy._b = this.b;
+      //console.log("SC.test condition = "+copy.b);
       copy.t = this.t.bindTo(engine, parbranch, null, masterSeq, copy, cube);
       copy.e = this.e.bindTo(engine, parbranch, null, masterSeq, copy, cube);
       copy.path = path;
@@ -4200,7 +4499,6 @@ function SC_ValueWrapper(tgt, n){
 SC_ValueWrapper.prototype.getVal = function(){
   return this.tgt[this.n];
   }
-
 SC = {
   evt: function(name){
     return new SC_Event(name);
@@ -4209,12 +4507,18 @@ SC = {
     return new SC_Sensor(name);
     },
   machine: function(delay, initParams){
-    return new Machine(delay, initParams);
+    return new SC_Machine(delay, initParams);
     },
   pauseForever: function(){
     return SC_PauseForever;
   },
   nothing: function(){
+    return SC_Nothing;
+    },
+  purge: function(prg){
+    return (undefined == prg)?VOID_NODE:prg;
+    },
+  nop: function(){
     return SC_Nothing;
     },
   pauseRT: function(n){
@@ -4238,6 +4542,12 @@ SC = {
   action: function(fun, times){
     return new SC_Action(_SC.b_(fun), _SC.b_(times));
   },
+  actionWhen: function(c, fun, deffun, times){
+    if(undefined == c){
+      throw "config not defined";
+      }
+    return new SC_ActionOnEvent(_SC.b_(c), _SC.b_(fun), _SC.b_(deffun), _SC.b_(times));
+  },
   actionOn: function(c, fun, deffun, times){
     if(undefined == c){
       throw "config not defined";
@@ -4248,14 +4558,15 @@ SC = {
     return new SC_Action(fun);
   },
   par: function(){
-    return new Par(arguments, undefined);
+    return new SC_Par(arguments, undefined);
   },
+  NO_ACTION:NO_FUN,
   parex: function(evt){
     var prgs = [];
     for(var i = 1 ; i < arguments.length; i++){
       prgs.push(arguments[i]);
     }
-    return new Par(prgs, evt);
+    return new SC_Par(prgs, evt);
   },
   nextInput: function(evt, v, t){
     return new SC_Send(_SC.b_(evt), v, _SC.b_(t));
@@ -4270,7 +4581,7 @@ SC = {
   generateWrapped: function(evt, v, times){
     return new SC_Generate(_SC.b_(evt), _SC.b_(v), _SC.b_(times));
   },
-  loop: function(n){
+  function(n){
     var prgs = [];
     var jump = 1;
     prgs[0] = new SC_LoopPoint(n);
@@ -4366,8 +4677,8 @@ SC = {
                        , _SC.b_(t)
                        , _SC.b_(n));
   },
-  cube: function(o, p){
-    return new SC_Cube(o,p);
+  cube: function(o, p, lastWill){
+    return new SC_Cube(o, p, lastWill);
   },
   mark: function(f){
     return new Mark(f);
@@ -4385,6 +4696,7 @@ SC = {
     function act(msg){
       console.log(msg);
       }
+    //console.log("preparing log for : ",msg);
     return SC.action(act.bind(null, msg));
     },
   cellify: function(tgt, nom, fun, el, sub){
@@ -4458,6 +4770,23 @@ SC = {
   my: function(field){
     return _SC.b_(field);
     },
+  send: function(m, evt, v){
+    return SC.action(function(evt, v){
+      //console.log("sending ",evt, v);
+      this.generateEvent(evt, v);
+      }.bind(m, evt, v))
+    },
+  next: function(delay){
+    if(undefined === delay){
+      delay = 0;
+      }
+    if(delay < 0){
+      throw "invalid delay : "+delay;
+      }
+    return SC.action(function(delay, m){
+      setTimeout(m.react.bind(m), delay);
+      }.bind(null, delay));
+    },
   writeInConsole:function(){
     console.log.call(console,arguments);
     },
@@ -4475,5 +4804,722 @@ Mark.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
   var copy = new Mark(this.f);
   return copy;
 }
+
+SC.lang ={
+  grammar : ""
+  };
+
+function SC_Def_crowlHTML(anArray){
+  var res = "";
+  for(var i in anArray){
+    var tmp = anArray[i];
+    if(tmp instanceof Array){
+      res += SC_Def_crowlHTML(tmp);
+      }
+    else if(null == tmp){
+      }
+    else{
+      res += tmp.html();
+      }
+    }
+  return res;
+  }
+
+//-- ReactiveWorld
+function SC_ReactiveWorld(){
+  this.events = {};
+  this.machine = SC.machine();
+  }
+SC_ReactiveWorld.prototype.include = function(aSource){
+  var zeRes = SC.lang.parse(aSource, this);
+  }
+SC_ReactiveWorld.prototype.react = function(){
+  //console.log("react");
+  return this.machine.react();
+  }
+
+//-- Definition
+function SC_Definition(content){
+  this.content = content;
+  }
+SC_Definition.prototype.html = function(){
+  var res = "<span class='def_block'>";
+  res += (this.content[0]).html();
+  res += (this.content[1]).html();
+  for(var i in this.content[2]){
+    res += (this.content[2][i]).html();
+    }
+  res += (this.content[3]).html();
+  return res+'</span>';
+  }
+SC_Definition.prototype.process = function(env){
+  var res = "processing definition<br>";
+  for(var i in this.content[2]){
+    res += (this.content[2][i]).process(env);
+    }
+  return res;
+  }
+
+//-- GlobalDef
+function SC_GlobalDef(content){
+  this.content = content;
+  this.id = content[2];
+  this.global = (content[0].text == 'map');
+  }
+SC_GlobalDef.prototype.html = function(){
+  var res = "";
+  if(this.global){
+    res += this.content[0].html();
+    }
+  else{
+    res += this.content[0][0].html();
+    if(this.content[0].length> 1){
+      if(undefined != this.content[0][1]){
+        res += this.content[0][1][0].html();
+        res += this.content[0][1][1].html();
+        }
+      }
+    }
+  res += this.content[1].html();
+  //console.log(this.id.substr(0,1));
+  res += this.id.html();
+  res += this.content[3].html();
+  if(undefined != this.content[4]){
+    res += this.content[4][0];
+    res += this.content[4][1].html();
+    res += this.content[4][2];
+    res += this.content[4][3].html();
+    for(var i in this.content[4][4]){
+      var tmp = this.content[4][4][i];
+      res += tmp[0].html();
+      res += tmp[1].html();
+      res += tmp[2].html();
+      res += tmp[3].html();
+      res += tmp[4].html();
+      res += tmp[5].html();
+      res += tmp[6].html();
+      res += tmp[7].html();
+      }
+    res += this.content[4][5];
+    res += this.content[4][6].html();
+    }
+  res += this.content[5].html();
+  res += this.content[6].html();
+  return res;
+  }
+SC_GlobalDef.prototype.process = function(env){
+  var res = "";
+  env.addGlobalEventDefinition(this.id)
+  return res;
+  }
+
+//-- SC_ParDef
+function SC_ParDef(p1, p2){
+  this.content = Array.prototype.concat([p1], p2);
+  //console.log("pardef ", this.content, p1, p2);
+  }
+SC_ParDef.prototype.processable = true;
+SC_ParDef.prototype.html = function(){
+  var res = "";
+  for(var i in this.content){
+    var node = this.content[i];
+    res += node.html();
+    }
+  res += "";
+  return res;
+  }
+SC_ParDef.prototype.process = function(env){
+  var res = "processing par<br>";
+  this.result = SC.par();
+  for(var i in this.content){
+    var node = this.content[i];
+    if(node.processable){
+      res += node.process(env);
+      this.result.add(node.result);
+      //console.log("par adding = "+node.result);
+      }
+    }
+  //console.log("par prg = ", this.result);
+  //console.log("par prg = "+this.result);
+  return res;
+  }
+
+//-- SC_ParOpDef
+function SC_ParOpDef(p1, p2){
+  this.skip1 = p1;
+  this.skip2 = p2;
+  }
+SC_ParOpDef.prototype.html = function(){
+  var res = "";
+  res += this.skip1.html()
+  res += "||";
+  res += this.skip2.html()
+  return res;
+  }
+SC_ParOpDef.prototype.process = function(env){
+  var res = "";
+  return res;
+  }
+
+//-- SC_SeqDef
+function SC_SeqDef(p1, p2){
+  this.content = Array.prototype.concat([p1], p2);
+  //console.log("seqdef ", this.content, p1, p2);
+  }
+SC_SeqDef.prototype.processable = true;
+SC_SeqDef.prototype.html = function(){
+  var res = "";
+  for(var i in this.content){
+    var node = this.content[i];
+    res += node.html();
+    }
+  res += "";
+  return res;
+  }
+SC_SeqDef.prototype.process = function(env){
+  var res = "processing seq<br>";
+  this.result = SC.seq();
+  for(var i in this.content){
+    var node = this.content[i];
+    //console.log("in seq = ", node);
+    if(node.processable){
+      res += node.process(env);
+      this.result.add(node.result);
+      }
+    }
+  //console.log("seq res = ", this.result)
+  return res;
+  }
+
+//-- SC_SeqOpDef
+function SC_SeqOpDef(p1, p2){
+  this.skip1 = p1;
+  this.skip2 = p2;
+  }
+SC_SeqOpDef.prototype.html = function(){
+  var res = "";
+  res += this.skip1.html()
+  res += ";";
+  res += this.skip2.html()
+  return res;
+  }
+SC_SeqOpDef.prototype.process = function(env){
+  var res = "";
+  return res;
+  }
+//-- SC_BoolANDOPDef
+function SC_BoolANDOPDef(p1, p2){
+  this.skip1 = p1;
+  this.skip2 = p2;
+  }
+SC_BoolANDOPDef.prototype.html = function(){
+  var res = "";
+  res += this.skip1.html()
+  res += "/\\";
+  res += this.skip2.html()
+  return res;
+  }
+SC_BoolANDOPDef.prototype.process = function(env){
+  var res = "";
+  return res;
+  }
+
+//-- SC_PauseDef
+function SC_PauseDef(times){
+  if(undefined == times){
+    }
+  else if('forever' == times[1].text){
+    this.skip= SC.lang.skip(times[0]);
+    this.forever=true;
+    }
+  else{
+    this.skip= SC.lang.skip(times[0]);
+    this.times = times[1][0];
+    this.skip2 = SC.lang.skip(times[1][1]);
+    }
+  //console.log("pause... ", times, this.forever, this.times);
+  }
+SC_PauseDef.prototype.processable = true;
+SC_PauseDef.prototype.html = function(){
+  var res = "<span class='keyword'>pause</span>";
+  if(undefined != this.skip){
+    res += this.skip.html();
+    if(this.forever){
+      res += "<span class='keyword'>forever</span>";
+      }
+    else{
+      res += this.times.html();
+      res += this.skip2.html();
+      res += "<span class='keyword'>times</span>";
+      }
+    }
+  return res;
+  }
+SC_PauseDef.prototype.process = function(env){
+  var res = "processing pause<br>";
+  if(this.forever){
+    //console.log("pause forever");
+    this.result = SC.pauseForever();
+    }
+  else{
+    //console.log("pause ", this.times);
+    var steps = (undefined == this.times)?undefined:this.times.val;
+    //console.log(typeof steps);
+    this.result=SC.pause(steps);
+  }
+  return res;
+  }
+
+//-- SC_ParenDef
+function SC_ParenDef(skp1, prg, skp2){
+  this.skp1 = skp1;
+  this.skp2 = skp2;
+  this.prg = prg;
+  }
+SC_ParenDef.prototype.processable = true;
+SC_ParenDef.prototype.html = function(){
+  var res = "<span class='parenBlock'>{";
+  res += this.skp1.html();
+  res += this.prg.html();
+  res += this.skp2.html();
+  res += "}</span>";
+  return res;
+  }
+SC_ParenDef.prototype.process = function(env){
+  var res = "";
+  res += this.prg.process(env);
+  this.result=this.prg.result;
+  return res;
+  }
+
+//-- SC_RepeatDef
+function SC_RepeatDef(body){
+  this.body = body;
+  }
+SC_RepeatDef.prototype.processable = true;
+SC_RepeatDef.prototype.html = function(){
+  var res = "<span class='repeatBlock'>"+SC_Def_crowlHTML(this.body)+"</span>";
+  return res;
+  }
+SC_RepeatDef.prototype.process = function(env){
+  var res = "processing repeat<br>";
+  res += this.body[5].process(env);
+  if(null == this.body[1]){
+    //console.log('repeat forever', this.body, this.body[5].result);
+    this.result = SC.repeat(SC.forever, this.body[5].result);
+    }
+  else{
+    //console.log('repeat '+this.body[1][1][0].val+' times', this.body, this.body[5].result);
+    this.result = SC.repeat(this.body[1][1][0].val, this.body[5].result);
+    }
+  return res;
+  }
+
+//-- SC_KillDef
+function SC_KillDef(body){
+  this.body = body;
+  this.id = body[4];
+  }
+SC_KillDef.prototype.processable = true;
+SC_KillDef.prototype.html = function(){
+  var res = "<span class='killBlock'>";
+  res += SC_Def_crowlHTML(this.body);
+  return res+"</span>";
+  }
+SC_KillDef.prototype.process = function(env){
+  var res = "processing kill<br>";
+  res += this.body[8].process(env);
+  var evt = env.getGlobalEvent(this.id);
+  //console.log('kill', this.body, evt, this.body[2].result);
+  this.result = SC.kill(evt, this.body[8].result);
+  return res;
+  }
+
+//-- SC_LogDef
+function SC_LogDef(skip, msg){
+  this.skip = skip;
+  this.msg = msg;
+  }
+SC_LogDef.prototype.processable = true;
+SC_LogDef.prototype.html = function(){
+  var res = "<span class='keyword'>log</span>";
+  res += this.skip.html();
+  res += "<span class='strings'>"+this.msg+"</span>";
+  return res;
+  }
+SC_LogDef.prototype.process = function(env){
+  var res = "processing log<br>";
+  this.result=SC.log(this.msg);
+  return res;
+  }
+
+//-- SC_AwaitDef
+function SC_AwaitDef(skip, id){
+  this.skip = skip;
+  this.id = id;
+  }
+SC_AwaitDef.prototype.processable = true;
+SC_AwaitDef.prototype.html = function(){
+  var res = "<span class='keyword'>await</span>";
+  res += this.skip.html();
+  res += this.id.html();
+  return res;
+  }
+SC_AwaitDef.prototype.process = function(env){
+  var res = "processing await<br>";
+  var evt = env.getGlobalEvent(this.id);
+  if(undefined === evt){
+    throw "Undefined event id after await : "+this.id;
+    }
+  this.result=SC.await(evt);
+  return res;
+  }
+
+//-- SC_GenerateDef
+function SC_GenerateDef(skip, id){
+  this.skip = skip;
+  this.id = id;
+  }
+SC_GenerateDef.prototype.processable = true;
+SC_GenerateDef.prototype.html = function(){
+  var res = "<span class='keyword'>generate</span>";
+  res += this.skip.html();
+  res += "<span class='ftk_emit'>"+this.id.html()+"</span>";
+  return res;
+  }
+SC_GenerateDef.prototype.process = function(env){
+  var res = "processing generate<br>";
+  var evt = env.getGlobalEvent(this.id);
+  if(undefined === evt){
+    throw "Undefined event id after generate : "+this.id;
+    }
+  this.result=SC.generate(evt);
+  return res;
+  }
+
+//-- SkipDef
+function SC_SkipDef(data){
+  if(data instanceof Array){
+    this.content = data;
+    }
+  else{
+    this.content = [data];
+    }
+  }
+SC_SkipDef.prototype.html = function(){
+  var res = "";
+  for(var i in this.content){
+    res += (this.content[i]).html();
+    }
+  return res;
+  }
+SC_SkipDef.prototype.process = function(env){
+  return "";
+  }
+
+//-- Spaces
+function SC_Spaces(str){
+  this.text = str;
+  }
+SC_Spaces.prototype.html = function(){
+  return this.text;
+  }
+SC_Spaces.prototype.process = function(env){
+  return "";
+  }
+
+//-- Comments
+function SC_Comment(str){
+  this.text = str;
+  }
+SC_Comment.prototype.html = function(){
+  return "<span class='comment'>"+this.text+"</span>";
+  }
+SC_Comment.prototype.process = function(env){
+  return "";
+  }
+
+//-- SC_Keyword
+function SC_Keyword(str){
+  this.text = str;
+  }
+SC_Keyword.prototype.html = function(){
+  return "<span class='keyword'>"+this.text+"</span>";
+  }
+SC_Keyword.prototype.process = function(env){
+  return "";
+  }
+
+//-- SC_KeywordVal
+function SC_KeywordVal(str){
+  this.text = str;
+  }
+SC_KeywordVal.prototype.html = function(){
+  return "<span class='constante'>"+this.text+"</span>";
+  }
+SC_KeywordVal.prototype.process = function(env){
+  return "";
+  }
+
+//-- SC_Ponctuation
+function SC_Ponctuation(str){
+  this.text = str;
+  }
+SC_Ponctuation.prototype.html = function(){
+  return this.text;
+  }
+SC_Ponctuation.prototype.process = function(env){
+  return "";
+  }
+
+//-- SC_FieldIDDef
+function SC_FieldIDDef(str){
+  this.text = str;
+  }
+SC_FieldIDDef.prototype.html = function(){
+  return "<span class='field_id'>"+this.text+"</span>";
+  }
+SC_FieldIDDef.prototype.process = function(env){
+  return "";
+  }
+
+//-- SC_EventIDDef
+function SC_EventIDDef(str){
+  this.text = str;
+  }
+SC_EventIDDef.prototype.html = function(){
+  return "<span class='field_id'>"+this.text+"</span>";
+  }
+SC_EventIDDef.prototype.getID = function(){
+  return this.text.substr(1);
+  }
+SC_EventIDDef.prototype.process = function(env){
+  return "";
+  }
+
+//-- SC_SensorIDDef
+function SC_SensorIDDef(str){
+  this.text = str;
+  }
+SC_SensorIDDef.prototype.html = function(){
+  return "<span class='sensor_id'>"+this.text+"</span>";
+  }
+SC_SensorIDDef.prototype.getID = function(){
+  return this.text.substr(1);
+  }
+SC_SensorIDDef.prototype.process = function(env){
+  return "";
+  }
+
+//-- SC_NumberDef
+function SC_NumberDef(str){
+  this.val = parseInt(str);
+  //console.log("num = ", str, this.val);
+  }
+SC_NumberDef.prototype.html = function(){
+  return "<span class='number'>"+this.val+"</span>";
+  }
+SC_NumberDef.prototype.process = function(env){
+  return "";
+  }
+
+//-- Module
+function SC_Module(args){
+  var a = Array.prototype.slice.call(args);
+  this.content = [];
+  this.globalEvents = [];
+  this.localEvents = [];
+  this.myRW = null;
+  //console.log("a = ",a);
+  for(var i = 0; i < args.length; i++){
+    var n = args[i];
+    //console.log("node",n);
+    this.content.push(n);
+    }
+  }
+SC_Module.prototype.html = function(){
+  var res = "";
+  for(var i in this.content){
+    res += (this.content[i]).html();
+    }
+  //console.log(res);
+  return res;
+  }
+SC_Module.prototype.process = function(aRW){
+  var res = "processing a module<br>";
+  this.myRW = aRW;
+  /* processing definitions */
+  var defs = this.content[1];
+  if(undefined !== defs){
+    res += defs.process(this);
+    }
+  for(var i in this.globalEvents){
+    var evt = this.globalEvents[i];
+    //console.log("evt to define ", evt);
+    if(evt in aRW.events){
+      res += evt+" already defined.";
+      }
+    else {
+      var zeSCEvent = SC.evt(evt.getID());
+      this.myRW.events[evt] = zeSCEvent;
+      res += "Defining "+evt+" ("+zeSCEvent+").";
+      }
+    }
+  for(var i in this.localEvents){
+    var evt = this.localEvents[i];
+    if(evt in aRW.events){
+      res += evt+" already defined.";
+      }
+    else {
+      var zeSCEvent = SC.evt(evt.getID());
+      this.myRW.events[evt] = zeSCEvent;
+      res += "Defining "+evt+" ("+zeSCEvent+").";
+      }
+    }
+  var script = this.content[3];
+  if(undefined !== script){
+    res += script.process(this);
+    this.result = script.result;
+    }
+  //console.log("ze script", this.result);
+  return res;
+  }
+SC_Module.prototype.addGlobalEventDefinition = function(id){
+  this.globalEvents.push(id);
+  }
+SC_Module.prototype.addLocalEventDefinition = function(id){
+  this.localEvents.push(id);
+  }
+SC_Module.prototype.getGlobalEvent = function(id){
+  return this.myRW.events[id];
+  }
+
+SC.lang.module= function(){
+    return new SC_Module(arguments);
+    }
+SC.lang.comment= function(str){
+      return new SC_Comment(str);
+      }
+SC.lang.space= function(str){
+      return new SC_Spaces(str);
+      }
+SC.lang.skip= function(str){
+      return new SC_SkipDef(str);
+      }
+SC.lang.define= function(content){
+      return new SC_Definition(content);
+      }
+SC.lang.globalDef= function(content){
+      return new SC_GlobalDef(content);
+      }
+SC.lang.initAReactiveWorld = function(){
+  if(undefined == this.parser){
+    const tmp = new XMLHttpRequest();
+    this.pendingParsing = [];
+    const me = this;
+    tmp.open("GET","/SugarCubes.pegjs", true);
+    tmp.onload = function(){
+      if(200 === tmp.status){
+        me.grammar = tmp.responseText;
+        //console.log("grammar = ",me.grammar);
+        me.parser = peg.generate(me.grammar);
+        //console.log("parser = ",me.parser);
+        if(null !== me.parser){
+          for(var i in me.pendingParsing){
+            //console.log("parsing...", me.pendingParsing[i]);
+            me.parse(me.pendingParsing[i], me.pendingParsing[i].RW);
+            }
+          }
+        }
+      }
+    //console.log("loading");
+    tmp.send(null);
+    }
+  return new SC_ReactiveWorld();
+  }
+SC.lang.await = function(skip, id){
+  return new SC_AwaitDef(skip, id);
+  }
+SC.lang.generate = function(skip, id){
+  return new SC_GenerateDef(skip, id);
+  }
+SC.lang.log= function(skp, msg){
+  return new SC_LogDef(skp, msg);
+  }
+SC.lang.par = function(p1, p2){
+  if(undefined === p2){
+    return p1;
+    }
+  return new SC_ParDef(p1, p2);
+  }
+SC.lang.parOp = function(skp1, skp2){
+  return new SC_ParOpDef(skp1, skp2);
+  }
+SC.lang.BoolAndOp = function(skp1, skp2){
+  return new SC_BoolANDOPDef(skp1, skp2);
+  }
+SC.lang.seq = function(p1, p2){
+  if(undefined === p2){
+    return p1;
+    }
+  return new SC_SeqDef(p1, p2);
+  }
+SC.lang.seqOp = function(skp1, skp2){
+  return new SC_SeqOpDef(skp1, skp2);
+  }
+SC.lang.paren = function(skp1, prg, skp2){
+  return new SC_ParenDef(skp1, prg, skp2);
+  }
+SC.lang.pause = function(times){
+  return new SC_PauseDef(times);
+  }
+SC.lang.kill = function(kill){
+  return new SC_KillDef(kill);
+  }
+SC.lang.keyword = function(text){
+  return new SC_Keyword(text);
+  }
+SC.lang.keywordVal = function(text){
+  return new SC_KeywordVal(text);
+  }
+SC.lang.ponct = function(text){
+  return new SC_Ponctuation(text);
+  }
+SC.lang.fieldId = function(text){
+  return new SC_FieldIDDef(text);
+  }
+SC.lang.number = function(text){
+  return new SC_NumberDef(text);
+  }
+SC.lang.fieldId = function(text){
+  return new SC_FieldIDDef(text);
+  }
+SC.lang.eventIds = function(text){
+  return new SC_EventIDDef(text);
+  }
+SC.lang.sensorIds = function(text){
+  return new SC_SensorIDDef(text);
+  }
+SC.lang.repeat = function(data){
+  return new SC_RepeatDef(data);
+  }
+SC.lang.parse = function(aSource, aReactiveWorld){
+  aSource.RW = aReactiveWorld;
+  if(undefined !== this.parser){
+    //console.log("parser exists...");
+    var zePrg = this.parser.parse(aSource.toParse);
+    //console.log(zePrg);
+    if(undefined != aSource.onParsed){
+      aSource.onParsed(zePrg.html());
+      }
+    var zeLog = zePrg.process(aSource.RW);
+    if(undefined != aSource.onBuilt){
+      aSource.onBuilt(zeLog);
+      }
+    aSource.RW.machine.addProgram(zePrg.result);
+    return zePrg;
+    }
+  this.pendingParsing.push(aSource);
+  }
   return SC;
 })();

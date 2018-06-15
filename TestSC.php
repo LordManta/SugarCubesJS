@@ -6,23 +6,29 @@
 </script>
 <style>
 #program_source {
-  /*position: absolute;
-  left:0;
-  top:24px;*/
   float:left;
-  width: 49vw;
+  width: 45vw;
+  overflow:auto;
   margin:0;
-  border:0;
+  border: 1px solid black;
+  padding:0;
+  unicode-bidi: embed;
+  font-family: monospace;
+  white-space: pre;
+}
+#expected_result {
+  width: 45vw;
+  overflow:auto;
+  margin:0;
+  border: 1px solid black;
   padding:0;
   unicode-bidi: embed;
   font-family: monospace;
   white-space: pre;
 }
 #testPanel {
-  /*position: absolute;
-  top:24px;
-  left:50vw;*/
-  width: 50vw;
+  float:right;
+  width: 45vw;
   height:100vh;
   margin:0;
   border:0;
@@ -55,10 +61,21 @@
 ?> onclick="autoContinueSetting()">Auto continue</input>
 <button onclick="window.location.search='?n='+(Math.min(max_test_file_num,testNum))">&gt;</button>
 </div>
-<pre id="program_source">
-</pre>
+<div id="program_source">
+[call call(function (){
+      testPanel.value += msg;
+      }) ;kill kill [control [[filter &_sens1  with fun{function (v){ return called1(v); }} generate &g   forever ||filter &_sens2  with fun{function (v){ return called1(v); }} generate &g   forever ] ]  by (&e  / &f )  end control ||[await &g  ;call call(function (){
+      testPanel.value += msg;
+      }) ] ||[pause 2/2 times ;call call(function (){
+      testPanel.value += msg;
+      }) ;repeat forever ;generate &e ;generate &f ;end repeat ] ]  on &g handle call call(function (){
+      testPanel.value += msg;
+      })  end kill  on (&e1  / &e2 ) handle nothing  end kill ] 
+</div>
 <textarea id="testPanel">
 </textarea>
+<div id="expected_result">
+</div>
 <script type="text/javascript">
 var check_cont = document.getElementById("check_cont");
 function autoContinueSetting(evt){
@@ -66,7 +83,7 @@ function autoContinueSetting(evt){
     window.location.search="?n="+testNum+"&continue=true";
     }
   }
-var soucre = document.getElementById("program_source");
+var source = document.getElementById("program_source");
 var testPanel = document.getElementById("testPanel");
 var testNum = 0;
 try{
@@ -86,6 +103,13 @@ SC.write = function(msg){
   return SC.action(
      function(){
       testPanel.value += msg;
+      }
+    );
+  }
+SC.dump = function(msg){
+  return SC.action(
+     function(m){
+      testPanel.value += m.msg;
       }
     );
   }
@@ -131,7 +155,7 @@ var test_prg = testBehavior.prg;
 if("string" == typeof(test_prg)){
   test_prg = eval(test_prg);
   }
-soucre.innerHTML = testBehavior.prg;
+source.innerHTML = testBehavior.prg;
 m.addProgram(test_prg);
 
 var maxInstants = (undefined == testBehavior.maxI)?10:testBehavior.maxI;
@@ -154,6 +178,7 @@ if(testPanel.value == testBehavior.expected){
     }
   }
 else{
+  document.getElementById("expected_result").innerHTML=""+testBehavior.expected;
   testPanel.style.background="red";
   }
 
