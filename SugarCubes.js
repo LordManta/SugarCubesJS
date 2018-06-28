@@ -832,6 +832,7 @@ SC_RepeatPoint.prototype = {
       }
   }
 // *** SC_Exit
+/* Pas encore implanté ... Ne pas utiliser... */
 function SC_Exit(n){
   if(undefined == n){
     n = 1;
@@ -2190,7 +2191,7 @@ SC_ActionForever.prototype = {
   constructor : SC_ActionForever
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
-      var copy = new SC_Instruction(SC_OpcodesNames.ACTION_FOREVER);
+      var copy = new SC_Instruction(SC_Opcodes.ACTION_FOREVER);
       copy.action = binder(this.action);
       copy._action = this.action;
       copy.closure = _SC.bindIt(copy.action);
@@ -2700,7 +2701,7 @@ SC_ParBranch.prototype = {
  */
   , awake : function(m, flag){
       var res = false;
-      console.log("on awake flag is ",flag);
+      //console.log("on awake flag is ",flag);
       switch(this.flag){
         case SC_Instruction_State.WEOI:{
           res = this.path.awake(m, flag);
@@ -4698,12 +4699,12 @@ SC = {
     return t;
   },
   ifRepeatLabel: function(l, c){
-    console.log("original args ", arguments);
+    //console.log("original args ", arguments);
     var label = Array.prototype.shift.apply(arguments);
-    console.log("args splited in ",label , arguments)
+    //console.log("args splited in ",label , arguments)
     var tmp = this.ifRepeat.apply(this, arguments);
     tmp.seqElements[0].label = label;
-    console.log("what is built", tmp);
+    //console.log("what is built", tmp);
     return tmp;
     },
   ifRepeat: function(c){
