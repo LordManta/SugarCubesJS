@@ -791,7 +791,7 @@ SC_RepeatPointForever.prototype = {
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var copy = new SC_Instruction(SC_Opcodes.REPEAT_FOREVER);
       copy.seq = seq;
-      copy.label = label;
+      copy.label = this.label;
       return copy;
       }
   }
