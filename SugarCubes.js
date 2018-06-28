@@ -528,22 +528,25 @@ SC_Sensor.prototype = {
 const SC_OpcodesNames = [
   "NOP"
   , "REL_JUMP"
-  , "REPEAT_N_TIMES_INIT"  
-  , "REPEAT_N_TIMES"  
-  , "REPEAT_N_TIMES_TO_STOP"  
-  , "REPEAT_FOREVER_LATE"  
-  , "REPEAT_FOREVER_LATE_TO_STOP"  
-  , "REPEAT_FOREVER"  
-  , "REPEAT_FOREVER_TO_STOP"  
-  , "IF_REPEAT_INIT"  
-  , "IF_REPEAT"  
-  , "IF_REPEAT_TO_STOP"  
+  , "REPEAT_N_TIMES_INIT"
+  , "REPEAT_N_TIMES"
+  , "REPEAT_N_TIMES_TO_STOP"
+  , "REPEAT_FOREVER_LATE"
+  , "REPEAT_FOREVER_LATE_TO_STOP"
+  , "REPEAT_FOREVER"
+  , "REPEAT_FOREVER_TO_STOP"
+  , "IF_REPEAT_INIT"
+  , "IF_REPEAT"
+  , "IF_REPEAT_TO_STOP"
   , "ACTION"
   , "ACTION_N_TIMES_INIT"
   , "ACTION_N_TIMES"
-  , "ACTION_LATE_FOREVER"  
-  , "ACTION_FOREVER"  
-  ];                  
+  , "ACTION_LATE_FOREVER"
+  , "ACTION_FOREVER"
+  , "SEQ_INIT"
+  , "SEQ"
+  , "SEQ_ENDED"
+  ];
 Object.freeze(SC_OpcodesNames);
 
 
@@ -655,11 +658,35 @@ SC_Instruction.prototype = {
           m.addFun(this.closure);
           return SC_Instruction_State.STOP;
           }
+        case SC_Opcodes.SEQ_INIT:{
+          this.idx = 0;
+	  this.oc = SC_Opcodes.SEQ;
+          return this.activate(m);
+          }
+	case SC_Opcodes.SEQ:{
+          var res = SC_Instruction_State.TERM;
+          while(SC_Instruction_State.TERM == res){
+            if(this.idx >= this.seqElements.length){
+	      this.oc = SC_Opcodes.SEQ_ENDED;
+              this.reset(m);
+              return SC_Instruction_State.TERM;
+              }
+            res = this.seqElements[this.idx].activate(m);
+            if(SC_Instruction_State.TERM == res){
+              this.idx++;
+              }
+            }
+	  return res;
+	  }
         default: throw "undefined opcode "+this.oc;
         }
       }
   , eoi: function(m){
       switch(this.oc){
+	case SC_Opcodes.SEQ:{
+          this.seqElements[this.idx].eoi(m);
+	  break;
+	  }
         default: throw "undefined opcode "+this.oc;
         }
       }
@@ -699,11 +726,28 @@ SC_Instruction.prototype = {
           break;
           }
         case SC_Opcodes.ACTION_FOREVER:break;
+        case SC_Opcodes.SEQ_INIT:break;
+        case SC_Opcodes.SEQ:{
+          this.seqElements[this.idx].reset(m);
+          }
+        case SC_Opcodes.SEQ_ENDED:{
+	  this.oc = SC_Opcodes.SEQ_INIT;
+          this.idx = -1;
+          break;
+          }
+        default: throw "undefined opcode "+this.oc;
+        }
+      }
+  , awake : function(m, flag){
+      switch(this.oc){
+        case SC_Opcodes.SEQ:{
+          return this.path.awake(m, flag);
+	  }
         default: throw "undefined opcode "+this.oc;
         }
       }
   , toString(){
-      switch(this.opcode){
+      switch(this.oc){
         case SC_Opcodes.REL_JUMP:{
           return "end repeat ";
           }
@@ -724,6 +768,16 @@ SC_Instruction.prototype = {
           return "call "+((undefined == this.action.f)?" "+this.action+" "
                         :this.action.t+"."+this.action.f+"()")+" forever";
           }
+	case SC_Opcodes.SEQ_INIT:
+	case SC_Opcodes.SEQ_ENDED:
+	case SC_Opcodes.SEQ:{
+          var res ="[";
+          for(var i = 0; i < this.seqElements.length; i++){
+            res += this.seqElements[i].toString();
+            res += (i<this.seqElements.length-1)?";":"";
+            }
+          return res+"] ";
+	  }
         default: throw "undefined opcode "+this.oc;
         }
       }
@@ -2085,8 +2139,6 @@ SC_PauseRT.prototype = {
 function SC_Seq(seqElements){
   this.seqElements = [];
   var targetIDx = 0;
-  this.path = null;
-  this.exits = 0;
   for(var i = 0; i < seqElements.length; i++){
     var prg = seqElements[i];
     if(prg instanceof SC_Seq){
@@ -2101,84 +2153,47 @@ function SC_Seq(seqElements){
       this.seqElements[targetIDx++] = seqElements[i];
       }
     }
-  this.idx = -1;
-  this.activate = this.first;
-  this.toReset = [];
   }
-SC_Seq.prototype.add = function(inst){
-  //console.log("adding to seq", inst);
-  this.seqElements.push(inst);
-  }
-SC_Seq.prototype.register4Reset = function(client){
-  this.toReset[this.toReset.length] = client;
-  }
-SC_Seq.prototype.act = function(m){
-  //console.log("Seq_act", this.idx, this.seqElements.length);
-  var res = SC_Instruction_State.TERM;
-  while(SC_Instruction_State.TERM == res){
-    if(this.idx >= this.seqElements.length){
-       this.reset(m);
-       return SC_Instruction_State.TERM;
+SC_Seq.prototype = {
+  constructor : SC_Seq
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      var copy = new SC_Instruction(SC_Opcodes.SEQ_INIT);
+      copy.seqElements = [];
+      var targetIDx = 0;
+      for(var i = 0; i < this.seqElements.length; i++){
+        var prg = this.seqElements[i];
+        if(prg instanceof SC_Seq){
+          for(var j = 0; j < prg.seqElements.length; j++){
+            copy.seqElements[targetIDx++] = prg.seqElements[j];
+            }
+          }
+        else{
+          if(prg === VOID_NODE){
+            continue;
+            }
+          copy.seqElements[targetIDx++] = prg;
+          }
+        }
+      copy.idx = -1;
+      if(undefined === masterSeq){
+        masterSeq = copy;
+        }
+      for(var i = 0; i < this.seqElements.length; i++){
+        copy.seqElements[i] = copy.seqElements[i].bindTo(engine, parbranch, copy
+                                                         , masterSeq, copy, cube);
+        }
+      copy.path = path;
+      return copy;
       }
-    //console.log("seq_act : ", this.seqElements[this.idx]);
-    res = this.seqElements[this.idx].activate(m);
-    if(SC_Instruction_State.TERM == res){
-      this.idx++;
+  , toString : function(){
+      var res ="[";
+      for(var i = 0; i < this.seqElements.length; i++){
+        res += this.seqElements[i].toString();
+        res += (i<this.seqElements.length-1)?";":"";
+        }
+      return res+"] ";
       }
-    }
-  return res;
-  }
-SC_Seq.prototype.awake = function(m, flag){
-  //console.log("seq awaking");
-  return this.path.awake(m, flag);
-  }
-SC_Seq.prototype.first = function(m){
-  this.idx = 0;
-  this.activate = this.act;
-  var tmp = this.activate(m);
-  return tmp;
-  }
-SC_Seq.prototype.eoi = function(m){
-  this.seqElements[this.idx].eoi(m);
-  }
-SC_Seq.prototype.reset = function(m){
-  if(-1 == this.idx){
-    return;
-    }
-  if(this.idx < this.seqElements.length){
-    this.seqElements[this.idx].reset(m);
-  }
-  for(var i = 0; i < this.toReset.length; i++){
-    this.toReset[i].reset(m);
-    }
-  this.idx = -1;
-  this.activate = this.first;
-  this.exits = 0;
-  }
-SC_Seq.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
-  //console.log("seq bind to ", this.seqElements.length);
-  var copy = new SC_Seq(new Array(this.seqElements.length));
-  if(undefined === masterSeq){
-    //console.log("as master seq");
-    masterSeq = copy;
-    }
-  for(var i = 0; i < this.seqElements.length; i++){
-    //console.log("adding to bound", this.seqElements[i]);
-    copy.seqElements[i] = this.seqElements[i].bindTo(engine, parbranch, copy
-                                                     , masterSeq, copy, cube);
-    }
-  //console.log("end seq bound");
-  copy.path = path;
-  return copy;
-  }
-SC_Seq.prototype.toString = function(){
-  var res ="[";
-  for(var i = 0; i < this.seqElements.length; i++){
-    res += this.seqElements[i].toString();
-    res += (i<this.seqElements.length-1)?";":"";
-    }
-  return res+"] ";
-  }
+}
 
 /*******************************************************************************
  * SC_Action Instruction
