@@ -10,10 +10,6 @@
 ;
 var SC = (function(){
 
-const VOID_NODE = {};
-
-function NO_FUN(){}
-
 const SC_Instruction_state_str = [
   "undefined !"
   , "SUSP"
@@ -37,8 +33,22 @@ const SC_Instruction_State = {
   , toString: function(state){
       return SC_Instruction_state_str[state]+":"+state;
       }
-};
+  };
 Object.freeze(SC_Instruction_State);
+
+
+/*
+ * Instruction réactive non définie... Permet de purger un code mort.
+ */
+const VOID_NODE = {
+  };
+Object.freeze(VOID_NODE);
+
+/*
+ * fonction ne faisant rien permettant de e pas définir un paramètre non
+ * utilisé.
+ */
+function NO_FUN(){}
 
 /*
  * le binding présente différents cas de figure :
@@ -53,14 +63,19 @@ Object.freeze(SC_Instruction_State);
 /*
  * SC_CubeBinding : permet de gérer l'accès aux ressources non définit à
  * l'écriture d'un programme.
+ * type de binding :
+ *  - early : à l'écriture du programme (mode standard)
+ *  - standard : à l'insertion dans la machine
+ *  - late : à la première activation
+ *  - dynamic : à chaque activation
  */
 function SC_CubeBinding(name){
   if((undefined == name)||(typeof name != "string")||(name == "")){
     throw "invalid binding name "+name;
     }
-  this.name = name;
-  this.cube = null;
-  this.args = null;
+  this.name = name; // nom de la ressource à récupérer
+  this.cube = null; // cube cible où trouver la ressource
+  this.args = null; // paramètres éventuels pour trouver la ressource
   }
 SC_CubeBinding.prototype = {
   constructor: SC_CubeBinding
@@ -74,12 +89,14 @@ SC_CubeBinding.prototype = {
         throw "target not found";
         //return this;
         }
-      if(null !== this.args){
-        console.log("SC_CubeBinding.resolve(): args added", this.args);
-        tgt = tgt.bind(this.cube, this.args);
-        }
       else if("function" == typeof(tgt)){
-        tgt = tgt.bind(this.cube);
+        if(null !== this.args){
+          console.log("SC_CubeBinding.resolve(): args added", this.args);
+          tgt = tgt.bind(this.cube, this.args);
+          }
+        else{
+          tgt = tgt.bind(this.cube);
+          }
         }
       return tgt;
       }
@@ -147,9 +164,6 @@ var _SC = {
   , _b : function(cube){
       return function(o){
            if(o instanceof SC_CubeBinding){
-             /*if((undefined != o.cube) && (this !== o.cube)){
-               //throw "invalid cube set on binding : "+o.cube;
-               }*/
              o = o.clone();
              o.cube = this;
              return o.resolve();
@@ -357,74 +371,71 @@ function SC_cubify(){
                                }
                              );
 }
+
 /*******************************************************************************
  * Events
- * Les événements sont des valeurs glaobals paratagées entre tous les
- * composants d'un programme. La valeur est présent ou absent à chaque instant.
+ * Les événements sont des valeurs globales partagées entre tous les
+ * composants d'un programme.
+ * La valeur d'un événement est booléenne : présent ou absent à chaque instant.
  * Pour savoir si un événement est présent ou absent, on note dans son état le
  * numéro de l'instant de sa dernière génération. L'événement est présent si le
- * numéro d'instant de sa dernière génération est le numéro d'instnat courrant
+ * numéro d'instant de sa dernière génération est le numéro d'instant courant
  * de la machine d'exécution. Sinon l'événement est absent.
+ * Nous sommes dans le modèle réactif à la Boussinot ce qui implique qu'un
+ * événement ne sera réputé absent que à la toute fin de l'instant courant
+ * (c'est à dire quand plus personne ne peut l'émettre et que personne ne l'a
+ * émis).
  ******************************************************************************/
+
 // *** SC_Event
 function SC_Event(name){
-  this.its = -1;
-  this.name = name;
-  this.vals = [];
-  this.registeredInst = [];
-  this.registeredInst2 = [];
-  this.m = null;
+  this.lein = -1; // numéro de la l'instant de la dernière émission
+  this.name = name; // nom donné à l'événement (sert au debug)
+  this.vals = []; // liste des valeurs associées aux emissions dans un même
+                  // instant.
+  this.registeredInst = [];  // gestion des instructions intéressées par
+                             // l'événement. file d'attente.
+  this.m = null; // retient la machine d'exécution réactive utilisée par
+                 // l'événement.
 }
 SC_Event.prototype = {
   constructor : SC_Event
-  , isEvent:true
-  , isEventOrSensor:true
   , isPresent : function(m){
-      return this.its == m.instantNumber;
+      return this.lein == m.instantNumber;
       }
 /*
- * Réveil des instructions sur liste d'attente pour l'évennement. Si cela ne
+ * Réveil des instructions sur liste d'attente pour l'événement. Si cela ne
  * suffit pas à débloquer l'instruction (qui reste bloquée sur d'autres
- * événementsn l'instruction non débloquée est remise dans la liste d'attente
- * en utilisant une liste temporaire)
+ * événements l'instruction non débloquée est remise dans la liste d'attente
+ * en utilisant une liste temporaire).
+ * flag est propagé jusqu'au awake() d'un Par pour décider si la réexécution du
+ * code est immédiate ou non.
  */
   , wakeupAll : function(m, flag){
-      var n = 0;
-      var tmp = this.registeredInst;
-      //console.log("wakeUpAll = ",tmp);
-      for(var idx = 0; idx < tmp.length; idx++){
-        if(!(tmp[idx].wakeup(m,flag))){
-          this.registeredInst2[n++]=tmp[idx];
+      var tmp = [];
+      for(var idx = 0; idx < this.registeredInst.length; idx++){
+        if(!(this.registeredInst[idx].wakeup(m,flag))){
+          tmp.push(this.registeredInst[idx]);
           }
         }
-      tmp.splice(0,tmp.length);
-      this.registeredInst = this.registeredInst2;
-      this.registeredInst2 = tmp;
+      this.registeredInst = tmp;
       }
+/*
+ * Génération de l'événement. Si l'événement n'a pas déjà été généré dans
+ * l'instant, On mémorise l'instant le numéro de l'instant courrant comme
+ * numéro de la dernière émission. On profite de l'occasion pour vider la liste
+ * des valeurs.
+ */
   , generate : function(m, flag){
-      //console.log("genereate = ",this.registeredInst);
       if(!this.isPresent(m)){
-        this.its = m.instantNumber;
+        this.lein = m.instantNumber;
         this.vals = [];
-        this.wakeupAll(m, flag);
         }
+      this.wakeupAll(m, flag);
       }
-  //, nbd : 0
   , generateValues : function(m, val){
-      /*if(("requestDisplay" == this.name)
-         &&("Terre" == val.name)){
-        console.log("tjs vivante"+this.vals.length);
-        }*/
-      /*if(("requestDisplay" == this.name)
-          &&("Terre" == val.name && this.nbd++>100000)){
-        console.log(this.vals.length);
-        this.nbd = 0;
-        }*/
       if(undefined !== val){
         this.vals.push(val);
-        }
-      else{
-        //console.log("generating undefined value...");
         }
       }
   , unregister : function(i){
@@ -434,17 +445,11 @@ SC_Event.prototype = {
         }
       }
   , registerInst : function(m, inst){
-      if((this.registeredInst.indexOf(inst)>-1)){
-        throw "SugarCubesLib : Internal error";
-        return;
-        }
-      //console.log("register inst = "+inst+" on "+this);
-      this.registeredInst[this.registeredInst.length] = inst;
-      //console.log("registered = ",this.registeredInst);
+      this.registeredInst.push(inst);
       }
   , getValues : function(m){
       if(!this.isPresent(m)){
-        this.vals = [];
+        this.vals.splice(0,this.vals.length);
         }
       return this.vals;
       }
@@ -453,7 +458,7 @@ SC_Event.prototype = {
       }
   , iterateOnValues : function(combiner){
       if((undefined === combiner.iterateOn)
-         ||("function" != typeof(combiner.iterate))){
+         ||("function" != typeof(combiner.iterateOn))){
         throw "invalid combiner";
         }
       const len = this.vals.length;
@@ -465,35 +470,39 @@ SC_Event.prototype = {
       if(null == this.m){
         this.m = engine;
         }
-      if(this.m !== engine){
-        console.log('warning bound event ('+this.name+') problem', this.m, engine);
+      else if(this.m !== engine){
+        throw 'bound event ('+this.name+') problem';
         }
-      var copy = this;
-      return copy;
+      return this;
       }
   , toString : function(){
       return "&"+this.name+" ";
       }
   }
-
+/*
+ * Le Sensor est une variante de l'événement. La présence ou l'absence d'un
+ * sensor est connue au début de l'instant car il ne peut pas être généré en
+ * cours d'instant. Il est soit présent soit absent. C'est une entrée du
+ * système réactif. La méthode generate() n'existe donc pas sur un sensor.
+ * Une méthode systemGen() permet de générer cet événement dans un contexte
+ * extérieur au programme réactif (c'est à dire avant l'exécution de
+ * l'instant).
+ */
 // *** SC_Sensor
 function SC_Sensor(name){
-  this.its = -1;
+  this.lein = -1;
   this.name = name;
   this.vals = [];
   this.registeredInst = [];
-  this.registeredInst2 = [];
 }
 SC_Sensor.prototype = {
   constructor : SC_Sensor
-  , isSenor:true
-  , isEventOrSensor:true
   , isPresent : SC_Event.prototype.isPresent
   , wakeupAll : SC_Event.prototype.wakeupAll
   , generateValues : SC_Event.prototype.generateValues
   , systemGen : function(val, m, flag){
      if(!this.isPresent(m)){
-        this.its = m.instantNumber;
+        this.lein = m.instantNumber;
         this.vals = [];
         this.wakeupAll(m, flag);
       }
@@ -512,22 +521,231 @@ SC_Sensor.prototype = {
       }
 }
 
+/*
+ * Définition d'une instruction générique afin de réduire la combinatoire de la
+ * gestion des états d'instructions réactives.
+ */
+const SC_OpcodesNames = [
+  "NOP"
+  , "REL_JUMP"
+  , "REPEAT_N_TIMES_INIT"  
+  , "REPEAT_N_TIMES"  
+  , "REPEAT_N_TIMES_TO_STOP"  
+  , "REPEAT_FOREVER_LATE"  
+  , "REPEAT_FOREVER_LATE_TO_STOP"  
+  , "REPEAT_FOREVER"  
+  , "REPEAT_FOREVER_TO_STOP"  
+  , "IF_REPEAT_INIT"  
+  , "IF_REPEAT"  
+  , "IF_REPEAT_TO_STOP"  
+  , "ACTION"
+  , "ACTION_N_TIMES_INIT"
+  , "ACTION_N_TIMES"
+  , "ACTION_LATE_FOREVER"  
+  , "ACTION_FOREVER"  
+  ];                  
+Object.freeze(SC_OpcodesNames);
+
+
+const SC_Opcodes = {
+  toString: function(oc){
+    return SC_OpcodesNames[oc]+":"+oc;
+    }
+  };
+for(var n = 0; n < SC_OpcodesNames.length; n++){
+  SC_Opcodes[SC_OpcodesNames[n]] = n;
+  }
+
+Object.freeze(SC_Opcodes);
+
+function SC_Instruction(opcode){
+  this.oc = opcode;
+  }
+
+SC_Instruction.prototype = {
+  constructor : SC_Instruction
+  , activate : function(m){
+      switch(this.oc){
+        case SC_Opcodes.REL_JUMP:{
+          this.seq.idx += this.relativeJump;
+          return SC_Instruction_State.TERM;
+          }
+        case SC_Opcodes.REPEAT_FOREVER_LATE:{
+          this.oc = SC_Opcodes.REPEAT_FOREVER_LATE_TO_STOP;
+          return SC_Instruction_State.TERM;
+          }
+        case SC_Opcodes.REPEAT_FOREVER_LATE_TO_STOP:{
+          this.oc = SC_Opcodes.REPEAT_FOREVER;
+          return SC_Instruction_State.STOP;
+          }
+        case SC_Opcodes.REPEAT_FOREVER:{
+          this.oc = SC_Opcodes.REPEAT_FOREVER_TO_STOP;
+          return SC_Instruction_State.TERM;
+          }
+        case SC_Opcodes.REPEAT_FOREVER_TO_STOP:{
+          this.oc = SC_Opcodes.REPEAT_FOREVER;
+          return SC_Instruction_State.STOP;
+          }
+        case SC_Opcodes.REPEAT_N_TIMES_INIT:{
+          this.count = this.it;
+          if(0 === this.count){
+            this.seq.idx += this.end;
+            this.reset(m);
+            return SC_Instruction_State.TERM;
+            }
+          if(this.count < 0){
+            }
+          }
+        case SC_Opcodes.REPEAT_N_TIMES:{
+          this.oc = SC_Opcodes.REPEAT_N_TIMES_TO_STOP;
+          this.count--;
+          return SC_Instruction_State.TERM;
+          }
+        case SC_Opcodes.REPEAT_N_TIMES_TO_STOP:{
+          if(0 === this.count){
+            this.seq.idx += this.end;
+            this.reset(m);
+            return SC_Instruction_State.TERM;
+            }
+          this.oc = SC_Opcodes.REPEAT_N_TIMES;
+          return SC_Instruction_State.STOP;
+          }
+        case SC_Opcodes.IF_REPEAT_INIT:{
+          if(!this.condition(m)){
+            this.seq.idx += this.end;
+            this.reset(m);
+            return SC_Instruction_State.TERM;
+            }
+          }
+        case SC_Opcodes.IF_REPEAT:{
+          this.oc = SC_Opcodes.IF_REPEAT_TO_STOP;
+          return SC_Instruction_State.TERM;
+          }
+        case SC_Opcodes.IF_REPEAT_TO_STOP:{
+          if(!this.condition(m)){
+            this.seq.idx += this.end;
+            this.reset(m);
+            return SC_Instruction_State.TERM;
+            }
+          this.oc = SC_Opcodes.IF_REPEAT;
+          return SC_Instruction_State.STOP;
+          }
+        case SC_Opcodes.ACTION:{
+          m.addFun(this.closure);
+          return SC_Instruction_State.TERM;
+          }
+        case SC_Opcodes.ACTION_N_TIMES_INIT:{
+          this.count = this.times;
+	  if(this.count <0){
+	    this.oc = SC_Opcodes.ACTION_LATE_FOREVER;
+	    }
+          this.oc = SC_Opcodes.ACTION_N_TIMES;
+          }
+        case SC_Opcodes.ACTION_N_TIMES:{
+          m.addFun(this.closure);
+          this.count--;
+          if(0 == this.count){
+            this.reset(m);
+            return SC_Instruction_State.TERM;
+            }
+          return SC_Instruction_State.STOP;
+          }
+        case SC_Opcodes.ACTION_LATE_FOREVER:
+        case SC_Opcodes.ACTION_FOREVER:{
+          m.addFun(this.closure);
+          return SC_Instruction_State.STOP;
+          }
+        default: throw "undefined opcode "+this.oc;
+        }
+      }
+  , eoi: function(m){
+      switch(this.oc){
+        default: throw "undefined opcode "+this.oc;
+        }
+      }
+  , reset: function(m){
+      switch(this.oc){
+        case SC_Opcodes.REL_JUMP:{
+          throw "invalid reset";
+          }
+        case SC_Opcodes.REPEAT_FOREVER:break;
+        case SC_Opcodes.REPEAT_FOREVER_TO_STOP:{
+          this.oc = SC_Opcodes.REPEAT_FOREVER;
+          break;
+          }
+        case SC_Opcodes.REPEAT_FOREVER_LATE:
+        case SC_Opcodes.REPEAT_FOREVER_LATE_TO_STOP:
+        case SC_Opcodes.REPEAT_N_TIMES_INIT:
+        case SC_Opcodes.REPEAT_N_TIMES:
+        case SC_Opcodes.REPEAT_N_TIMES_TO_STOP:{
+          this.oc = SC_Opcodes.REPEAT_N_TIMES_INIT;
+          break;
+          }
+        case SC_Opcodes.IF_REPEAT_INIT:break;
+        case SC_Opcodes.IF_REPEAT_TO_STOP:
+        case SC_Opcodes.IF_REPEAT:{
+          this.oc = SC_Opcodes.IF_REPEAT_INIT;
+          break;
+          }
+        case SC_Opcodes.REPEAT_N_TIMES_TO_STOP:{
+          this.oc = SC_Opcodes.REPEAT_N_TIMES_INIT;
+          break;
+          }
+        case SC_Opcodes.ACTION:break;
+        case SC_Opcodes.ACTION_N_TIMES_INIT:
+        case SC_Opcodes.ACTION_LATE_FOREVER:
+        case SC_Opcodes.ACTION_N_TIMES:{
+          this.oc = SC_Opcodes.ACTION_N_TIMES_INIT;
+          break;
+          }
+        case SC_Opcodes.ACTION_FOREVER:break;
+        default: throw "undefined opcode "+this.oc;
+        }
+      }
+  , toString(){
+      switch(this.opcode){
+        case SC_Opcodes.REL_JUMP:{
+          return "end repeat ";
+          }
+        case SC_Opcodes.REPEAT_FOREVER:
+        case SC_Opcodes.REPEAT_FOREVER_TO_STOP:{
+          return "repeat forever ";
+          }
+        case SC_Opcodes.REPEAT_N_TIMES_INIT:
+        case SC_Opcodes.REPEAT_N_TIMES:
+        case SC_Opcodes.REPEAT_N_TIMES_TO_STOP:
+        case SC_Opcodes.REPEAT_FOREVER_LATE:
+        case SC_Opcodes.REPEAT_FOREVER_LATE_TO_STOP:{
+          return "repeat "
+                  +((this.count<0)?"as forever from "+this.it+" times"
+                              :this.count+"/"+this.it+" times ");
+          }
+        case SC_Opcodes.ACTION_FOREVER:{
+          return "call "+((undefined == this.action.f)?" "+this.action+" "
+                        :this.action.t+"."+this.action.f+"()")+" forever";
+          }
+        default: throw "undefined opcode "+this.oc;
+        }
+      }
+  }
+
 /*******************************************************************************
  * Repeat Instruction
  ******************************************************************************/
+/*
+ * En cas de bug vérifier que le jump arrive bien sur une instruction correcte
+ * (jumpable).
+ */
 // *** SC_RelativeJump (relogeable)
 function SC_RelativeJump(jump){
-  this.relativeJump = jump;
-  this.seq = null;
+  this.relativeJump = jump; // index relatif ou sauter dans la séquence
+  this.seq = null; // pointeur vers la séquence
   }
 SC_RelativeJump.prototype = {
   constructor : SC_RelativeJump
-  , activate : function(m){
-      this.seq.idx += this.relativeJump;
-      return SC_Instruction_State.TERM;
-      }
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      var copy = new SC_RelativeJump(this.relativeJump);
+      var copy = new SC_Instruction(SC_Opcodes.REL_JUMP);
+      copy.relativeJump = this.relativeJump;
       copy.seq = seq;
       return copy;
       }
@@ -536,194 +754,60 @@ SC_RelativeJump.prototype = {
       }
 }
 
-// *** While
-/* Not yet realy implemented */
-function SC_WhilePoint(cond, end){
-  this.seq = null;
-  this.mseq = null;
-  this.stopInst = null;
-  this.end = end;
+// *** If Cond Repeat
+function SC_IfRepeatPoint(cond){
+  this.condition = cond; // fonction retournant une valeur booleenne
+  this.end = 0;
+  this.label="";
   }
-SC_WhilePoint.prototype = {
-  constructor : SC_WhilePoint
-  , activate : function(m){
-      if(this.mseq.exits > 0){
-        this.mseq.exits--;
-        this.seq.idx += this.end;
-        this.reset(m);
-        return SC_Instruction_State.TERM;
-        }
-      if(null === this.stopInst || (this.stopInst != m.getInstantNumber())){
-        return SC_Instruction_State.TERM;
-        }
-      return SC_Instruction_State.STOP;
-      }
-  , reset : function(m){
-      this.stopInst = null;
-      }
+SC_IfRepeatPoint.prototype = {
+  constructor : SC_IfRepeatPoint
   , toString : function(){
-      return "loop forever ";
+      return "while "+this.condition+" repeat ";
       }
+  /*
+   * masterSeq doit être une pile de labels, permettant de définir la portée
+   * d'un exit
+   */
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      var copy = new SC_WhilePoint(this.end);
+      var copy = new SC_Instruction(SC_Opcodes.IF_REPEAT_INIT);
+      copy.condition = this.condition;
+      copy.end = this.end;
+      copy.label = this.label;
       copy.seq = seq;
-      copy.mseq = masterSeq;
-      copy.seq.register4Reset(copy);
-      return copy;
-      }
-  }
-
-// *** Loops
-function SC_LoopPointForever(end){
-  this.seq = null;
-  this.mseq = null;
-  this.stopInst = null;
-  this.end = end;
-}
-SC_LoopPointForever.prototype = {
-  constructor : SC_LoopPointForever
-  , activate : function(m){
-      if(this.mseq.exits > 0){
-        this.mseq.exits--;
-        this.seq.idx += this.end;
-        this.reset(m);
-        return SC_Instruction_State.TERM;
-        }
-      if(null === this.stopInst || (this.stopInst != m.getInstantNumber())){
-        this.stopInst = m.getInstantNumber();
-        return SC_Instruction_State.TERM;
-        }
-      return SC_Instruction_State.STOP;
-      }
-  , reset : function(m){
-      this.stopInst = null;
-      }
-  , toString : function(){
-      return "loop forever ";
-      }
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      var copy = new SC_LoopPointForever(this.end);
-      copy.seq = seq;
-      copy.mseq = masterSeq;
-      copy.seq.register4Reset(copy);
-      return copy;
-      }
-  }
-function SC_LoopPoint(times, end){
-  if(times < 0){
-    return new SC_LoopPointForever(end);
-    }
-  this.count = this.it = times;
-  this.stopInst = null;
-  this.seq = null;
-  this.mseq = null;
-  this.end = end;
-  }
-SC_LoopPoint.prototype = {
-  constructor : SC_LoopPoint
-  , activate : function(m){
-      if(0 === this.count||(this.mseq.exits > 0)){
-        this.mseq.exits--;
-        this.seq.idx += this.end;
-        this.reset(m);
-        return SC_Instruction_State.TERM;
-        }
-      if(null === this.stopInst || (this.stopInst != m.getInstantNumber())){
-        this.stopInst = m.getInstantNumber();
-        this.count --;
-        return SC_Instruction_State.TERM;
-        }
-      return SC_Instruction_State.STOP;
-      }
-  , reset : function(m){
-      this.stopInst = null;
-      this.count = this.it;
-      }
-  , toString : function(){
-      return "loop "+this.count+"/"+this.it+" times ";
-      }
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      var copy = new SC_LoopPoint(this.it, this.end);
-      copy.seq = seq;
-      copy.mseq = masterSeq;
-      copy.seq.register4Reset(copy);
       return copy;
       }
   }
 
 // *** Repeats
-function SC_RepeatPointForever(end){
-  this.seq = null;
-  this.mseq = null;
-  this.stopped = true;
-  this.end = end;
-}
+function SC_RepeatPointForever(){
+  this.label="";
+  }
 SC_RepeatPointForever.prototype = {
-  activate : function(m){
-    if(this.mseq.exits > 0){
-      this.mseq.exits--;
-      this.seq.idx += this.end;
-      this.reset(m);
-      return SC_Instruction_State.TERM;
-      }
-    if(this.stopped){
-      this.stopped = false;
-      return SC_Instruction_State.TERM;
-      }
-    this.stopped = true;
-    return SC_Instruction_State.STOP;
-    }
-  , reset : function(m){
-      this.stopped = true;
-      }
+  constructor : SC_RepeatPointForever
   , toString : function(){
       return "repeat forever ";
       }
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      var copy = new SC_RepeatPointForever(this.end);
+      var copy = new SC_Instruction(SC_Opcodes.REPEAT_FOREVER);
       copy.seq = seq;
-      copy.mseq = masterSeq;
-      copy.seq.register4Reset(copy);
+      copy.label = label;
       return copy;
       }
   }
-function SC_RepeatPoint(times, end){
+
+function SC_RepeatPoint(times){
   if(times < 0){
-    return new SC_RepeatPointForever(end);
+    return new SC_RepeatPointForever();
     }
   this.count = this.it = times;
   this.stopped = true;
   this.seq = null;
-  this.mseq = null;
-  this.end = end;
+  this.end = 0;
+  this.label="";
   }
 SC_RepeatPoint.prototype = {
-  activate : function(m){
-    if(0 === this.count||(this.mseq.exits > 0)){
-      this.mseq.exits--;
-      this.seq.idx += this.end;
-      this.reset(m);
-      return SC_Instruction_State.TERM;
-      }
-    if(this.stopped){
-      this.stopped = false;
-      this.count --;
-      return SC_Instruction_State.TERM;
-      }
-    this.stopped = true;
-    return SC_Instruction_State.STOP;
-    }
-  , reset : function(m){
-      this.stopped = true;
-      this.activate = function(m){
-        //console.log("repeat first");
-        this.count = this.it;
-        delete this.activate;
-        //this.activate = this.__proto__.activate;
-        return this.activate(m);
-        }
-      //this.count = this.it;
-      }
+  constructor : SC_RepeatPoint
   , toString : function(){
       return "repeat "
                   +((this.it<0)?"forever ":this.count+"/"+this.it+" times ");
@@ -731,16 +815,19 @@ SC_RepeatPoint.prototype = {
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
       var bound_it = binder(this.it);      
-      //console.log("repeat "+bound_it);
-      var copy = new SC_RepeatPoint(bound_it, this.end);
+      if(bound_it < 0){
+        return new SC_RepeatPointForever().bindTo(engine, parbranch, seq, masterSeq, path, cube);
+        }
+      var copy = new SC_Instruction(SC_Opcodes.REPEAT_N_TIMES_INIT);
+      copy.count = copy.it = bound_it;
+      copy.end = this.end;
       if("function" == typeof bound_it){
         Object.defineProperty(copy, "it",{get : bound_it});
         copy.reset(engine);
         }
       copy._it = this.it;
       copy.seq = seq;
-      copy.mseq = masterSeq;
-      copy.seq.register4Reset(copy);
+      copy.label = this.label;
       return copy;
       }
   }
@@ -2098,24 +2185,22 @@ SC_Seq.prototype.toString = function(){
 // *** SC_ActionForever
 function SC_ActionForever(f){
   this.action = f;
-  this.closure = null;
   }
-SC_ActionForever.prototype.activate = function(m){
-  m.addFun(this.closure);
-  return SC_Instruction_State.STOP;
-  }
-SC_ActionForever.prototype.reset = NO_FUN
-SC_ActionForever.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
-  var binder = _SC._b(cube);
-  var copy = new SC_ActionForever(binder(this.action));
-  copy._action = this.action;
-  copy.closure = _SC.bindIt(copy.action);
-  return copy;
-}
-SC_ActionForever.prototype.toString = function(){
-  return "call "+((undefined == this.action.f)?" "+this.action+" "
-               :this.action.t+"."+this.action.f+"()")+" forever";
-}
+SC_ActionForever.prototype = {
+  constructor : SC_ActionForever
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      var binder = _SC._b(cube);
+      var copy = new SC_Instruction(SC_OpcodesNames.ACTION_FOREVER);
+      copy.action = binder(this.action);
+      copy._action = this.action;
+      copy.closure = _SC.bindIt(copy.action);
+      return copy;
+      }
+  , toString : function(){
+      return "call "+((undefined == this.action.f)?" "+this.action+" "
+                   :this.action.t+"."+this.action.f+"()")+" forever";
+      }
+  };
 // *** SC_Action
 function SC_Action(f, times){
   if(0 == times){
@@ -2131,42 +2216,45 @@ function SC_Action(f, times){
   this.action = f;
   this.closure = null;
   }
-SC_Action.prototype.activate = function(m){
-  m.addFun(this.closure);
-  this.count--;
-  if(0 == this.count){
-    this.reset(m);
-    return SC_Instruction_State.TERM;
+SC_Action.prototype = {
+  constructor : SC_Action
+, bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+    var binder = _SC._b(cube);
+    var times = binder(this.times);
+    if(0 == times){
+      return SC_Nothing;
+      }
+    if((undefined === times)||(1 == times)){
+      return new SC_SimpleAction(this.action)
+             .bindTo(engine, parbranch, seq, masterSeq, path, cube);
+      }
+    if(times < 0){
+      return new SC_ActionForever(this.action)
+             .bindTo(engine, parbranch, seq, masterSeq, path, cube);
+      }
+    var copy = new SC_Instruction(SC_Opcodes.ACTION_N_TIMES_INIT);
+    copy.action = binder(this.action);
+    copy._action = this.action;
+    copy._times = this.times;
+    if("function" == typeof times){
+      Object.defineProperty(copy, "times",{get : times});
+      }
+    else{
+      copy.times = times;
+      }
+    if(copy.action.f && copy.action.t){
+      copy.closure = copy.action.t[copy.action.f].bind(copy.action.t);
+      }
+    else{
+      copy.closure = copy.action;
+      }
+    return copy;
     }
-  return SC_Instruction_State.STOP;
-  }
-SC_Action.prototype.reset = function(m){
-  this.activate = function(m){
-    this.count = this.times;
-    delete this.activate;
-    return this.activate(m);
-    };
-}
-SC_Action.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
-  var binder = _SC._b(cube);
-  var copy = new SC_Action(binder(this.action), binder(this.times));
-  copy._action = this.action;
-  copy._times = this.times;
-  if("function" == typeof copy.times){
-    Object.defineProperty(copy, "times",{get : copy.times});
-    }
-  if(copy.action.f && copy.action.t){
-    copy.closure = copy.action.t[copy.action.f].bind(copy.action.t);
-    }
-  else{
-    copy.closure = copy.action;
-    }
-  return copy;
-}
-SC_Action.prototype.toString = function(){
-  return "call "+((undefined == this.action.f)?"call("+this.action+") "
-               :this.action.t+"."+this.action.f+"() ")
-               +((this.times>1)?(this.count+"/"+this.times+" times "):" ");
+  , toString : function(){
+      return "call "+((undefined == this.action.f)?"call("+this.action+") "
+                   :this.action.t+"."+this.action.f+"() ")
+                   +((this.times>1)?(this.count+"/"+this.times+" times "):" ");
+      }
 }
 // *** SC_SimpleAction
 function SC_SimpleAction(f){
@@ -2175,27 +2263,25 @@ function SC_SimpleAction(f){
     }
   this.action = f;
   }
-SC_SimpleAction.prototype.activate = function(m){
-  m.addFun(this.closure);
-  return SC_Instruction_State.TERM;
-  }
-SC_SimpleAction.prototype.reset = function(m){}
-SC_SimpleAction.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
-  var binder = _SC._b(cube);
-  var copy = new SC_SimpleAction(binder(this.action));
-  copy._action = this.action;
-  if(copy.action.f && copy.action.t){
-    copy.closure = copy.action.t[copy.action.f].bind(copy.action.t);
-    }
-  else{
-    copy.closure = copy.action.bind(cube);
-    }
-  //console.log("action.bound");
-  return copy;
-}
-SC_SimpleAction.prototype.toString = function(){
-  return "call "+((undefined == this.action.f)?"call("+this.action+") "
-               :this.action.t+"."+this.action.f+"() ");
+SC_SimpleAction.prototype={
+  constructor : SC_SimpleAction
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      var binder = _SC._b(cube);
+      var copy = new SC_Instruction(SC_Opcodes.ACTION);
+      copy.action = binder(this.action);
+      copy._action = this.action;
+      if(copy.action.f && copy.action.t){
+        copy.closure = copy.action.t[copy.action.f].bind(copy.action.t);
+        }
+      else{
+        copy.closure = copy.action;
+        }
+      return copy;
+      }
+  , toString : function(){
+      return "call "+((undefined == this.action.f)?"call("+this.action+") "
+                   :this.action.t+"."+this.action.f+"() ");
+      }
 }
 
 /*********
@@ -2608,8 +2694,13 @@ SC_ParBranch.prototype = {
         this.itsPar.registerForProduction(this);
         }
       }
+/*
+ * L'argument flag ici permet de savoir si on place l'élément dans suspended ou
+ * suspendedChain.
+ */
   , awake : function(m, flag){
       var res = false;
+      console.log("on awake flag is ",flag);
       switch(this.flag){
         case SC_Instruction_State.WEOI:{
           res = this.path.awake(m, flag);
@@ -4499,6 +4590,10 @@ function SC_ValueWrapper(tgt, n){
 SC_ValueWrapper.prototype.getVal = function(){
   return this.tgt[this.n];
   }
+
+/*
+ * API Publique
+ */
 SC = {
   evt: function(name){
     return new SC_Event(name);
@@ -4581,27 +4676,6 @@ SC = {
   generateWrapped: function(evt, v, times){
     return new SC_Generate(_SC.b_(evt), _SC.b_(v), _SC.b_(times));
   },
-  function(n){
-    var prgs = [];
-    var jump = 1;
-    prgs[0] = new SC_LoopPoint(n);
-    for(var i = 1 ; i < arguments.length; i++){
-      prgs[i] = arguments[i];
-      if(prgs[i] instanceof SC_Seq){
-        jump+= prgs[i].seqElements.length;
-        }
-      else{
-        jump++;
-        }
-    }
-    var end = new SC_RelativeJump(-(jump+1));
-    prgs[prgs.length] = end;
-    //end.relativeJump = -prgs.length;
-    prgs[0].end = jump;
-    //var t = new Repeat(n, prgs);
-    var t = new SC_Seq(prgs);
-    return t;
-  },
   repeat: function(n){
     var prgs = [];
     var jump = 1;
@@ -4623,8 +4697,38 @@ SC = {
     var t = new SC_Seq(prgs);
     return t;
   },
+  ifRepeatLabel: function(l, c){
+    console.log("original args ", arguments);
+    var label = Array.prototype.shift.apply(arguments);
+    console.log("args splited in ",label , arguments)
+    var tmp = this.ifRepeat.apply(this, arguments);
+    tmp.seqElements[0].label = label;
+    console.log("what is built", tmp);
+    return tmp;
+    },
+  ifRepeat: function(c){
+    var prgs = [];
+    var jump = 1;
+    prgs[0] = new SC_IfRepeatPoint(c);
+    for(var i = 1 ; i < arguments.length; i++){
+      prgs[i] = arguments[i];
+      if(prgs[i] instanceof SC_Seq){
+        jump+= prgs[i].seqElements.length;
+        }
+      else{
+        jump++;
+        }
+    }
+    var end = new SC_RelativeJump(-(jump+1));
+    prgs[prgs.length] = end;
+    //end.relativeJump = -prgs.length;
+    prgs[0].end = jump;
+    //var t = new Repeat(n, prgs);
+    var t = new SC_Seq(prgs);
+    return t;
+  },
   exit: function(n){
-    return new SC_Exit(n);
+    return new SC_Exit(_SC.b_(n));
   },
   and: function(){
     var tmp = [];
