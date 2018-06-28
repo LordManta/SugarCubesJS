@@ -244,9 +244,12 @@ var _SC = {
         delete copy[name];
         Object.defineProperty(copy, name,{get : param.resolve.bind(param.o)});
         }
-      if("function" == typeof param){
+      else if("function" == typeof param){
         delete copy[name];
         Object.defineProperty(copy, name,{get : param});
+        }
+      else{
+        Object.defineProperty(copy, name,{value: param});
         }
       }
   }
@@ -546,6 +549,14 @@ const SC_OpcodesNames = [
   , "SEQ_INIT"
   , "SEQ"
   , "SEQ_ENDED"
+  , "HALT"
+  , "PAUSE"
+  , "PAUSE_DONE"
+  , "PAUSE_N_TIMES_INIT"
+  , "PAUSE_N_TIMES"
+  , "NOTHING"
+  , "GENERATE_ONE_NO_VAL"
+  , "GENERATE_ONE"
   ];
 Object.freeze(SC_OpcodesNames);
 
@@ -639,9 +650,9 @@ SC_Instruction.prototype = {
           }
         case SC_Opcodes.ACTION_N_TIMES_INIT:{
           this.count = this.times;
-	  if(this.count <0){
-	    this.oc = SC_Opcodes.ACTION_LATE_FOREVER;
-	    }
+          if(this.count <0){
+            this.oc = SC_Opcodes.ACTION_LATE_FOREVER;
+            }
           this.oc = SC_Opcodes.ACTION_N_TIMES;
           }
         case SC_Opcodes.ACTION_N_TIMES:{
@@ -660,14 +671,14 @@ SC_Instruction.prototype = {
           }
         case SC_Opcodes.SEQ_INIT:{
           this.idx = 0;
-	  this.oc = SC_Opcodes.SEQ;
+          this.oc = SC_Opcodes.SEQ;
           return this.activate(m);
           }
-	case SC_Opcodes.SEQ:{
+        case SC_Opcodes.SEQ:{
           var res = SC_Instruction_State.TERM;
           while(SC_Instruction_State.TERM == res){
             if(this.idx >= this.seqElements.length){
-	      this.oc = SC_Opcodes.SEQ_ENDED;
+              this.oc = SC_Opcodes.SEQ_ENDED;
               this.reset(m);
               return SC_Instruction_State.TERM;
               }
@@ -676,17 +687,50 @@ SC_Instruction.prototype = {
               this.idx++;
               }
             }
-	  return res;
-	  }
+          return res;
+          }
+        case SC_Opcodes.HALT:{
+          return SC_Instruction_State.HALT;
+          }
+        case SC_Opcodes.PAUSE:{
+          this.oc = SC_Opcodes.PAUSE_DONE;
+          return SC_Instruction_State.STOP;
+          }
+        case SC_Opcodes.PAUSE_DONE:{
+          this.oc = SC_Opcodes.PAUSE;
+          return SC_Instruction_State.TERM;
+          }
+        case SC_Opcodes.PAUSE_N_TIMES_INIT:{
+          this.oc = SC_Opcodes.PAUSE_N_TIMES;
+          this.count = this.times;
+          }
+        case SC_Opcodes.PAUSE_N_TIMES:{
+          if(0 == this.count){
+            this.reset(m);
+            return SC_Instruction_State.TERM;
+            }
+          this.count--;
+          return SC_Instruction_State.STOP;
+          }
+        case SC_Opcodes.NOTHING:{
+          return SC_Instruction_State.TERM;
+          }
+        case SC_Opcodes.GENERATE_ONE_NO_VAL:{
+          this.evt.generate(m);
+          return SC_Instruction_State.TERM;
+          }
+        case SC_Opcodes.GENERATE_ONE:{
+          return SC_Instruction_State.TERM;
+          }
         default: throw "undefined opcode "+this.oc;
         }
       }
   , eoi: function(m){
       switch(this.oc){
-	case SC_Opcodes.SEQ:{
+        case SC_Opcodes.SEQ:{
           this.seqElements[this.idx].eoi(m);
-	  break;
-	  }
+          break;
+          }
         default: throw "undefined opcode "+this.oc;
         }
       }
@@ -731,10 +775,20 @@ SC_Instruction.prototype = {
           this.seqElements[this.idx].reset(m);
           }
         case SC_Opcodes.SEQ_ENDED:{
-	  this.oc = SC_Opcodes.SEQ_INIT;
+          this.oc = SC_Opcodes.SEQ_INIT;
           this.idx = -1;
           break;
           }
+        case SC_Opcodes.HALT:
+        case SC_Opcodes.PAUSE:
+        case SC_Opcodes.PAUSE_DONE:
+        case SC_Opcodes.PAUSE_N_TIMES_INIT:break;
+        case SC_Opcodes.PAUSE_N_TIMES:{
+          this.oc = SC_Opcodes.PAUSE_N_TIMES_INIT;
+          break;
+          }
+        case SC_Opcodes.NOTHING:
+        case SC_Opcodes.GENERATE_ONE_NO_VAL:break;
         default: throw "undefined opcode "+this.oc;
         }
       }
@@ -742,7 +796,7 @@ SC_Instruction.prototype = {
       switch(this.oc){
         case SC_Opcodes.SEQ:{
           return this.path.awake(m, flag);
-	  }
+          }
         default: throw "undefined opcode "+this.oc;
         }
       }
@@ -768,16 +822,25 @@ SC_Instruction.prototype = {
           return "call "+((undefined == this.action.f)?" "+this.action+" "
                         :this.action.t+"."+this.action.f+"()")+" forever";
           }
-	case SC_Opcodes.SEQ_INIT:
-	case SC_Opcodes.SEQ_ENDED:
-	case SC_Opcodes.SEQ:{
+        case SC_Opcodes.SEQ_INIT:
+        case SC_Opcodes.SEQ_ENDED:
+        case SC_Opcodes.SEQ:{
           var res ="[";
           for(var i = 0; i < this.seqElements.length; i++){
             res += this.seqElements[i].toString();
             res += (i<this.seqElements.length-1)?";":"";
             }
           return res+"] ";
-	  }
+          }
+        case SC_Opcodes.HALT:{
+          return "pause forever ";
+          }
+        case SC_Opcodes.PAUSE:{
+          return "pause ";
+          }
+        case SC_Opcodes.NOTHING:{
+          return "nothing ";
+          }
         default: throw "undefined opcode "+this.oc;
         }
       }
@@ -1135,17 +1198,13 @@ function SC_GenerateOneNoVal(evt){
   this.evt = evt;
 }
 SC_GenerateOneNoVal.prototype = {
-  activate : function(m){
-    this.evt.generate(m);
-    return SC_Instruction_State.TERM;
-    }
+  constructor : SC_GenerateOneNoVal
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
-      var tmp_evt = binder(this.evt);
-      var copy = new SC_GenerateOneNoVal(tmp_evt);
+      var copy = new SC_Instruction(SC_Opcodes.GENERATE_ONE_NO_VAL);
+      copy.evt = binder(this.evt);
       return copy;
       }
-  , reset : NO_FUN
   , toString : function(){
       return "generate "+this.evt.toString();
       }
@@ -1957,35 +2016,18 @@ SC_SendForever.prototype = {
 /*******************************************************************************
  * Nothing Object
  ******************************************************************************/
-const SC_Nothing = {
-  activate: function(m){
-    return SC_Instruction_State.TERM;
-  },
-  reset : NO_FUN,
-  bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+const SC_Nothing = new SC_Instruction(SC_Opcodes.NOTHING);
+SC_Nothing.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
     return this;
-  },
-  toString : function(){
-    return "nothing ";
   }
-}
 
 /*******************************************************************************
  * SC_Pause Instructions
  ******************************************************************************/
 // *** SC_PauseForever
-const SC_PauseForever = {
-  activate : function(m){
-      //console.log("halted");
-      return SC_Instruction_State.HALT;
-      }
-  , reset : NO_FUN
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      return this;
-      }
-  , toString : function(){
-      return "pause forever ";
-      }
+const SC_PauseForever = new SC_Instruction(SC_Opcodes.HALT);
+SC_PauseForever.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
+  return this;
   }
 
 // *** SC_Pause
@@ -1994,20 +2036,8 @@ function SC_PauseOne(){
   }
 SC_PauseOne.prototype = {
   constructor : SC_PauseOne
-  , activate : function(m){
-      if(this.res){
-        this.reset(m);
-        return SC_Instruction_State.TERM;
-        }
-      this.res = true;
-      return SC_Instruction_State.STOP;
-      }
-  , reset : function(m){
-      this.res = false;
-      }
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      var copy = new SC_PauseOne();
-      return copy;
+      return new SC_Instruction(SC_Opcodes.PAUSE);
       }
   , toString : function(){
       return "pause ";
@@ -2030,34 +2060,25 @@ function SC_Pause(times){
 }
 SC_Pause.prototype = {
   constructor : SC_Pause
-  , activate : function(m){
-      if(0 == this.count){
-        this.reset(m);
-        return SC_Instruction_State.TERM;
-        }
-      this.count--;
-      return SC_Instruction_State.STOP;
-      }
-  , first : function(m){
-      this.count = this.times;
-      delete this.activate;
-      return this.activate(m);
-      }
-  , reset : function(m){
-      this.activate = this.first;
-      }
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
+      console.log("bindTo this.times = ", this.times);
       var bound_times = binder(this.times);
+      console.log("bindTo bound_times = ", bound_times);
       var copy = null;
       if(bound_times < 0){
-        copy = new SC_PauseForever();
+        return SC_PauseForever;
         }
-      else{
-        copy = new SC_Pause(bound_times);
+      else if(0 === bound_times){
+        return SC_Nothing;
         }
-      var tmp = copy.times;
-      _SC.lateBindProperty(copy, "times", copy.times)
+      else if(1 === bound_times){
+        return new SC_PauseOne().bindTo(engine, parbranch, seq, masterSeq, path, cube);
+        }
+      copy = new SC_Instruction(SC_Opcodes.PAUSE_N_TIMES_INIT);
+      //copy.times = bound_times;
+      _SC.lateBindProperty(copy, "times", bound_times);
+      console.log("bindTo ", copy.times);
       copy._times = this.times;
       return copy;
       }
@@ -4691,7 +4712,11 @@ SC = {
   },
   generateWrapped: function(evt, v, times){
     return new SC_Generate(_SC.b_(evt), _SC.b_(v), _SC.b_(times));
-  },
+    },
+  repeatForever: function(n){
+    Array.prototype.unshift.call(arguments, this.forever);
+    return this.repeat.apply(this, arguments);
+    },
   repeat: function(n){
     var prgs = [];
     var jump = 1;
