@@ -557,6 +557,8 @@ const SC_OpcodesNames = [
   , "NOTHING"
   , "GENERATE_ONE_NO_VAL"
   , "GENERATE_ONE"
+  , "GENERATE_FOREVER_NO_VAL"
+  , "GENERATE_FOREVER"
   ];
 Object.freeze(SC_OpcodesNames);
 
@@ -720,7 +722,18 @@ SC_Instruction.prototype = {
           return SC_Instruction_State.TERM;
           }
         case SC_Opcodes.GENERATE_ONE:{
+          this.itsParent.registerForProduction(this);
+          this.evt.generate(m);
           return SC_Instruction_State.TERM;
+          }
+        case SC_Opcodes.GENERATE_FOREVER_NO_VAL:{
+          this.evt.generate(m);
+          return SC_Instruction_State.STOP;
+          }
+        case SC_Opcodes.GENERATE_FOREVER:{
+          this.itsParent.registerForProduction(this);
+          this.evt.generate(m);
+          return SC_Instruction_State.STOP;
           }
         default: throw "undefined opcode "+this.oc;
         }
@@ -788,7 +801,10 @@ SC_Instruction.prototype = {
           break;
           }
         case SC_Opcodes.NOTHING:
-        case SC_Opcodes.GENERATE_ONE_NO_VAL:break;
+        case SC_Opcodes.GENERATE_ONE_NO_VAL:
+        case SC_Opcodes.GENERATE_ONE:
+        case SC_Opcodes.GENERATE_FOREVER_NO_VAL:
+        case SC_Opcodes.GENERATE_FOREVER:break;
         default: throw "undefined opcode "+this.oc;
         }
       }
@@ -796,6 +812,24 @@ SC_Instruction.prototype = {
       switch(this.oc){
         case SC_Opcodes.SEQ:{
           return this.path.awake(m, flag);
+          }
+        default: throw "undefined opcode "+this.oc;
+        }
+      }
+  , generateValues : function(m){
+      switch(this.oc){
+        case SC_Opcodes.GENERATE_ONE:
+        case SC_Opcodes.GENERATE_FOREVER:{
+          if(this.val instanceof SC_Cell){
+            this.evt.generateValues(m, this.val.val());
+            }
+          else if("function" == typeof(this.val)){
+            this.evt.generateValues(m, this.val(m));
+            }
+          else{
+            this.evt.generateValues(m, this.val);
+            }
+          break;
           }
         default: throw "undefined opcode "+this.oc;
         }
@@ -840,6 +874,16 @@ SC_Instruction.prototype = {
           }
         case SC_Opcodes.NOTHING:{
           return "nothing ";
+          }
+        case SC_Opcodes.GENERATE_ONE_NO_VAL:{
+          return "generate "+this.evt.toString();
+          }
+        case SC_Opcodes.GENERATE_ONE:{
+          return "generate "+this.evt.toString()
+                 +((null != this.val)?"("+this.val.toString()+") ":"");
+          }
+        case SC_Opcodes.GENERATE_FOREVER_NO_VAL:{
+          return "generate "+this.evt.toString()+" forever ";
           }
         default: throw "undefined opcode "+this.oc;
         }
@@ -1130,18 +1174,16 @@ function SC_GenerateForeverNoVal(evt){
     }
   this.evt = evt;
 }
-SC_GenerateForeverNoVal.prototype = 
-{
+SC_GenerateForeverNoVal.prototype = {
   constructor : SC_GenerateForeverNoVal
-  , activate : SC_GenerateForeverLateEvtNoVal.prototype.activate
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-           var copy = new SC_GenerateForeverNoVal(this.evt);
-           copy._evt = this.evt;
-           return copy;
-           }
-  , reset : NO_FUN
+      var copy = new SC_Instruction(SC_Opcodes.GENERATE_FOREVER_NO_VAL);
+      copy.evt = this.evt;
+      copy._evt = this.evt;
+      return copy;
+      }
   , toString : SC_GenerateForeverLateEvtNoVal.prototype.toString
-  };
+};
 
 //--- Forever
 function SC_GenerateForever(evt, val){
@@ -1153,12 +1195,7 @@ function SC_GenerateForever(evt, val){
   this.itsParent = null;
 }
 SC_GenerateForever.prototype = {
-  activate : function(m){
-    this.itsParent.registerForProduction(this);
-    this.evt.generate(m);
-    return SC_Instruction_State.STOP;
-    }
-  , reset : SC_GenerateForeverNoVal.prototype.reset
+  constructor : SC_GenerateForever
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
       var bound_evt = binder(this.evt);
@@ -1166,27 +1203,27 @@ SC_GenerateForever.prototype = {
       var copy = null;
       if(bound_evt instanceof SC_CubeBinding){
         if(bound_value instanceof SC_CubeBinding){
-          copy = new SC_GenerateForeverLateEvtLateVal(bound_evt, bound_value);
+          return new SC_GenerateForeverLateEvtLateVal(bound_evt, bound_value)
+                 .bindTo(engine, parbranch, seq, masterSeq, path, cube);
           }
         else{
-          copy = new SC_GenerateForeverLateEvt(bound_evt, bound_value);
+          return new SC_GenerateForeverLateEvt(bound_evt, bound_value)
+                 .bindTo(engine, parbranch, seq, masterSeq, path, cube);
           }
         }
-      else{
-        if(bound_value instanceof SC_CubeBinding){
-          copy = new SC_GenerateForeverLateVal(bound_evt, bound_value);
-          }
-        else{
-          copy = new SC_GenerateForever(bound_evt, bound_value);
-          }
+      else if(bound_value instanceof SC_CubeBinding){
+        return new SC_GenerateForeverLateVal(bound_evt, bound_value)
+                 .bindTo(engine, parbranch, seq, masterSeq, path, cube);
         }
+      copy = new SC_Instruction(SC_Opcodes.GENERATE_FOREVER);
+      copy.evt = bound_evt;
+      copy.val = bound_value;
       copy.itsParent = parbranch;
       copy._evt = this.evt;
       copy._val = this.val;
       parbranch.declarePotential();
       return copy;
       }
-  , generateValues : SC_GenerateForeverLateVal.prototype.generateValues
   , toString : function(){
       return "generate "+this.evt.toString()
              +this.val+" forever ";
@@ -1215,41 +1252,33 @@ function SC_GenerateOne(evt, val){
   if(undefined === val){
     return new SC_GenerateOneNoVal(evt);
     }
-  /*if("requestDisplay"==evt.name){
-    console.log("building", this);
-    }*/ 
   this.evt = evt;
   this.val = val;
   this.itsParent = null;
 }
 SC_GenerateOne.prototype = {
-  activate : function(m){
-    this.itsParent.registerForProduction(this);
-    this.evt.generate(m);
-    return SC_Instruction_State.TERM;
-    }
+  constructor : SC_GenerateOne
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
       var copy = null;
-      if(this.evt === null){
+      if(null === this.evt){
         this.evt = engine.traceEvt;
         }
       var tmp_evt = binder(this.evt);
       var tmp_val = binder(this.val);
       if(undefined === tmp_val){
-        copy = new SC_GenerateOneNoVal(tmp_evt);
+        return new SC_GenerateOneNoVal(tmp_evt)
+                .bindTo(engine, parbranch, seq, masterSeq, path, cube);
         }
-      else{
-        copy = new SC_GenerateOne(tmp_evt, tmp_val);
-        }
+      copy = new SC_Instruction(SC_Opcodes.GENERATE_ONE);
+      copy.evt = tmp_evt;
+      copy.val = tmp_val;
       copy.itsParent = parbranch;
       copy._evt = this.evt;
       copy._val = this.val;
       parbranch.declarePotential();
       return copy;
       }
-  , reset : NO_FUN
-  , generateValues : SC_GenerateForever.prototype.generateValues
   , toString : function(){
       return "generate "+this.evt.toString()
              +((null != this.val)?"("+this.val.toString()+") ":"");
@@ -1316,7 +1345,7 @@ SC_Generate.prototype = {
       parbranch.declarePotential();
       return copy;
       }
-  , generateValues : SC_GenerateForever.prototype.generateValues
+  , generateValues : SC_GenerateForeverLateVal.prototype.generateValues
   , toString : function(){
       return "generate "+this.evt.toString()+" ("
              +this.val+") for "+this.count+"/"+this.times+" times ";
