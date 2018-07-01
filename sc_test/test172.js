@@ -14,7 +14,7 @@
            )
          , SC.repeat(20
              , SC.pause(1)
-             , SC.generate(e, "Hello World!",2)
+             , SC.generate(e, 'Hello World!',2)
              )
          )
    , init: function(){}
