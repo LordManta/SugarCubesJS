@@ -562,6 +562,8 @@ const SC_OpcodesNames = [
   , "GENERATE_NO_VAL"
   , "AWAIT"
   , "AWAIT_REGISTRED"
+  , "WHEN"
+  , "WHEN_REGISTERED"
   ];
 Object.freeze(SC_OpcodesNames);
 
@@ -780,6 +782,21 @@ SC_Instruction.prototype = {
             }
           return SC_Instruction_State.WAIT;
           }
+        case SC_Opcodes.WHEN:{
+          if(this.c.isPresent(m)){
+            return SC_Instruction_State.TERM;
+            }
+	  this.oc = SC_Opcodes.WHEN_REGISTERED;
+          this.c.registerInst(m, this);
+          return SC_Instruction_State.WEOI;
+          }
+        case SC_Opcodes.WHEN_REGISTERED:{
+          if(this.c.isPresent(m)){
+	    this.reset(m);
+            return SC_Instruction_State.TERM;
+            }
+          return SC_Instruction_State.WEOI;
+          }
         default: throw "undefined opcode "+this.oc;
         }
       }
@@ -787,6 +804,11 @@ SC_Instruction.prototype = {
       switch(this.oc){
         case SC_Opcodes.SEQ:{
           this.seqElements[this.idx].eoi(m);
+          break;
+          }
+        case SC_Opcodes.WHEN_REGISTERED:{
+          this.seq.idx += this.elsB;
+	  this.reset(m);
           break;
           }
         default: throw "undefined opcode "+this.oc;
@@ -866,6 +888,11 @@ SC_Instruction.prototype = {
           this.config.unregister(this);
           break;
           }
+        case SC_Opcodes.WHEN_REGISTERED:{
+          this.oc = SC_Opcodes.WHEN;
+          this.c.unregister(this);
+          break;
+          }
         default: throw "undefined opcode "+this.oc;
         }
       }
@@ -886,6 +913,9 @@ SC_Instruction.prototype = {
             }
           return res;
           }
+        case SC_Opcodes.WHEN_REGISTERED:{
+          return this.path.awake(m, flag);
+	  }
         default: throw "undefined opcode "+this.oc;
         }
       }
@@ -965,6 +995,9 @@ SC_Instruction.prototype = {
         case SC_Opcodes.GENERATE:{
           return "generate "+this.evt.toString()+" ("
                  +this.val+") for "+this.count+"/"+this.times+" times ";
+          }
+        case SC_Opcodes.WHEN:{
+          return "when "+this.c.toString()+" then ";
           }
         default: throw "undefined opcode "+this.oc;
         }
@@ -4468,79 +4501,24 @@ SC_Cube.prototype = {
 /*********
  * When Class
  *********/
-function When(c, t, e){
+function SC_When(c){
   this.c = c;
-  this.t = t;
-  this.e = (null == e)?SC_Nothing:e;
-  this.choice = null;
   this.path = null;
 }
-When.prototype = {
-  activate : function(m){
-    if(null != this.choice){
-      var res = this.choice.activate(m);
-      if(SC_Instruction_State.TERM == res){
-        this.reset(m);
-        }
-      return res;
+SC_When.prototype = {
+  constructor: SC_When
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      var copy = new SC_Instruction(SC_Opcodes.WHEN);
+      copy.c = this.c.bindTo(engine, parbranch, null, masterSeq, copy, cube)
+      copy.elsB = this.elsB;
+      copy.path = path;
+      copy.seq = seq;
+      console.log("when in repeat : ", seq);
+      return copy;
       }
-    if(this.c.isPresent(m)){
-      this.choice = this.t;
-      var res = this.choice.activate(m);
-      if(SC_Instruction_State.TERM == res){
-        this.reset(m);
-        }
-      return res;
-      }
-    this.c.registerInst(m, this);
-    return SC_Instruction_State.WEOI;
-    }
-  , wakeup : function(m, flag){
-      return this.awake(m, flag, true);
-      }
-}
-When.prototype.awake = function(m, flag, me){
-  if(null == this.choice){
-    if(this.c.isPresent(m)){
-      return this.path.awake(m, flag);
-      }
-    if(!me){
-      throw "When pb on awake";
-    }
-    return false;
-    }
-  return this.path.awake(m, flag);
+  , toString : function(){
+    return "when "+this.c.toString()+" then ";
   }
-When.prototype.eoi = function(m){
-  if(null == this.choice){
-    this.c.unregister(this);
-    this.choice = this.e;
-  }
-  else{
-    this.choice.eoi(m);
-  }
-}
-When.prototype.reset = function(m){
-  if(null != this.choice){
-    //console.log("resting choice", this.choice);
-    this.choice.reset(m);
-  }
-  this.choice = null;
-  this.c.unregister(this);
-}
-When.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
-  var copy = new When();
-  copy.c = this.c.bindTo(engine, parbranch, null, masterSeq, copy, cube)
-  copy.t = this.t.bindTo(engine, parbranch, null, masterSeq, copy, cube)
-  copy.e = this.e.bindTo(engine, parbranch, null, masterSeq, copy, cube)
-  copy.path = path;
-  return copy;
-}
-When.prototype.toString = function(){
-  return "when "+this.c.toString()
-          +" then "+this.t.toString()
-          +"else "+this.e.toString()
-          +" end when ";
 }
 
 /*********
@@ -4873,8 +4851,27 @@ SC = {
   },
   when: function(c,t,e){
     _SC.checkConfig(c);
-    return new When(c,t,e);
-  },
+    var prgs = [new SC_When(c)];    
+    var elsJ = 1;
+    var end = 0;
+    prgs.push(t);
+    if(t instanceof SC_Seq){
+      elsJ += t.seqElements.length+1;
+      }
+    else{
+      elsJ+=2;
+      }
+    prgs[0].elsB = elsJ;
+    if(e instanceof SC_Seq){
+      end += e.seqElements.length;
+      }
+    else{
+      end++;
+      }
+    prgs.push(new SC_RelativeJump(end));
+    prgs.push(e);
+    return new SC_Seq(prgs);
+    },
   test: function(b,t,e){
     return new SC_Test(b,t,(null == e)?SC_Nothing:e);
   },

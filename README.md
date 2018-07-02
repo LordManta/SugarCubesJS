@@ -84,14 +84,14 @@ On a theoretical point of view, this logical notion of time allows us to define 
 
 The reactive programming model «à la» F. Boussinot's relax the strong synchronous constraint, allowing instants of execution to last but an instant shall always be terminated before another instant of execution begins. The main differences here is that no instantaneous reaction  to the absence of information can take place before the end of the instant. Doing so reaction to the absence of information at one instant is always postponed to the next instant. The interesting point of such an approach is that it allows us to build language constructions dealing with the logical time to have a semantics correct by construction. So no more time type system is needed. Every program will have a unique semantics and provides a deterministic execution. But this comes at the cost of slightly different expressiveness capabilities.
 
-The most observable consequence of this model is that we can define modular and dynamically transformable systems, which we thought is simpler to use in the context of Web programming.
+The most observable consequence of this model is that we can define modular and dynamically transformable systems, which we thought are simpler to use in the context of Web programming.
 
 Instructions Basics:
 --------------------
 
 In SugarCubesJS, programs are executed in reactive machine which can be seen as an interpretor of reactive instructions. A reactive machine provides the notion of logical time. It is responsible to split the execution of the system in a sequence of instant (instants are also called reactions). A reactive machine can be instantiated using the `SC.machine()` call.
 
-Reactive programs manipulate reactive events, which are global data. At each instant, every events used by the reactive system are exclusively *present* or *absent*. Presence or absence of an event cannot evolve during the very same instant. For example if an event is present at some point during an instant so it must be during the whole instant. So no parallel component during the very same instant can see the event present while other components of the reactive system would see it absent. An event can only be seen absent at the end of the current instant (when no one else can emit it), so reaction to the absence can only take place at the next instant.
+Reactive programs manipulate reactive events, which are global data. At each instant, every events used by the reactive system are exclusively *present* or *absent*. Presence or absence of an event cannot evolve during the very same instant. For example, if an event is present at some point during an instant so it must be during the whole instant. So no parallel component during the very same instant can see the event present while other components of the reactive system would see it absent. An event can only be seen absent at the end of the current instant (when no one else can emit it), so reaction to the absence can only take place at the next instant.
 
 At each instant:
  - events can be present at the beginning of the instant, if emitted by the execution environment of the system (the event is then an input of the reactive system).
