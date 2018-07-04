@@ -564,6 +564,13 @@ const SC_OpcodesNames = [
   , "AWAIT_REGISTRED"
   , "WHEN"
   , "WHEN_REGISTERED"
+  , "KILL_SUSP"
+  , "KILL_WEOI"
+  , "KILL_OEOI"
+  , "KILL_STOP"
+  , "KILL_WAIT"
+  , "KILL_HALT"
+  , "KILLED"
   ];
 Object.freeze(SC_OpcodesNames);
 
@@ -585,6 +592,15 @@ function SC_Instruction(opcode){
 
 SC_Instruction.prototype = {
   constructor : SC_Instruction
+  , tr : function (m, meth, msg, msg2){
+      console(
+      m.instantNumber
+      , meth
+      , SC_Opcodes.toString(this.oc)
+      , (undefined === msg)?"":msg
+      , (undefined === msg2)?"":msg2
+      );
+      }
   , activate : function(m){
       switch(this.oc){
         case SC_Opcodes.REL_JUMP:{
@@ -683,6 +699,7 @@ SC_Instruction.prototype = {
           }
         case SC_Opcodes.SEQ:{
           var res = SC_Instruction_State.TERM;
+          //this.tr(m, "activate");
           while(SC_Instruction_State.TERM == res){
             if(this.idx >= this.seqElements.length){
               this.oc = SC_Opcodes.SEQ_ENDED;
@@ -694,16 +711,19 @@ SC_Instruction.prototype = {
               this.idx++;
               }
             }
+          //this.tr(m, "activate", SC_Instruction_State.toString(res));
           return res;
           }
         case SC_Opcodes.HALT:{
           return SC_Instruction_State.HALT;
           }
         case SC_Opcodes.PAUSE:{
+          //console.log("pause");
           this.oc = SC_Opcodes.PAUSE_DONE;
           return SC_Instruction_State.STOP;
           }
         case SC_Opcodes.PAUSE_DONE:{
+          //console.log("pause as nothing");
           this.oc = SC_Opcodes.PAUSE;
           return SC_Instruction_State.TERM;
           }
@@ -768,14 +788,17 @@ SC_Instruction.prototype = {
           return SC_Instruction_State.STOP;
           }
         case SC_Opcodes.AWAIT:{
+          ///console.log("await" , SC_Opcodes.toString(this.oc));
           if(this.config.isPresent(m)){
             return SC_Instruction_State.TERM;
             }
           this.config.registerInst(m, this);
           this.oc = SC_Opcodes.AWAIT_REGISTRED
+          //console.log("register" , SC_Opcodes.toString(this.oc));
           return SC_Instruction_State.WAIT;
           }
         case SC_Opcodes.AWAIT_REGISTRED:{
+          //console.log("await registered " , SC_Opcodes.toString(this.oc));
           if(this.config.isPresent(m)){
             this.reset(m);
             return SC_Instruction_State.TERM;
@@ -786,16 +809,70 @@ SC_Instruction.prototype = {
           if(this.c.isPresent(m)){
             return SC_Instruction_State.TERM;
             }
-	  this.oc = SC_Opcodes.WHEN_REGISTERED;
+          this.oc = SC_Opcodes.WHEN_REGISTERED;
           this.c.registerInst(m, this);
           return SC_Instruction_State.WEOI;
           }
         case SC_Opcodes.WHEN_REGISTERED:{
           if(this.c.isPresent(m)){
-	    this.reset(m);
+            this.reset(m);
             return SC_Instruction_State.TERM;
             }
           return SC_Instruction_State.WEOI;
+          }
+        case SC_Opcodes.KILL_SUSP:{
+          //this.tr(m, "activate",this.c.toString());
+          const res = this.p.activate(m);
+          /*this.tr(m, "activate", this.c.toString()
+	     , "p returns "+SC_Instruction_State.toString(res));*/
+          switch(res){
+            case SC_Instruction_State.TERM:{
+              /*this.tr(m, "activate"
+	         , this.c.toString(),"kill term... goto = "+this.end);*/
+              this.seq.idx += this.end;
+              this.reset(m);
+              return SC_Instruction_State.TERM;
+              }
+            case SC_Instruction_State.SUSP:{
+              return SC_Instruction_State.SUSP;
+              }
+            case SC_Instruction_State.WEOI:{
+              this.oc = SC_Opcodes.KILL_WEOI;
+              /*this.tr(m, "activate"
+	         , this.c.toString()
+		 , "-> WEOI");*/
+              return SC_Instruction_State.WEOI;
+              }
+            case SC_Instruction_State.OEOI:{
+              this.oc = SC_Opcodes.KILL_OEOI;
+              /*this.tr(m, "activate"
+	          , this.c.toString(), "-> OEOI");*/
+              return SC_Instruction_State.OEOI;
+              }
+            case SC_Instruction_State.STOP:{
+              this.oc = SC_Opcodes.KILL_STOP;
+              /*this.tr(m, "activate"
+                 , this.c.toString(), "-> STOP");*/
+              return SC_Instruction_State.OEOI;
+              }
+            case SC_Instruction_State.HALT:{
+              this.oc = SC_Opcodes.KILL_HALT;
+              /*this.tr(m, "activate"
+                 , this.c.toString(), "-> HALT");*/
+              return SC_Instruction_State.OEOI;
+              }
+            }
+          this.oc = SC_Opcodes.KILL_WAIT;
+          }
+        case SC_Opcodes.KILL_HALT:
+        //case SC_Opcodes.KILL_STOP:
+        case SC_Opcodes.KILL_WAIT:{
+          return SC_Instruction_State.WEOI;
+          }
+        case SC_Opcodes.KILLED:{
+          //this.tr(m, "activate", "killed", this.c);
+          this.reset(m);
+          return SC_Instruction_State.TERM;
           }
         default: throw "undefined opcode "+this.oc;
         }
@@ -803,13 +880,40 @@ SC_Instruction.prototype = {
   , eoi: function(m){
       switch(this.oc){
         case SC_Opcodes.SEQ:{
+          //console.log("seq on eoi for", this.seqElements[this.idx]);
           this.seqElements[this.idx].eoi(m);
           break;
           }
         case SC_Opcodes.WHEN_REGISTERED:{
           this.seq.idx += this.elsB;
-	  this.reset(m);
+          this.reset(m);
           break;
+          }
+        case SC_Opcodes.KILL_OEOI:
+        case SC_Opcodes.KILL_WEOI:{
+          //this.tr(m, "eoi", this.c.toString());
+          this.p.eoi(m);
+          }
+        case SC_Opcodes.KILL_STOP:{
+          //console.log("eoi for ",SC_Opcodes.toString(this.oc));
+          if(this.c.isPresent(m)){
+            //console.log("to kill ",SC_Opcodes.toString(this.oc));
+            this.oc = SC_Opcodes.KILLED;
+            }
+          else{
+            this.oc = SC_Opcodes.KILL_SUSP;
+            //this.tr(m, "eoi", this.c.toString());
+            }
+          return;
+          }
+        case SC_Opcodes.KILL_HALT:
+        case SC_Opcodes.KILL_WAIT:{
+          //this.tr(m, "eoi", this.c.toString());
+          if(this.c.isPresent(m)){
+            this.oc = SC_Opcodes.KILLED;
+            //this.tr(m, "eoi","to kill ");
+            }
+          return;
           }
         default: throw "undefined opcode "+this.oc;
         }
@@ -860,8 +964,11 @@ SC_Instruction.prototype = {
           break;
           }
         case SC_Opcodes.HALT:
-        case SC_Opcodes.PAUSE:
-        case SC_Opcodes.PAUSE_DONE:
+        case SC_Opcodes.PAUSE:break;
+        case SC_Opcodes.PAUSE_DONE:{
+          //console.log("resetting pause");
+          this.oc = SC_Opcodes.PAUSE;
+          }
         case SC_Opcodes.PAUSE_N_TIMES_INIT:break;
         case SC_Opcodes.PAUSE_N_TIMES:{
           this.oc = SC_Opcodes.PAUSE_N_TIMES_INIT;
@@ -893,13 +1000,39 @@ SC_Instruction.prototype = {
           this.c.unregister(this);
           break;
           }
+        case SC_Opcodes.KILL_SUSP:
+        case SC_Opcodes.KILL_WEOI:
+        case SC_Opcodes.KILL_OEOI:
+        case SC_Opcodes.KILL_STOP:
+        case SC_Opcodes.KILL_WAIT:
+        case SC_Opcodes.KILL_HALT:
+        case SC_Opcodes.KILLED:{
+          //this.tr( m , "reset", this.c.toString());
+          this.p.reset(m);
+          this.oc = SC_Opcodes.KILL_SUSP;
+          break;
+          }
         default: throw "undefined opcode "+this.oc;
         }
       }
   , awake : function(m, flag){
       switch(this.oc){
         case SC_Opcodes.SEQ:{
+          //this.tr(m ,"awake");
           return this.path.awake(m, flag);
+          }
+        //case SC_Opcodes.KILLED:
+        case SC_Opcodes.KILL_SUSP:{
+          //this.tr(m ,"awake","bizarre");
+          return true;
+          }
+        case SC_Opcodes.KILL_WAIT:
+        case SC_Opcodes.KILL_WEOI:{
+          //tr(m, "awake", this, this.c.toString());
+          var res = this.path.awake(m, flag);
+          this.oc = SC_Opcodes.KILL_SUSP;
+          //tr(m, "awake", this.oc, this.c.toString());
+          return true;
           }
         default: throw "undefined opcode "+this.oc;
         }
@@ -907,6 +1040,7 @@ SC_Instruction.prototype = {
   , wakeup : function(m, flag){
       switch(this.oc){
         case SC_Opcodes.AWAIT_REGISTRED:{
+          //console.log("wakeup await" , SC_Opcodes.toString(this.oc));
           var res = this.config.isPresent(m);
           if(res){
             res = this.path.awake(m, flag);
@@ -915,7 +1049,7 @@ SC_Instruction.prototype = {
           }
         case SC_Opcodes.WHEN_REGISTERED:{
           return this.path.awake(m, flag);
-	  }
+          }
         default: throw "undefined opcode "+this.oc;
         }
       }
@@ -998,6 +1132,10 @@ SC_Instruction.prototype = {
           }
         case SC_Opcodes.WHEN:{
           return "when "+this.c.toString()+" then ";
+          }
+        case SC_Opcodes.KILL_SUSP:{
+          return "kill "+this.p.toString()
+                  +" on "+this.c.toString()
           }
         default: throw "undefined opcode "+this.oc;
         }
@@ -3073,6 +3211,7 @@ SC_Par.prototype.activate = function(m){
              this.suspendedChain.append(toActivate);
              break;
            }
+      case SC_Instruction_State.OEOI:
       case SC_Instruction_State.WEOI:{
              this.waittingEOI.append(toActivate);
              break;
@@ -3144,6 +3283,7 @@ SC_Par.prototype.eoi = function(m){
   var tmp = this.waittingEOI.pop();
   while(null != tmp){
     tmp.flag = SC_Instruction_State.SUSP;
+    //console.log("par on eoi");
     tmp.prg.eoi(m);
     this.suspended.append(tmp);
     tmp = this.waittingEOI.pop();
@@ -3331,6 +3471,7 @@ SC_ParDyn.prototype.activate = function(m){
              this.suspendedChain.append(toActivate);
              break;
            }
+      case SC_Instruction_State.OEOI:
       case SC_Instruction_State.WEOI:{
              this.waittingEOI.append(toActivate);
              break;
@@ -3407,6 +3548,7 @@ SC_ParDyn.prototype.computeAndAdd = function(m){
     }
   }
 SC_ParDyn.prototype.eoi = function(m){
+  //console.log("par dyn ... eoi");
   var tmp = this.waittingEOI.pop();
   while(null != tmp){
     tmp.flag = SC_Instruction_State.SUSP;
@@ -3421,7 +3563,7 @@ SC_ParDyn.prototype.eoi = function(m){
     tmp = this.stopped.pop();
     }
   if(this.channel.isPresent(m)){
-    console.log("there's something to add "+m.actions.length);
+    //console.log("there's something to add "+m.actions.length);
     m.addDynPar(this);
     }
   else{
@@ -4091,12 +4233,14 @@ SC_Machine.prototype =
       this.parActions = [];
       this.stdOut("\n"+this.instantNumber+" -: ");
       // Phase 1 : pure reactive execution
+      //console.log(this.instantNumber, "--- phase1 ---");
       while(SC_Instruction_State.SUSP == (res = this.prg.activate(this)) /*&& this.moved*/){
         //this.moved = false;
       }
       //console.log("res = ",res);
       //this.moved = false;
-      if((SC_Instruction_State.SUSP == res)||(SC_Instruction_State.WEOI == res)){
+      if((SC_Instruction_State.OEOI == res)||(SC_Instruction_State.WEOI == res)){
+        //console.log(this.instantNumber, "--- eoi starts ---");
         this.prg.eoi(this);
         res = SC_Instruction_State.STOP;
       }
@@ -4184,103 +4328,33 @@ SC_Machine.prototype =
   };
 
 /*********
- * Kill Class
+ * SC_Kill Class
  *********/
-function Kill(c, p, h){
-  if(undefined == h){
-    h = SC_Nothing;
-  }
-  this.state = SC_Instruction_State.SUSP;
+function SC_Kill(c, p, end){
   this.c = c;
   this.p = p;
-  this.h = h;
-  this.path = null;
+  this.end = end;
 }
-Kill.prototype.activate = function(m){
-  if(this.state == SC_Instruction_State.TERM){
-    var res = this.h.activate(m);
-    if(SC_Instruction_State.TERM == res){
-      this.reset(m);
+SC_Kill.prototype = {
+  constructor : SC_Kill
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      var binder = _SC._b(cube);  
+      var copy = new SC_Instruction(SC_Opcodes.KILL_SUSP);
+      copy.c = binder(this.c)
+                  .bindTo(engine, parbranch, null, masterSeq, copy, cube);
+      copy.p = this.p.bindTo(engine, parbranch, null, masterSeq, copy, cube);
+      copy.end = this.end;
+      copy.path = path;
+      copy.seq = seq;
+      return copy;
       }
-    return res;
+  , toString : function(){
+      return "kill "+this.p.toString()
+              +" on "+this.c.toString()
+              +((null != this.h)?"handle "+this.h:"")
+              +" end kill ";
     }
-  if(this.state == SC_Instruction_State.SUSP){
-    this.state = this.p.activate(m);
-    if(SC_Instruction_State.TERM == this.state){
-      this.p.reset(m);
-      this.state = SC_Instruction_State.SUSP;
-      return SC_Instruction_State.TERM;
-      }
-    }
-  return (SC_Instruction_State.SUSP != this.state)?SC_Instruction_State.WEOI:SC_Instruction_State.SUSP;
-  }
-Kill.prototype.awake = function(m, flag){
-  var res = false;
-  switch(this.state){
-    case SC_Instruction_State.WAIT:
-    case SC_Instruction_State.WEOI:{
-      res = this.path.awake(m, flag);
-      if(!res){
-        return false;
-        }
-      this.state = SC_Instruction_State.SUSP;
-      }
-    case SC_Instruction_State.SUSP: return true;
-    case SC_Instruction_State.TERM:{
-      res = this.path.awake(m, flag);
-      return res;
-      }
-    }
-  return false;
-  }
-Kill.prototype.eoi = function(m){
-  if((SC_Instruction_State.TERM != this.state) && this.c.isPresent(m)){
-    if(SC_Instruction_State.WEOI == this.state){
-      this.p.eoi(m);
-      }
-    this.p.reset(m);
-    this.state = SC_Instruction_State.TERM;
-    }
-  else if(this.state == SC_Instruction_State.WEOI){
-    this.p.eoi(m);
-    this.state = SC_Instruction_State.SUSP;
-    }
-  else if(this.state == SC_Instruction_State.STOP){
-    this.state = SC_Instruction_State.SUSP;
-    }
-  else if(this.state == SC_Instruction_State.TERM){
-    this.h.eoi(m);
-    }
-  }
-Kill.prototype.reset = function(m){
-  if(this.state != SC_Instruction_State.TERM){
-    this.p.reset(m);
-  }
-  else{
-    this.h.reset(m);
-  }
-  this.state = SC_Instruction_State.SUSP;
-}
-Kill.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
-  var binder = _SC._b(cube);  
-  var copy = new Kill();
-  if(this.c instanceof SC_CubeBinding){
-    copy.c = binder(this.c);
-    }
-  else{
-    copy.c = this.c.bindTo(engine, parbranch, null, masterSeq, copy, cube);
-    }
-  copy.p = this.p.bindTo(engine, parbranch, null, masterSeq, copy, cube);
-  copy.h = this.h.bindTo(engine, parbranch, null, masterSeq, copy, cube);
-  copy.path = path;
-  return copy;
-}
-Kill.prototype.toString = function(){
-  return "kill "+this.p.toString()
-          +" on "+this.c.toString()
-          +((null != this.h)?"handle "+this.h:"")
-          +" end kill ";
-}
+};
 
 /*********
  * Control Class
@@ -4368,7 +4442,8 @@ Control.prototype.awake = function(m, flag, me){
   return true;
   }
 Control.prototype.eoi = function(m){
-  if(this.c.isPresent(m) && ((SC_Instruction_State.SUSP == this.state)||(SC_Instruction_State.WEOI == this.state))){
+  //console.log("control on EOI");
+  if(this.c.isPresent(m) && ((SC_Instruction_State.OEOI == this.state)||(SC_Instruction_State.WEOI == this.state))){
     this.p.eoi(m);
   }
   if(SC_Instruction_State.STOP >= this.state){
@@ -4513,7 +4588,6 @@ SC_When.prototype = {
       copy.elsB = this.elsB;
       copy.path = path;
       copy.seq = seq;
-      console.log("when in repeat : ", seq);
       return copy;
       }
   , toString : function(){
@@ -4839,7 +4913,18 @@ SC = {
   },
   kill: function(c,p,h){
     _SC.checkConfig(c);
-    return new Kill(c, p, h);
+    var prgs = [new SC_Kill(c,p,0)];
+    if(undefined != h){
+      prgs.push(h);
+      if(h instanceof SC_Seq){
+        prgs[0].end += h.seqElements.length;
+        }
+      else{
+        prgs[0].end += 1;
+        }
+      }
+    var res = new SC_Seq(prgs);
+    return res;
   },
   control: function(c){
     _SC.checkConfig(c);
