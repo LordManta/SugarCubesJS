@@ -571,6 +571,30 @@ const SC_OpcodesNames = [
   , "KILL_WAIT"
   , "KILL_HALT"
   , "KILLED"
+  , "CONTROL"
+  , "CONTROL_REGISTERED_CHECK"
+  , "CONTROL_REGISTERED_SUSP"
+  , "CONTROL_REGISTERED_EOI"
+  , "CONTROL_REGISTERED_HALT"
+  , "TEST"
+  , "ACTION_ON_EVENT_FOREVER_NO_DEFAULT"
+  , "ACTION_ON_EVENT_FOREVER_NO_DEFAULT_REGISTERED"
+  , "ACTION_ON_EVENT_FOREVER_NO_DEFAULT_STOP"
+  , "ACTION_ON_EVENT_FOREVER"
+  , "ACTION_ON_EVENT_FOREVER_REGISTERED"
+  , "ACTION_ON_EVENT_FOREVER_STOP"
+  , "ACTION_ON_EVENT"
+  , "ACTION_ON_EVENT_REGISTERED"
+  , "ACTION_ON_EVENT_STOP"
+  , "ACTION_ON_EVENT_NO_DEFAULT"
+  , "ACTION_ON_EVENT_NO_DEFAULT_REGISTERED"
+  , "ACTION_ON_EVENT_NO_DEFAULT_STOP"
+  , "SIMPLE_ACTION_ON_EVENT_NO_DEFAULT"
+  , "SIMPLE_ACTION_ON_EVENT_NO_DEFAULT_REGISTERED"
+  , "SIMPLE_ACTION_ON_EVENT_NO_DEFAULT_ENDED"
+  , "SIMPLE_ACTION_ON_EVENT"
+  , "SIMPLE_ACTION_ON_EVENT_REGISTERED"
+  , "SIMPLE_ACTION_ON_EVENT_ENDED"
   ];
 Object.freeze(SC_OpcodesNames);
 
@@ -593,13 +617,14 @@ function SC_Instruction(opcode){
 SC_Instruction.prototype = {
   constructor : SC_Instruction
   , tr : function (m, meth, msg, msg2){
-      console(
-      m.instantNumber
-      , meth
-      , SC_Opcodes.toString(this.oc)
-      , (undefined === msg)?"":msg
-      , (undefined === msg2)?"":msg2
-      );
+      //if(this.c.toString() == "&clickTarget ")
+      console.log(
+        m.instantNumber
+        , meth
+        , SC_Opcodes.toString(this.oc)
+        , (undefined === msg)?"":msg
+        , (undefined === msg2)?"":msg2
+        );
       }
   , activate : function(m){
       switch(this.oc){
@@ -824,11 +849,11 @@ SC_Instruction.prototype = {
           //this.tr(m, "activate",this.c.toString());
           const res = this.p.activate(m);
           /*this.tr(m, "activate", this.c.toString()
-	     , "p returns "+SC_Instruction_State.toString(res));*/
+             , "p returns "+SC_Instruction_State.toString(res));*/
           switch(res){
             case SC_Instruction_State.TERM:{
               /*this.tr(m, "activate"
-	         , this.c.toString(),"kill term... goto = "+this.end);*/
+                 , this.c.toString(),"kill term... goto = "+this.end);*/
               this.seq.idx += this.end;
               this.reset(m);
               return SC_Instruction_State.TERM;
@@ -839,14 +864,14 @@ SC_Instruction.prototype = {
             case SC_Instruction_State.WEOI:{
               this.oc = SC_Opcodes.KILL_WEOI;
               /*this.tr(m, "activate"
-	         , this.c.toString()
-		 , "-> WEOI");*/
+                 , this.c.toString()
+                 , "-> WEOI");*/
               return SC_Instruction_State.WEOI;
               }
             case SC_Instruction_State.OEOI:{
               this.oc = SC_Opcodes.KILL_OEOI;
               /*this.tr(m, "activate"
-	          , this.c.toString(), "-> OEOI");*/
+                  , this.c.toString(), "-> OEOI");*/
               return SC_Instruction_State.OEOI;
               }
             case SC_Instruction_State.STOP:{
@@ -865,8 +890,10 @@ SC_Instruction.prototype = {
           this.oc = SC_Opcodes.KILL_WAIT;
           }
         case SC_Opcodes.KILL_HALT:
-        //case SC_Opcodes.KILL_STOP:
+        case SC_Opcodes.KILL_WEOI:
         case SC_Opcodes.KILL_WAIT:{
+          /*this.tr(m, "activate"
+                 , this.c.toString(), "sur HALT ou WAIT");*/
           return SC_Instruction_State.WEOI;
           }
         case SC_Opcodes.KILLED:{
@@ -874,7 +901,220 @@ SC_Instruction.prototype = {
           this.reset(m);
           return SC_Instruction_State.TERM;
           }
-        default: throw "undefined opcode "+this.oc;
+        case SC_Opcodes.CONTROL:{
+            this.c.registerInst(m, this);
+            this.oc = SC_Opcodes.CONTROL_REGISTERED_CHECK;
+            }
+        case SC_Opcodes.CONTROL_REGISTERED_CHECK:{
+          if(this.c.isPresent(m)){
+            this.oc = SC_Opcodes.CONTROL_REGISTERED_SUSP;
+            }
+          else{
+            return SC_Instruction_State.WAIT;
+            }
+          }
+        case SC_Opcodes.CONTROL_REGISTERED_SUSP:{
+          var res = this.p.activate(m);
+          switch(res){
+            case SC_Instruction_State.OEOI:
+            case SC_Instruction_State.WEOI:{
+              this.oc = SC_Opcodes.CONTROL_REGISTERED_EOI;
+              break;
+              }
+            case SC_Instruction_State.HALT:{
+              this.oc = SC_Opcodes.CONTROL_REGISTERED_HALT;
+              break;
+              }
+            case SC_Instruction_State.WAIT:{
+              this.oc = SC_Opcodes.CONTROL_REGISTERED_CHECK;
+              break;
+              }
+            case SC_Instruction_State.STOP:{
+              this.oc = SC_Opcodes.CONTROL_REGISTERED_CHECK;
+              break;
+              }
+            case SC_Instruction_State.TERM:{
+              this.reset(m);
+              break;
+              }
+            }
+          return res;
+          }
+        case SC_Opcodes.TEST:{
+          if(!this.test(m)){
+            this.seq.idx += this.elsB;
+            //this.tr(m,"activate",this.seq.idx, this.seq.seqElements);
+            }
+          this.reset(m);
+          return SC_Instruction_State.TERM;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT:{
+          this.evtFun.config.registerInst(m, this);
+          this.oc = SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT_REGISTERED;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT_REGISTERED:{
+          if(this.evtFun.config.isPresent(m)){
+            m.addEvtFun(this.evtFun);
+            this.oc = SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT_STOP;
+            return SC_Instruction_State.STOP;
+            }
+          return SC_Instruction_State.WAIT;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT_STOP:{
+          if(this.evtFun.config.isPresent(m)){
+            m.addEvtFun(this.evtFun);
+            return SC_Instruction_State.STOP;
+            }
+          this.oc = SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT_REGISTERED;
+          return SC_Instruction_State.WAIT;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_FOREVER:{
+          this.evtFun.config.registerInst(m, this);
+          this.oc = SC_Opcodes.ACTION_ON_EVENT_FOREVER_REGISTERED;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_FOREVER_REGISTERED:{
+          if(this.evtFun.config.isPresent(m)){
+            m.addEvtFun(this.evtFun);
+            this.oc = SC_Opcodes.ACTION_ON_EVENT_FOREVER_STOP;
+            return SC_Instruction_State.STOP;
+            }
+          return SC_Instruction_State.WEOI;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_FOREVER_STOP:{
+          if(this.evtFun.config.isPresent(m)){
+            m.addEvtFun(this.evtFun);
+            return SC_Instruction_State.STOP;
+            }
+          this.oc = SC_Opcodes.ACTION_ON_EVENT_FOREVER_REGISTERED;
+          return SC_Instruction_State.WEOI;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT:{
+          this.count = this.times;
+          this.evtFun.config.registerInst(m, this);
+          this.oc = SC_Opcodes.ACTION_ON_EVENT_REGISTERED;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_REGISTERED:{
+          if(0 == this.count){
+            this.reset(m);
+            return SC_Instruction_State.TERM;
+            }
+          if(this.evtFun.config.isPresent(m)){
+            m.addEvtFun(this.evtFun);
+            if(this.count > 0){
+              this.count--;
+              }
+            if(0 == this.count){
+              this.reset(m);
+              return SC_Instruction_State.TERM;
+              }
+            this.oc = SC_Opcodes.ACTION_ON_EVENT_STOP;
+            return SC_Instruction_State.STOP;
+            }
+          return SC_Instruction_State.WEOI;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_STOP:{
+          if(0 == this.count){
+            this.reset(m);
+            return SC_Instruction_State.TERM;
+            }
+          if(this.evtFun.config.isPresent(m)){
+            m.addEvtFun(this.evtFun);
+            if(this.count > 0){
+              this.count--;
+              }
+            if(0 == this.count){
+              this.reset(m);
+              return SC_Instruction_State.TERM;
+              }
+            return SC_Instruction_State.STOP;
+            }
+          this.oc = SC_Opcodes.ACTION_ON_EVENT_REGISTERED;
+          return SC_Instruction_State.WEOI;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT:{
+          this.count = this.times;
+          this.evtFun.config.registerInst(m, this);
+          this.oc = SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT_REGISTERED;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT_REGISTERED:{
+          if(0 == this.count){
+            this.reset(m);
+            return SC_Instruction_State.TERM;
+            }
+          if(this.evtFun.config.isPresent(m)){
+            m.addEvtFun(this.evtFun);
+            if(this.count > 0){
+              this.count--;
+              }
+            if(0 == this.count){
+              this.reset(m);
+              return SC_Instruction_State.TERM;
+              }
+            this.oc = SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT_STOP;
+            return SC_Instruction_State.STOP;
+            }
+          return SC_Instruction_State.WEOI;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT_STOP:{
+          if(0 == this.count){
+            this.reset(m);
+            return SC_Instruction_State.TERM;
+            }
+          if(this.evtFun.config.isPresent(m)){
+            m.addEvtFun(this.evtFun);
+            if(this.count > 0){
+              this.count--;
+              }
+            if(0 == this.count){
+              this.reset(m);
+              return SC_Instruction_State.TERM;
+              }
+            return SC_Instruction_State.STOP;
+            }
+          this.oc = SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT_REGISTERED;
+          return SC_Instruction_State.WEOI;
+          }
+        case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT:{
+          if(this.evtFun.config.isPresent(m)){
+            m.addEvtFun(this.evtFun);
+            this.reset(m);
+            return SC_Instruction_State.TERM;
+            }
+          this.evtFun.config.registerInst(m, this);
+          this.oc = SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT_REGISTERED;
+          }
+        case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT_REGISTERED:{
+          if(this.evtFun.config.isPresent(m)){
+            m.addEvtFun(this.evtFun);
+            this.reset(m);
+            return SC_Instruction_State.TERM;
+            }
+          return SC_Instruction_State.WEOI;
+          }
+        case SC_Opcodes.SIMPLE_ACTION_ON_EVENT:{
+          if(this.evtFun.config.isPresent(m)){
+            m.addEvtFun(this.evtFun);
+            this.reset(m);
+            return SC_Instruction_State.TERM;
+            }
+          this.evtFun.config.registerInst(m, this);
+          this.oc = SC_Opcodes.SIMPLE_ACTION_ON_EVENT_REGISTERED;
+          }
+        case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_REGISTERED:{
+          if(this.evtFun.config.isPresent(m)){
+            m.addEvtFun(this.evtFun);
+            this.reset(m);
+            return SC_Instruction_State.TERM;
+            }
+          return SC_Instruction_State.WEOI;
+          }
+        case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT_ENDED:
+        case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_ENDED:{
+          this.reset(m);
+          return SC_Instruction_State.TERM;
+          }
+        default: throw "activate: undefined opcode "
+                       +SC_Opcodes.toString(this.oc);
         }
       }
   , eoi: function(m){
@@ -895,16 +1135,13 @@ SC_Instruction.prototype = {
           this.p.eoi(m);
           }
         case SC_Opcodes.KILL_STOP:{
-          //console.log("eoi for ",SC_Opcodes.toString(this.oc));
           if(this.c.isPresent(m)){
-            //console.log("to kill ",SC_Opcodes.toString(this.oc));
             this.oc = SC_Opcodes.KILLED;
             }
           else{
             this.oc = SC_Opcodes.KILL_SUSP;
-            //this.tr(m, "eoi", this.c.toString());
             }
-          return;
+          break;
           }
         case SC_Opcodes.KILL_HALT:
         case SC_Opcodes.KILL_WAIT:{
@@ -913,9 +1150,42 @@ SC_Instruction.prototype = {
             this.oc = SC_Opcodes.KILLED;
             //this.tr(m, "eoi","to kill ");
             }
-          return;
+          break;
           }
-        default: throw "undefined opcode "+this.oc;
+        case SC_Opcodes.CONTROL_REGISTERED_EOI:{
+          this.p.eoi(m);
+          this.oc = SC_Opcodes.CONTROL_REGISTERED_CHECK;
+          break;
+        }
+        case SC_Opcodes.ACTION_ON_EVENT_FOREVER_REGISTERED:{
+          m.addFun(this.defaultAct);
+          break;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_REGISTERED:{
+          m.addFun(this.defaultAct);
+          if(this.count > 0){
+            this.count--;
+            }
+          break;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT_REGISTERED:{
+          if(this.count > 0){
+            this.count--;
+            }
+          break;
+          }
+        case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_REGISTERED:{
+          m.addFun(this.defaultAct);
+          this.oc = SC_Opcodes.SIMPLE_ACTION_ON_EVENT_ENDED;
+          break;
+          }
+        case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT_REGISTERED:{
+          this.oc = SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT_ENDED;
+          break;
+          }
+        default: throw "eoi : undefined opcode "
+                        + SC_Opcodes.toString(this.oc);
+
         }
       }
   , reset: function(m){
@@ -1012,7 +1282,55 @@ SC_Instruction.prototype = {
           this.oc = SC_Opcodes.KILL_SUSP;
           break;
           }
-        default: throw "undefined opcode "+this.oc;
+        case SC_Opcodes.CONTROL:
+        case SC_Opcodes.CONTROL_REGISTERED_CHECK:
+        case SC_Opcodes.CONTROL_REGISTERED_SUSP:{
+          this.p.reset(m);
+          this.c.unregister(this);
+          this.oc = SC_Opcodes.CONTROL;
+          break;
+          }
+        case SC_Opcodes.TEST:
+        case SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT:break;
+        case SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT_REGISTERED:
+        case SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT_STOP:{
+          this.evtFun.config.unregister(this);
+          this.oc = SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_FOREVER:break;
+        case SC_Opcodes.ACTION_ON_EVENT_FOREVER_REGISTERED:
+        case SC_Opcodes.ACTION_ON_EVENT_FOREVER_STOP:{
+          this.evtFun.config.unregister(this);
+          this.oc = SC_Opcodes.ACTION_ON_EVENT_FOREVER;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT:break;
+        case SC_Opcodes.ACTION_ON_EVENT_REGISTERED:
+        case SC_Opcodes.ACTION_ON_EVENT_STOP:{
+          this.evtFun.config.unregister(this);
+          this.count = this.times;
+          this.oc = SC_Opcodes.ACTION_ON_EVENT;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT:break;
+        case SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT_REGISTERED:
+        case SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT_STOP:{
+          this.evtFun.config.unregister(this);
+          this.count = this.times;
+          this.oc = SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT;
+          }
+        case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT:break;
+        case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT_REGISTERED:
+        case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT_ENDED:{
+          this.evtFun.config.unregister(this);
+          this.oc = SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT;
+          }
+        case SC_Opcodes.SIMPLE_ACTION_ON_EVENT:break;
+        case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_REGISTERED:
+        case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_ENDED:{
+          this.evtFun.config.unregister(this);
+          this.oc = SC_Opcodes.SIMPLE_ACTION_ON_EVENT;
+          }
+        default: throw "reset : undefined opcode "
+                        + SC_Opcodes.toString(this.oc);
         }
       }
   , awake : function(m, flag){
@@ -1028,13 +1346,29 @@ SC_Instruction.prototype = {
           }
         case SC_Opcodes.KILL_WAIT:
         case SC_Opcodes.KILL_WEOI:{
-          //tr(m, "awake", this, this.c.toString());
+          //this.tr(m, "awake in", this.c.toString());
           var res = this.path.awake(m, flag);
           this.oc = SC_Opcodes.KILL_SUSP;
-          //tr(m, "awake", this.oc, this.c.toString());
+          //this.tr(m, "awake out", this.c.toString());
           return true;
           }
-        default: throw "undefined opcode "+this.oc;
+        case SC_Opcodes.KILLED:{
+          return false;
+          }
+        case SC_Opcodes.CONTROL_REGISTERED_CHECK:
+        case SC_Opcodes.CONTROL_REGISTERED_EOI:
+        case SC_Opcodes.CONTROL_REGISTERED_SUSP:{
+          if(this.c.isPresent(m)){
+            var res = this.path.awake(m, flag);
+            if(res){
+              this.oc = SC_Opcodes.CONTROL_REGISTERED_SUSP;
+              }
+            return res;
+            }
+          return true;
+          }
+        default: throw "awake undefined opcode "
+                       +SC_Opcodes.toString(this.oc);
         }
       }
   , wakeup : function(m, flag){
@@ -1050,7 +1384,63 @@ SC_Instruction.prototype = {
         case SC_Opcodes.WHEN_REGISTERED:{
           return this.path.awake(m, flag);
           }
-        default: throw "undefined opcode "+this.oc;
+        case SC_Opcodes.CONTROL_REGISTERED_CHECK:
+        case SC_Opcodes.CONTROL_REGISTERED_EOI:
+        case SC_Opcodes.CONTROL_REGISTERED_HALT:
+        case SC_Opcodes.CONTROL_REGISTERED_SUSP:{
+          this.awake(m, flag, true);
+          return false;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT_STOP:{
+          return false;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT_REGISTERED:{
+          if(this.evtFun.config.isPresent(m)){
+            res = this.path.awake(m, flag);
+            }
+          return false;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_FOREVER_STOP:{
+          return false;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_FOREVER_REGISTERED:{
+          if(this.evtFun.config.isPresent(m)){
+            res = this.path.awake(m, flag);
+            }
+          return false;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_STOP:{
+          return false;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_REGISTERED:{
+          if(this.evtFun.config.isPresent(m)){
+            res = this.path.awake(m, flag);
+            }
+          return false;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT_STOP:{
+          return false;
+          }
+        case SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT_REGISTERED:{
+          if(this.evtFun.config.isPresent(m)){
+            res = this.path.awake(m, flag);
+            }
+          return false;
+          }
+        case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT_REGISTERED:{
+          if(this.evtFun.config.isPresent(m)){
+            res = this.path.awake(m, flag);
+            }
+          return false;
+          }
+        case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_REGISTERED:{
+          if(this.evtFun.config.isPresent(m)){
+            res = this.path.awake(m, flag);
+            }
+          return false;
+          }
+        default: throw "wakeup undefined opcode "
+                       +SC_Opcodes.toString(this.oc);
         }
       }
   , generateValues : function(m){
@@ -1071,7 +1461,8 @@ SC_Instruction.prototype = {
             }
           break;
           }
-        default: throw "undefined opcode "+this.oc;
+        default: throw "generateValues : undefined opcode "
+                       +SC_Opcodes.toString(this.oc);
         }
       }
   , toString(){
@@ -1137,7 +1528,8 @@ SC_Instruction.prototype = {
           return "kill "+this.p.toString()
                   +" on "+this.c.toString()
           }
-        default: throw "undefined opcode "+this.oc;
+        default: return "toString() : undefined opcode "
+                       +SC_Opcodes.toString(this.oc);
         }
       }
   }
@@ -1388,9 +1780,6 @@ SC_GenerateForeverLateVal.prototype =
         }
       else{
         this.evt.generateValues(m, this.val);
-        /*if("requestDisplay" == this.evt.name && "Terre" == this.val.name){
-          console.log("buh");
-          }*/
         }
       }
   , toString : function(){
@@ -2570,43 +2959,26 @@ SC_SimpleAction.prototype={
  *********/
 function SC_ActionOnEventForeverNoDef(c, act){
   this.evtFun = {action:act, config:c};
-  this.path = null;
-  this.toRegister = true;
 }
-SC_ActionOnEventForeverNoDef.prototype.activate = function(m){
-  if(this.evtFun.config.isPresent(m)){
-    m.addEvtFun(this.evtFun);
-    return SC_Instruction_State.STOP;
+SC_ActionOnEventForeverNoDef.prototype = {
+  constructor : SC_ActionOnEventForeverNoDef
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      var binder = _SC._b(cube);
+      var copy = new SC_Instruction(SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT);
+      copy.evtFun = {
+        action:binder(this.evtFun.action)
+        , config:binder(this.evtFun.config)
+                 .bindTo(engine, parbranch, seq, masterSeq, path, cube)
+        };
+      copy.path = path;
+      return copy;
     }
-  if(this.toRegister){
-    this.evtFun.config.registerInst(m, this);
-    this.toRegister = false;
-    }
-  return SC_Instruction_State.WAIT;
-  }
-SC_ActionOnEventForeverNoDef.prototype.wakeup = function(m, flag){
-  if(this.evtFun.config.isPresent(m)){
-    res = this.path.awake(m, flag);
-    }
-  return false;
-  }
-SC_ActionOnEventForeverNoDef.prototype.reset = function(m){
-  this.evtFun.config.unregister(this);
-  this.toRegister = true;
-  }
-SC_ActionOnEventForeverNoDef.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
-  var binder = _SC._b(cube);
-  var copy = new SC_ActionOnEventForeverNoDef(
-                       binder(this.evtFun.config).bindTo(engine, parbranch, seq, masterSeq, path, cube)
-                       , binder(this.evtFun.action));
-  copy.path = path;
-  return copy;
-}
-SC_ActionOnEventForeverNoDef.prototype.toString = function(){
-  var res ="on "+this.evtFun.config.toString();
-  return res+"call("+this.evtFun.action.toString()+") "
-         +" forever ";
-}
+    , toString : function(){
+      var res ="on "+this.evtFun.config.toString();
+      return res+"call("+this.evtFun.action.toString()+") "
+             +" forever ";
+      }
+};
 
 function SC_ActionOnEventForever(c, act, defaultAct){
   if(undefined === defaultAct){
@@ -2614,164 +2986,55 @@ function SC_ActionOnEventForever(c, act, defaultAct){
     }
   this.evtFun = {action:act, config:c};
   this.defaultAct = defaultAct;
+}
+SC_ActionOnEventForever.prototype = {
+  constructor : SC_ActionOnEventForever
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      var binder = _SC._b(cube);
+      var copy = new SC_Instruction(SC_Opcodes.ACTION_ON_EVENT_FOREVER);
+      copy.evtFun = {
+        action:binder(this.evtFun.action)
+        , config:binder(this.evtFun.config)
+                   .bindTo(engine, parbranch, seq, masterSeq, path, cube)
+        };
+      copy.defaultAct = binder(this.defaultAct);
+      copy.path = path;
+      return copy;
+    }
+  , toString : function(){
+      var res ="on "+this.evtFun.config.toString();
+      return res+"call("+this.evtFun.action.toString()+") "
+             +"else call("+this.defaultAct.toString()+")  forever ";
+    }
+};
+//--- 
+function SC_ActionOnEventNoDef(c, act, times){
+  this.evtFun = {action:act, config:c};
   this.path = null;
-  this.toRegister = true;
+  this.count = this.times = times;
 }
-SC_ActionOnEventForever.prototype.activate = function(m){
-  if(this.evtFun.config.isPresent(m)){
-    m.addEvtFun(this.evtFun);
-    return SC_Instruction_State.STOP;
+SC_ActionOnEventNoDef.prototype = {
+  constructor : SC_ActionOnEventNoDef
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      var binder = _SC._b(cube);
+      var copy = new SC_Instruction(SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT);
+      copy.evtFun = {
+        action:binder(this.evtFun.action)
+        , config:binder(this.evtFun.config)
+             .bindTo(engine, parbranch, seq, masterSeq, path, cube)
+        };
+      copy.times = binder(this.times);
+      copy.path = path;
+      return copy;
     }
-  if(this.toRegister){
-    this.evtFun.config.registerInst(m, this);
-    this.toRegister = false;
+  , toString : function(){
+      var res ="on "+this.evtFun.config.toString();
+      return res+"call("+this.evtFun.action.toString()+") "
+             +" for "+this.count+"/"+this.times+" times ";
     }
-  return SC_Instruction_State.WEOI;
-  }
-SC_ActionOnEventForever.prototype.wakeup = SC_ActionOnEventForeverNoDef.prototype.wakeup;
-SC_ActionOnEventForever.prototype.reset = SC_ActionOnEventForeverNoDef.prototype.reset;
-SC_ActionOnEventForever.prototype.eoi = function(m){
-  if(false){ // debug
-    if(this.evtFun.config.isPresent(m)){
-      throw "SC_ActionOnEventForever : fatalerror";
-      }
-    }
-  m.addFun(this.defaultAct);
-  }
-SC_ActionOnEventForever.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
-  var binder = _SC._b(cube);
-  var copy = new SC_ActionOnEventForever(
-                       binder(this.evtFun.config).bindTo(engine, parbranch, seq, masterSeq, path, cube)
-                       , binder(this.evtFun.action)
-                       , binder(this.defaultAct));
-  copy.path = path;
-  return copy;
-}
-SC_ActionOnEventForever.prototype.toString = function(){
-  var res ="on "+this.evtFun.config.toString();
-  return res+"call("+this.evtFun.action.toString()+") "
-         +"else call("+this.defaultAct.toString()+")  forever ";
-}
+};
 
 //--- 
-function SC_ActionOnEventNoDef(c, act, times){
-  this.evtFun = {action:act, config:c};
-  this.path = null;
-  this.toRegister = true;
-  this.count = this.times = times;
-}
-SC_ActionOnEventNoDef.prototype.activate = function(m){
-  if(0 == this.count){
-    this.reset(m);
-    return SC_Instruction_State.TERM;
-    }
-  if(this.evtFun.config.isPresent(m)){
-    m.addEvtFun(this.evtFun);
-    if(this.count > 0){
-      this.count--;
-      }
-    if(0 == this.count){
-      this.reset(m);
-      return SC_Instruction_State.TERM;
-      }
-    return SC_Instruction_State.STOP;
-    }
-  if(this.toRegister){
-    this.evtFun.config.registerInst(m, this);
-    this.toRegister = false;
-    }
-  return SC_Instruction_State.WEOI;
-  }
-SC_ActionOnEventNoDef.prototype.wakeup = SC_ActionOnEventForever.prototype.wakeup;
-SC_ActionOnEventNoDef.prototype.reset = function(m){
-  this.count = this.times;
-  this.evtFun.config.unregister(this);
-  this.toRegister = true;
-  }
-SC_ActionOnEventNoDef.prototype.eoi = function(m){
-  if(false){ // Debug
-    if(this.evtFun.config.isPresent(m)){
-      throw "heu buh dummy error";
-      }
-    }
-  if(this.count > 0){
-    this.count--;
-    }
-  }
-SC_ActionOnEventNoDef.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
-  var binder = _SC._b(cube);
-  var copy = new SC_ActionOnEventNoDef(binder(this.evtFun.config).bindTo(engine, parbranch, seq, masterSeq, path, cube)
-                               , binder(this.evtFun.action)
-                               , binder(this.times));
-  copy.path = path;
-  return copy;
-}
-SC_ActionOnEventNoDef.prototype.toString = function(){
-  var res ="on "+this.evtFun.config.toString();
-  return res+"call("+this.evtFun.action.toString()+") "
-         +" for "+this.count+"/"+this.times+" times ";
-}
-//--- 
-function SC_ActionOnEventNoDef(c, act, times){
-  this.evtFun = {action:act, config:c};
-  this.path = null;
-  this.toRegister = true;
-  this.count = this.times = times;
-}
-SC_ActionOnEventNoDef.prototype.activate = function(m){
-  if(0 == this.count){
-    this.reset(m);
-    return SC_Instruction_State.TERM;
-    }
-  if(this.evtFun.config.isPresent(m)){
-    m.addEvtFun(this.evtFun);
-    if(this.count > 0){
-      this.count--;
-      }
-    if(0 == this.count){
-      this.reset(m);
-      return SC_Instruction_State.TERM;
-      }
-    return SC_Instruction_State.STOP;
-    }
-  if(this.toRegister){
-    this.evtFun.config.registerInst(m, this);
-    this.toRegister = false;
-    }
-  return SC_Instruction_State.WEOI;
-  }
-SC_ActionOnEventNoDef.prototype.wakeup = SC_ActionOnEventForever.prototype.wakeup;
-SC_ActionOnEventNoDef.prototype.reset = function(m){
-  this.count = this.times;
-  this.evtFun.config.unregister(this);
-  this.toRegister = true;
-  }
-SC_ActionOnEventNoDef.prototype.eoi = function(m){
-  if(false){ // Debug
-    if(this.evtFun.config.isPresent(m)){
-      throw "heu buh dummy error";
-      }
-    }
-  if(this.count > 0){
-    this.count--;
-    }
-  if(undefined != this.defaultAct){
-    m.addFun(this.defaultAct);
-    }
-  }
-SC_ActionOnEventNoDef.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
-  var binder = _SC._b(cube);
-  var copy = new SC_ActionOnEventNoDef(binder(this.evtFun.config).bindTo(engine, parbranch, seq, masterSeq, path, cube)
-                               , binder(this.evtFun.action)
-                               , binder(this.times));
-  copy.path = path;
-  return copy;
-}
-SC_ActionOnEventNoDef.prototype.toString = function(){
-  var res ="on "+this.evtFun.config.toString();
-  return res+"call("+this.evtFun.action.toString()+") "
-      +"for "+this.count+"/"+this.times+" times ";
-}//--- 
 function SC_ActionOnEvent(c, act, defaultAct, times){
   if(undefined === act){ throw "action is not defined"; }
   if(times < 0){ return new SC_ActionOnEventForever(c, act, defaultAct); }
@@ -2784,65 +3047,30 @@ function SC_ActionOnEvent(c, act, defaultAct, times){
     }
   this.evtFun = {action:act, config:c};
   this.defaultAct = defaultAct;
-  this.path = null;
-  this.toRegister = true;
   this.count = this.times = times;
 }
-SC_ActionOnEvent.prototype.activate = function(m){
-  if(0 == this.count){
-    this.reset(m);
-    return SC_Instruction_State.TERM;
-    }
-  if(this.evtFun.config.isPresent(m)){
-    m.addEvtFun(this.evtFun);
-    if(this.count > 0){
-      this.count--;
-      }
-    if(0 == this.count){
-      this.reset(m);
-      return SC_Instruction_State.TERM;
-      }
-    return SC_Instruction_State.STOP;
-    }
-  if(this.toRegister){
-    this.evtFun.config.registerInst(m, this);
-    this.toRegister = false;
-    }
-  return SC_Instruction_State.WEOI;
+SC_ActionOnEvent.prototype = {
+  constructor : SC_ActionOnEvent
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+    var binder = _SC._b(cube);
+    var copy = new SC_Instruction(SC_Opcodes.ACTION_ON_EVENT);
+    copy.evtFun = {
+      action:binder(this.evtFun.action)
+      , config:binder(this.evtFun.config)
+                .bindTo(engine, parbranch, seq, masterSeq, path, cube)
+      };
+    copy.defaultAct = binder(this.defaultAct);
+    copy.count = copy.times = binder(this.times);
+    copy.path = path;
+    return copy;
   }
-SC_ActionOnEvent.prototype.wakeup = SC_ActionOnEventForever.prototype.wakeup;
-SC_ActionOnEvent.prototype.reset = function(m){
-  this.count = this.times;
-  this.evtFun.config.unregister(this);
-  this.toRegister = true;
-  }
-SC_ActionOnEvent.prototype.eoi = function(m){
-  if(false){ // Debug
-    if(this.evtFun.config.isPresent(m)){
-      throw "heu buh dummy error";
+  , toString : function(){
+      var res ="on "+this.evtFun.config.toString();
+      return res+"call("+this.evtFun.action.toString()+") "
+          +"else call("+this.defaultAct.toString()+") for "
+          +this.count+"/"+this.times+" times ";
       }
-    }
-  if(this.count > 0){
-    this.count--;
-    }
-  if(undefined != this.defaultAct){
-    m.addFun(this.defaultAct);
-    }
-  }
-SC_ActionOnEvent.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
-  var binder = _SC._b(cube);
-  var copy = new SC_ActionOnEvent(binder(this.evtFun.config).bindTo(engine, parbranch, seq, masterSeq, path, cube)
-                               , binder(this.evtFun.action)
-                               , binder(this.defaultAct)
-                               , binder(this.times));
-  copy.path = path;
-  return copy;
-}
-SC_ActionOnEvent.prototype.toString = function(){
-  var res ="on "+this.evtFun.config.toString();
-  return res+"call("+this.evtFun.action.toString()+") "
-      +"else call("+this.defaultAct.toString()+") for "+this.count+"/"+this.times+" times ";
-}
+};
 //--- 
 function SC_SimpleActionOnEventNoDef(c, act){
   this.evtFun = {action:act, config:c};
@@ -2851,41 +3079,15 @@ function SC_SimpleActionOnEventNoDef(c, act){
   this.terminated = false;
 }
 SC_SimpleActionOnEventNoDef.prototype = {
-  activate : function(m){
-    if(this.terminated){
-      this.reset(m);
-      return SC_Instruction_State.TERM;
-      }
-    if(this.evtFun.config.isPresent(m)){
-      m.addEvtFun(this.evtFun);
-      this.reset(m);
-      return SC_Instruction_State.TERM;
-      }
-    if(this.toRegister){
-      this.evtFun.config.registerInst(m, this);
-      this.toRegister = false;
-      }
-    return SC_Instruction_State.WEOI;
-    }
-  , wakeup : SC_ActionOnEvent.prototype.wakeup
-  , reset : function(m){
-      this.evtFun.config.unregister(this);
-      this.toRegister = true;
-      this.terminated = false;
-      }
-  , eoi : function(m){
-      if(false){
-        if(this.evtFun.config.isPresent(m)){
-          throw "heu buh dummy error";
-          }
-        }
-      this.terminated = true;
-      }
+  cosntructor : SC_SimpleActionOnEventNoDef
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
-      var copy = new SC_SimpleActionOnEventNoDef(
-                     binder(this.evtFun).config.bindTo(engine, parbranch, seq, masterSeq, path, cube)
-                     , binder(this.evtFun.action));
+      var copy = new SC_Instruction(SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT);
+      copy.evtFun = {
+        action:binder(this.evtFun.action)
+        , config:binder(this.evtFun).config
+                 .bindTo(engine, parbranch, seq, masterSeq, path, cube)
+        };
       copy.path = path;
       return copy;
       }
@@ -2893,7 +3095,7 @@ SC_SimpleActionOnEventNoDef.prototype = {
       var res ="on "+this.evtFun.config.toString();
       return res+"call("+this.evtFun.action.toString()+") ";
       }
-  }
+  };
 
 function SC_SimpleActionOnEvent(c, act, defaultAct){
   if(undefined === defaultAct){
@@ -2906,24 +3108,16 @@ function SC_SimpleActionOnEvent(c, act, defaultAct){
   this.terminated = false;
 }
 SC_SimpleActionOnEvent.prototype = {
-  activate : SC_SimpleActionOnEventNoDef.prototype.activate
-  , wakeup : SC_SimpleActionOnEventNoDef.prototype.wakeup
-  , reset : SC_SimpleActionOnEventNoDef.prototype.reset
-  , eoi : function(m){
-      if(false){ // Debug
-        if(this.evtFun.config.isPresent(m)){
-          throw "heu buh dummy error";
-          }
-        } // Debug
-      m.addFun(this.defaultAct);
-      this.terminated = true;
-      }
+  constructor : SC_SimpleActionOnEvent
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
-      var copy = new SC_SimpleActionOnEvent(binder(this.evtFun.config)
-                                                          .bindTo(engine, parbranch, seq, masterSeq, path, cube)
-                                              , binder(this.evtFun.action)
-                                              , binder(this.defaultAct));
+      var copy = new SC_Instruction(SC_Opcodes.SIMPLE_ACTION_ON_EVENT);
+      copy.evtFun = {
+        action:binder(this.evtFun.action)
+        , config:binder(this.evtFun.config)
+                   .bindTo(engine, parbranch, seq, masterSeq, path, cube)
+        };
+      copy.defaultAct = binder(this.defaultAct);
       copy.path = path;
       return copy;
       }
@@ -3748,7 +3942,7 @@ SC_And.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube
 SC_And.prototype.toString = function(){
   var res ="("+this.c[0].toString();
   for(var i in this.c){
-    res += " /\ "+this.c[i].toString()
+    res += " /\\ "+this.c[i].toString()
     }
   return res+") ";
   }
@@ -4357,117 +4551,27 @@ SC_Kill.prototype = {
 };
 
 /*********
- * Control Class
+ * SC_Control Class
  *********/
-function Control(c, p){
+function SC_Control(c, p){
   this.c = c;
   this.p = p;
-  this.state = SC_Instruction_State.SUSP;
-  this.toRegister = true;
-  this.path = null;
 }
-Control.prototype.activate = function(m){
-  /*var dbg = ((undefined !== this.p.seqElements[0].branches)
-      && (undefined !== this.p.seqElements[0].branches[0].prg.evt)
-      && ("clickTarget" == this.p.seqElements[0].branches[0].prg.evt.name));*/
-  if(this.toRegister){
-    /*if(dbg){
-      console.log("register", this.c);
-      }*/
-    this.c.registerInst(m, this);
-    this.toRegister = false;
-    }
-  if(this.c.isPresent(m)){
-   //console.log("SC_Control.activate() : config present");
-    if(SC_Instruction_State.SUSP == this.state){
-      /*if(dbg){
-        console.log("SC_Control.activate() : activate prg");
-        }*/
-      this.state = this.p.activate(m);
-      /*if(dbg){
-        console.log("SC_Control.activate() : ------------("+this.state+")");
-        }*/
+SC_Control.prototype = {
+  constructor:SC_Control
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      var copy = new SC_Instruction(SC_Opcodes.CONTROL);
+      copy.c = this.c.bindTo(engine, parbranch, null, masterSeq, copy, cube);
+      copy.p = this.p.bindTo(engine, parbranch, null, masterSeq, copy, cube);
+      copy.path = path;
+      return copy;
       }
-    if(SC_Instruction_State.STOP == this.state){
-      this.state = SC_Instruction_State.SUSP;
-      return SC_Instruction_State.STOP;
+  , toString : function(){
+      return "control "+this.p.toString()
+              +" by "+this.c.toString()
+              +" end control ";
       }
-    if(SC_Instruction_State.TERM == this.state){
-      this.reset(m);
-      return SC_Instruction_State.TERM;
-      }
-    return this.state;
-    }
-  return SC_Instruction_State.WAIT;
-  }
-Control.prototype.wakeup = function(m, flag){
-  /*var dbg = ((undefined !== this.p.seqElements[0].branches)
-      && (undefined !== this.p.seqElements[0].branches[0].prg.evt)
-      && ("clickTarget" == this.p.seqElements[0].branches[0].prg.evt.name));
-  if(dbg){
-    console.log("SC_Control.wakeup()");
-    }*/
-  this.awake(m, flag, true);
-  return false;
-  }
-Control.prototype.awake = function(m, flag, me){
-  //console.log(this.p);
-  /*var dbg = ((undefined !== this.p.seqElements[0].branches)
-      && (undefined !== this.p.seqElements[0].branches[0].prg.evt)
-      && ("clickTarget" == this.p.seqElements[0].branches[0].prg.evt.name));
-  if(dbg){
-    console.log("SC_Control.awake() : on se reveille", this.p);
-    }*/
-  if(this.c.isPresent(m)){
-    /*if(dbg){
-      console.log("SC_Control.awake() : config ok");
-      }*/
-    var res = this.path.awake(m, flag);
-    if(res && !me){
-      /*if(dbg){
-        console.log("SC_Control.awake() : awake prg", this.p);
-        }*/
-      this.state = SC_Instruction_State.SUSP;
-      }
-    return res;
-    }
-  if(me){
-    //console.log("control awake");
-    return false;
-    }
-  else{
-    //console.log("body of control awake");
-  }
-  this.state = SC_Instruction_State.SUSP;
-  return true;
-  }
-Control.prototype.eoi = function(m){
-  //console.log("control on EOI");
-  if(this.c.isPresent(m) && ((SC_Instruction_State.OEOI == this.state)||(SC_Instruction_State.WEOI == this.state))){
-    this.p.eoi(m);
-  }
-  if(SC_Instruction_State.STOP >= this.state){
-    this.state = SC_Instruction_State.SUSP;
-  }
-}
-Control.prototype.reset = function(m){
-  this.p.reset(m);
-  this.c.unregister(this);
-  this.toRegister = true;
-  this.state = SC_Instruction_State.SUSP;
-}
-Control.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
-  var copy = new Control();
-  copy.c = this.c.bindTo(engine, parbranch, null, masterSeq, copy, cube);
-  copy.p = this.p.bindTo(engine, parbranch, null, masterSeq, copy, cube);
-  copy.path = path;
-  return copy;
-}
-Control.prototype.toString = function(){
-  return "control "+this.p.toString()
-          +" by "+this.c.toString()
-          +" end control ";
-}
+};
 
 /*********
  * SC_Cube Class
@@ -4578,8 +4682,7 @@ SC_Cube.prototype = {
  *********/
 function SC_When(c){
   this.c = c;
-  this.path = null;
-}
+  }
 SC_When.prototype = {
   constructor: SC_When
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
@@ -4598,62 +4701,25 @@ SC_When.prototype = {
 /*********
  * SC_Test Class
  *********/
-function SC_Test(b, t, e){
+function SC_Test(b){
   this.b = b;
-  this.t = t;
-  this.e = (null == e)?SC_Nothing:e;
-  this.choice = null;
-  this.path = null;
-}
+  }
 SC_Test.prototype = {
   constructor : SC_Test
-  , activate : function(m){
-      if(null != this.choice){
-        var res = this.choice.activate(m);
-        if(SC_Instruction_State.TERM == res){
-          this.reset(m);
-          }
-        return res;
-        }
-      if(this.test(m)){
-        this.choice = this.t;
-        }
-      else{
-        this.choice = this.e;
-        }
-      var res = this.choice.activate(m);
-      if(SC_Instruction_State.TERM == res){
-        this.reset(m);
-        }
-      return res;
-      }
-  , test : function(m){
-      if("function" == typeof(this.b)){
-        return this.b(m);
-        }
-      return (((null == this.b.t)?this.b:this.b.t[this.b.f]));
-      }
-  , awake : function(m, flag){
-      return this.path.awake(m, flag);
-      }
-  , eoi : function(m){
-      this.choice.eoi(m);
-      }
-  , reset : function(m){
-      if(null != this.choice){
-        this.choice.reset(m);
-        }
-      this.choice = null;
-      }
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
-      var copy = new SC_Test(binder(this.b));
-      //console.log("testing : ", copy.b);
+      var copy = new SC_Instruction(SC_Opcodes.TEST);
+      copy.b = binder(this.b);
+      copy.test = function(m){
+        if("function" == typeof(this.b)){
+          return this.b(m);
+          }
+        return (((null == this.b.t)?this.b:this.b.t[this.b.f]));
+        }
       copy._b = this.b;
-      //console.log("SC.test condition = "+copy.b);
-      copy.t = this.t.bindTo(engine, parbranch, null, masterSeq, copy, cube);
-      copy.e = this.e.bindTo(engine, parbranch, null, masterSeq, copy, cube);
+      copy.elsB = this.elsB;
       copy.path = path;
+      copy.seq = seq;
       return copy;
       }
   , toString : function(){
@@ -4932,7 +4998,7 @@ SC = {
     for(var i = 1 ; i < arguments.length; i++){
       prgs[i-1] = arguments[i];
     }
-   return new Control(c, new SC_Seq(prgs));
+   return new SC_Control(c, new SC_Seq(prgs));
   },
   when: function(c,t,e){
     _SC.checkConfig(c);
@@ -4958,7 +5024,32 @@ SC = {
     return new SC_Seq(prgs);
     },
   test: function(b,t,e){
-    return new SC_Test(b,t,(null == e)?SC_Nothing:e);
+    var prgs = [new SC_Test(b)];    
+    var elsJ = 1;
+    var end = 0;
+    if(undefined == t){
+      t = SC.nothing();
+      }
+    if(undefined == e){
+      e = SC.nothing();
+      }
+    prgs.push(t);
+    if(t instanceof SC_Seq){
+      elsJ += t.seqElements.length;
+      }
+    else{
+      elsJ += 1;
+      }
+    prgs[0].elsB = elsJ;
+    if(e instanceof SC_Seq){
+      end += e.seqElements.length;
+      }
+    else{
+      end++;
+      }
+    prgs.push(new SC_RelativeJump(end));
+    prgs.push(e);
+    return new SC_Seq(prgs);
   },
   match: function(val){
     var prgs = [];
