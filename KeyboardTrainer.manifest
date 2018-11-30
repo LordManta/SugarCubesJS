@@ -1,10 +1,10 @@
 CACHE MANIFEST
 
-# Version: 24
+# Version: 109
 
 CACHE:
 # Main page
-TestTools.html
+/KeyboardTrainer.html
 # Javascript files
 SugarCubes.js
 SC_Tools.js
@@ -13,12 +13,9 @@ SC_Panel.css
 # Images files
 images/png/bg-test.png
 
-# Audio files
-sounds.js
-
 NETWORK:
 *
 
 FALLBACK:
-/ /TestTools.html
+/ /KeyboardTrainer.html
 

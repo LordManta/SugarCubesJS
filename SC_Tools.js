@@ -370,32 +370,44 @@ SC.tools = (function(){
     if(undefined !== p.on_touchStart){
       elt.on_touchStartEvt= p.on_touchStart;
       elt.addEventListener("touchstart", function(m, sc_evt, evt){
-         m.generateEvent(sc_evt);
+         m.generateEvent(sc_evt, evt);
          }.bind(elt, ((undefined === p.m)?this.m:p.m), elt.on_touchStartEvt))
       }
     if(undefined !== p.on_touchStop){
       elt.on_touchStopEvt= p.on_touchStop;
       elt.addEventListener("touchend", function(m, sc_evt, evt){
-         m.generateEvent(sc_evt);
+         m.generateEvent(sc_evt, evt);
          }.bind(elt, ((undefined === p.m)?this.m:p.m), elt.on_touchStopEvt))
       }
     if(undefined !== p.on_touchCancel){
       elt.on_touchCancelEvt= p.on_touchCancel;
       elt.addEventListener("touchcancel", function(m, sc_evt, evt){
-         m.generateEvent(sc_evt);
+         m.generateEvent(sc_evt, evt);
          }.bind(elt, ((undefined === p.m)?this.m:p.m), elt.on_touchCancelEvt))
       }
     if(undefined !== p.on_mouseUp){
       elt.on_mouseUpEvt= p.on_mouseUp;
       elt.addEventListener("mouseup", function(m, sc_evt, evt){
-         m.generateEvent(sc_evt);
+         m.generateEvent(sc_evt, evt);
          }.bind(elt, ((undefined === p.m)?this.m:p.m), elt.on_mouseUpEvt))
       }
     if(undefined !== p.on_mouseDown){
       elt.on_mouseDownEvt= p.on_mouseDown;
       elt.addEventListener("mousedown", function(m, sc_evt, evt){
-         m.generateEvent(sc_evt);
+         m.generateEvent(sc_evt, evt);
          }.bind(elt, ((undefined === p.m)?this.m:p.m), elt.on_mouseDownEvt))
+      }
+    if(undefined !== p.on_keyDown){
+      elt.on_keyDownEvt= p.on_keyDown;
+      elt.addEventListener("keydown", function(m, sc_evt, evt){
+         m.generateEvent(sc_evt, evt);
+         }.bind(elt, ((undefined === p.m)?this.m:p.m), elt.on_keyDownEvt))
+      }
+    if(undefined !== p.on_keyUp){
+      elt.on_keyUpEvt= p.on_keyUp;
+      elt.addEventListener("keyup", function(m, sc_evt, evt){
+         m.generateEvent(sc_evt, evt);
+         }.bind(elt, ((undefined === p.m)?this.m:p.m), elt.on_keyUpEvt))
       }
     if(undefined !== p.beh){
       elt.beh.addProgram(p.beh);
@@ -611,6 +623,12 @@ SC_ClientTools = {
   , addProgram : function(p){
       throw "Not well initialized !";
       }
+  , systemEvent : function(evt, val){
+      if(null === this.m){
+        throw "Not well initialized !";
+        }
+      this.m.systemEvent.apply(this.m, arguments);
+      }
   , appStartedEvt : SC.evt("appStarted")
   , appInited : false
   , init : function(m){
@@ -620,7 +638,10 @@ SC_ClientTools = {
         this.programsToAdd=SC.par();
         this.addProgram = function(p){
           this.programsToAdd.add(p);
-          }
+          };
+	this.systemEvent = function(evt, val){
+          return this.m.systemEvent.apply(this.m, arguments);
+          };
         window.addEventListener("load", function(){
             this.m.addProgram(SC.seq(
                   (this.appInited)?SC.await(this.appStartedEvt):SC.nothing()
@@ -636,9 +657,14 @@ SC_ClientTools = {
         }
       else{
         console.log("Probably initialized too late !");
-        this.addProgram = function(p){
-          this.m.addProgram(p);
-          }
+	if(null != this.m){
+          this.addProgram = function(p){
+            this.m.addProgram(p);
+            }
+	  }
+	else{
+	  console.log("no reactiveMachine set");
+	  }
         }
       this.generateEvent = function(evt, val){
         this.m.generateEvent.apply(this.m, arguments);

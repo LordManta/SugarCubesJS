@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html manifest="KeyboardTrainer.manifest">
+ <head>
+   <meta charset="utf-8"/>
+   <script type="text/javascript" src="SugarCubes.js">
+   </script>
+   <script type="text/javascript" src="SC_Tools.js">
+   </script>
+   <script type="text/javascript">
+var SC_App_Config = {
+  tickTime: 30
+  , machineConfig:{init: SC.pauseForever()}
+  , viewport:{
+      width:"device-width"
+      , height:"device-height"
+      , init_scale:"1"
+      , max:"1"
+      , min:"1"
+      , scalable:"no"
+      }
+  , audioSupport:true
+  , appTitle:"KeyboardTrainer"
+  , appAuthors:"Jean-Ferdy Susini"
+  , appDescription:""
+  , splashConfig:{
+      title:"Keyboard Trainer"
+      , title_style:"background-color: rgba(255,255,255, 0.6);font-size:12vh;font-weight:bold; text-shadow:0.5vw 0.5vh 0.5vmax white; padding:10px"
+      , start:"Démarrer !"
+      , startEvt: SC.evt("evt")
+      }
+  , controler_style:"SC_Panel.css"
+  , startup_img: [
+      {
+        rsrc:"images/png/st_1536x2008.png"
+        , media:"(device-width: 768px) and (device-height: 1024px)"
+                +"and (-webkit-device-pixel-ratio: 2)"
+                +"and (orientation: portrait)"
+        }
+      , {
+          rsrc:"images/png/st_1496x2048.png"
+          , media:"(device-width: 768px) and (device-height: 1024px)"
+                  +"and (-webkit-device-pixel-ratio: 2)"
+                  +"and (orientation: landscape)"
+          }
+      ]
+  }
+SC.tools.appInit(SC_App_Config);
+SC.tools.addProgram(
+  SC.action(function(){
+      window.addEventListener("touchstart"
+        , function(evt){
+            evt.preventDefault();
+            }
+        );
+      window.addEventListener("touchmove"
+        , function(evt){
+            evt.preventDefault();
+            }
+        );
+      SC.tools.initTouchTracker();
+      }
+      )
+  );
+window.addEventListener("keydown", function(evt){evt.preventDefault();});
+   </script>
+   <style>
+body{
+  overflow:hidden;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+.touche_clavier {
+  position:absolute;
+  border:1px solid gray;
+  border-radius: 0.2cm;
+  width:2.0625cm;
+  height:2.0625cm;
+  font-size:1cm;
+  font-weight:bold;
+  background-color:white;
+  box-shadow: 4px 4px 2px rgba(64,64,64,0.8);
+  text-align:center;
+  font-family:Verdana,sans-serif;
+  vertical-align : middle;  
+  line-height:2.0625cm;
+}
+   </style>
+ </head>
+ <body>
+  <script type="text/javascript" >
+  SC.tools.displaySplash();
+var systemKeyDown = SC.tools.systemEvent(window, "keydown");
+var systemKeyUp = SC.tools.systemEvent(window, "keyup");
+  </script>
+  <script type="text/javascript">
+  (function(){
+    const screenRZ=1.375;
+    const taille_touche=1.5;
+    const taille_espace=0.4;
+    const startLeft = 0.3;
+    const startTop = 5;
+    keyEvt = SC.evt("keyEvt");
+    groupViewEvt = SC.evt("groupViewEvt");
+    function makeKey(pos, startTop, data){
+        var tmp_stop_sensor = SC.sensor("on_touchStop");
+	var myKeyDown = SC.evt("myKeyDown "+data.lbl);
+	var myKeyUp = SC.evt("myKeyUp "+data.lbl);
+        var key = SC.tools.makeDiv({
+            inH:data.lbl
+            , cl:"touche_clavier"
+            , on_touchStart: SC.sensor("on_touchStart")
+            , on_touchStop: tmp_stop_sensor
+            , on_touchCancel: tmp_stop_sensor
+            , on_mouseDown: SC.sensor("on_mouseDown")
+            , on_mouseUp: SC.sensor("on_mouseUp")
+            , beh: SC.par(
+                     SC.repeat(SC.forever
+                       , SC.await(SC.or("on_touchStartEvt","on_mouseDownEvt", myKeyDown))
+                       , SC.generate(SC.my("css_backgroundEvt"), "red")
+                       , SC.kill(SC.or("on_touchStopEvt","on_mouseUpEvt", myKeyUp)
+                           ,SC.repeat(SC.forever
+                              , SC.generateWrapped(keyEvt, "innerHTML")
+                              )
+                           )
+                       , SC.generate("css_backgroundEvt", "white")
+                       )
+                     , SC.repeat(SC.forever
+                         , SC.await(groupViewEvt)
+                         , SC.action(SC.my("filter_display_group"))
+                         )
+		     , SC.filter(systemKeyDown
+		         , myKeyDown
+		         , SC.my("filter_key")
+			 , SC.forever
+		         )
+		     , SC.filter(systemKeyUp
+		         , myKeyUp
+		         , SC.my("filter_key")
+			 , SC.forever
+		         )
+                     )
+          }
+          );
+	key.code = data.code;
+	key.filter_key = function(vals){
+	  var filtered = [];
+	  for(var key of vals){
+	  console.log(key, key.code, this.code, key.code == this.code);
+	    if(key.code == this.code){
+	      filtered.push(key);
+	      }
+	    }
+	  return (filtered.length > 0)?filtered:undefined;
+	  }
+        key.filter_display_group = function(my_group,m){
+           var vals = groupViewEvt.getValues(m);
+           if((undefined !== vals)
+               && (0 != vals.length)){
+             SC.tools.generateEvent(this.css_displayEvt,(vals[0]>=my_group)?"":"none");
+             }
+           }.bind(key,data.group)
+        if(undefined !== data.offH){
+          SC.tools.addProgram(
+	    SC.generate(key.css_topEvt, ((startTop+data.offH)*screenRZ)+"cm")
+            );
+          }
+	else{
+          SC.tools.addProgram(
+            SC.generate(key.css_topEvt, (startTop*screenRZ)+"cm")
+            );
+	}
+        SC.tools.addProgram(
+          SC.generate(key.css_leftEvt, (pos*screenRZ)+"cm")
+          );
+        if(undefined !== data.w){
+          SC.tools.addProgram(
+            SC.generate(key.css_widthEvt, (data.w*screenRZ)+"cm")
+            );
+            pos += (data.w+taille_espace);
+          }
+        else{
+            pos += (taille_touche+taille_espace);
+          }
+        if(undefined !== data.h){
+          SC.tools.addProgram(
+            SC.par(
+	      SC.generate(key.css_heightEvt, (data.h*screenRZ)+"cm")
+              , SC.generate(key.css_lineHeightEvt, (data.h*screenRZ)+"cm")
+	      )
+            );
+          }
+      return {key:key, pos:pos};
+      }
+    function rowOfKeysGenerator(row, startTop, startLeft){
+      var pos = startLeft;
+      for(var i = 0; i < row.length; i++){
+        var data = row[i];
+        var tmp_stop_sensor = SC.sensor("on_touchStop");
+        var res = makeKey(pos, startTop, data)
+	pos = res.pos;
+	document.body.appendChild(res.key);
+        }
+      }
+    var row = [
+      {lbl: 'tab', w:(1.5+0.4+0.5),group:10, code:"Tab"}
+      , {lbl:'A',group:2, code:"KeyQ"}
+      , {lbl:'Z',group:2, code:"KeyW"}
+      , {lbl:'E',group:2, code:"KeyE"}
+      , {lbl:'R',group:2, code:"KeyR"}
+      , {lbl:'T',group:5, code:"KeyT"}
+      , {lbl:'Y',group:5, code:"KeyY"}
+      , {lbl:'U',group:3, code:"KeyU"}
+      , {lbl:'I',group:3, code:"KeyI"}
+      , {lbl:'O',group:3, code:"KeyO"}
+      , {lbl:'P',group:3, code:"KeyP"}
+      , {lbl:'^',group:9, code:"BracketLeft"}
+      , {lbl:'*',group:9, code:"BracketRight"}
+      ];
+    rowOfKeysGenerator(row, 5, startLeft)
+      row = [
+      {lbl:'⇪', w:(1.5+0.4+0.9), group:10, code:"Caps"}
+      , {lbl:'Q',group:0, code:"KeyA"}
+      , {lbl:'S',group:0, code:"KeyS"}
+      , {lbl:'D',group:0, code:"KeyD"}
+      , {lbl:'F',group:0, code:"KeyF"}
+      , {lbl:'G',group:4, code:"KeyG"}
+      , {lbl:'H',group:4, code:"KeyH"}
+      , {lbl:'J',group:1, code:"KeyJ"}
+      , {lbl:'K',group:1, code:"KeyK"}
+      , {lbl:'L',group:1, code:"KeyL"}
+      , {lbl:'M',group:1, code:"Semicolon"}
+      , {lbl:'ù',group:9, code:"Quote"}
+      , {lbl:'`',group:9, code:"Backslash"}
+      ];
+    rowOfKeysGenerator(row, 5+(taille_touche+taille_espace), startLeft)
+    row = [
+      {lbl:'⇧', w:(1.5+0.4),group:10, code:"ShiftLeft"}
+      , {lbl:'<',group:9, code:"IntlBackslash"}
+      , {lbl:'W',group:6, code:"KeyZ"}
+      , {lbl:'X',group:6, code:"KeyX"}
+      , {lbl:'C',group:6, code:"KeyC"}
+      , {lbl:'V',group:6, code:"KeyV"}
+      , {lbl:'B',group:6, code:"KeyB"}
+      , {lbl:'N',group:6, code:"KeyN"}
+      , {lbl:',',group:9, code:"KeyM"}
+      , {lbl:';',group:9, code:"Comma"}
+      , {lbl:':',group:9, code:"Period"}
+      , {lbl:'=',group:9, code:"Slash"}
+      , {lbl:'⇧', w:(3+0.4+0.4), group:10, code:"ShiftRight"}
+      ];
+    rowOfKeysGenerator(row, 5+2*(taille_touche+taille_espace), startLeft)
+    row = [
+      {lbl:'fn',group:12, code:"fn"}
+      , {lbl:'ctrl',group:11, code:"ControlLeft"}
+      , {lbl:'alt',group:11, code:"AltLeft"}
+      , {lbl:'cmd', w:(1.5+0.4),group:11, code:"MetaLeft"}
+      , {lbl:'space', w:(4*(1.5+0.4)+1.5), group:7, code:"Space"}
+      , {lbl:'cmd', w:(1.5+0.4),group:11, code:"MetaRight"}
+      , {lbl:'alt',group:11, code:"AltRight"}
+      , {lbl:'◀︎',group:12,h:0.70,offH:0.80, code:"ArrowLeft"}
+      , {lbl:'▼',group:12,h:0.70,offH:0.80, code:"ArrowDown"}
+      , {lbl:'►',group:12,h:0.70,offH:0.80, code:"ArrowRight"}
+      ];
+    rowOfKeysGenerator(row, 5+3*(taille_touche+taille_espace), startLeft)
+    row = [
+      {lbl:'@',group:9, code:"Backquote"}
+      , {lbl:'&',group:8, code:"Digit1"}
+      , {lbl:'é',group:8, code:"Digit2"}
+      , {lbl:'"',group:8, code:"Digit3"}
+      , {lbl:"'",group:8, code:"Digit4"}
+      , {lbl:'(',group:8, code:"Digit5"}
+      , {lbl:'§',group:9, code:"Digit6"}
+      , {lbl:'è',group:9, code:"Digit7"}
+      , {lbl:'!',group:9, code:"Digit8"}
+      , {lbl:'ç',group:9, code:"Digit9"}
+      , {lbl:'à',group:9, code:"Digit0"}
+      , {lbl:')',group:9, code:"Minus"}
+      , {lbl:'-',group:9, code:"Equal"}
+      , {lbl:'⟵',w:(1.5+0.4+0.5),group:10, code:"Backspace"}
+      ];
+    rowOfKeysGenerator(row, 5-(taille_touche+taille_espace), startLeft)
+    var res = makeKey(14*(taille_touche+taille_espace)-0.4,5,{lbl:"↩︎",h:(taille_touche*2+taille_espace),w:1.1,group:10, code:"Enter"});
+    document.body.appendChild(res.key);
+    res = makeKey(13*(taille_touche+taille_espace)-0.8,5+3*(taille_touche+taille_espace),{lbl:"▲",h:0.70,group:12, code:"ArrowUp"});
+    document.body.appendChild(res.key);
+    var div_res = SC.tools.makeDiv({
+      beh:SC.repeat(SC.forever
+              , SC.action(function(m){
+                  var vals = keyEvt.getValues(m);
+                  if((undefined === vals)
+                     ||(0 == vals.length)){
+                    div_res.innerHTML="";
+                    return;
+                    }
+                  var res = vals[0];
+                  for(var i = 1; i < vals.length; i++){
+                    res+="➢"+vals[i]
+                    }
+                  div_res.innerHTML=res;
+                  })
+              )
+      });
+    for(var j=0; j < 13; j++){
+      var img = SC.tools.makeImage({
+             src:"images/png/puce.png"
+             , w:"32"
+             , h:"32"
+             , on_mouseDown:SC.sensor("md")
+             , on_touchStart:SC.sensor("ts")
+             , beh: SC.repeat(SC.forever
+                      , SC.await(SC.or("on_mouseDownEvt","on_touchStartEvt"))
+                      , SC.generate(groupViewEvt, j)
+                      )
+             });
+      document.body.appendChild(img);
+      }
+    document.body.appendChild(div_res);
+    SC.tools.addProgram(SC.seq(SC.generate(groupViewEvt,0)));
+    })();
+  </script>
+ </body>
+</html>

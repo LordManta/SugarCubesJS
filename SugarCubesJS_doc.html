@@ -25,7 +25,13 @@ var JFS = {
   , events:{}
   } ;
 </script>
-<h1>Tentative de description des instructions réactives...</h1>
+<h1>SugarCubes JS</h1>
+<section id="scjs_doc_intro">
+**SugarCubesJS** is a Javascript implementation of the Reactive Programming Framework SugarCubes v5 originally designed on top of Java.
+
+It uses Frederic Boussinot's synchronous/reactive paradigm proposed in the early 90's by Frédéric BOUSSINOT[Bo1] and allows one to write reactive parallel/concurrent programs on top of Javascript.
+</section>
+<h4>Tentative de description des instructions réactives...</h4>
 <p>Un programme SugarCubesJS est un une structure arborescente dont les nœuds sont des instructions réactives. Une instruction réactive est implantée par un objet par un objet JavaScript. Pour chaque type d'instruction, un constructeur permet de créer un objet implantant cette instruction :</p>
 Par exemple pour la séquence, un constructeur <code>SC_Seq()</code> permet de construire des objets séquences.<br>
 Le constructeur permet de créer une séquence à partir d'un tableau d'instructions passé en paramètre au constructeur. Ainsi :
