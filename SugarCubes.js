@@ -613,6 +613,14 @@ const SC_OpcodesNames = [
   , "PAR_DYN_FORCE"
   , "PAR"
   , "PAR_FORCE"
+  , "PAUSE_RT_INIT"
+  , "PAUSE_RT"
+  , "MATCH"
+  , "MATCH_CHOOSEN"
+  , "CUBE"
+  , "CELL"
+  , "RE_CELL"
+  , "CUBE_CELL"
   ];
 Object.freeze(SC_OpcodesNames);
 
@@ -1382,6 +1390,51 @@ SC_Instruction.prototype = {
           this.reset(m);
           return SC_Instruction_State.TERM;
         }
+        case SC_Instruction_State.PAUSE_RT_INIT:{
+          this.startTime = performance.now();
+          this.oc = SC_Opcodes.PAUSE_RT;
+          return SC_Instruction_State.STOP;
+          }
+        case SC_Instruction_State.PAUSE_RT:{
+          if(performance.now() - this.startTime > this.duration){
+            this.reset(m);
+            return SC_Instruction_State.TERM;
+            }
+          return SC_Instruction_State.STOP;
+          }
+        case SC_Opcodes.MATCH: {
+          var val = (null == this.v.t)?eval(this.v.f):this.v.t[this.v.f];
+          this.choice = this.cases[val];
+          if(undefined == this.choice){
+            this.choice = SC_Nothing;
+            }
+          this.oc = SC_Opcodes.MATCH_CHOOSEN;
+          }
+        case SC_Opcodes.MATCH_CHOOSEN: {
+          var res = this.choice.activate(m);
+          if(SC_Instruction_State.TERM == res){
+            this.reset(m);
+            }
+          return res;
+          }
+        case SC_Opcodes.CUBE:{
+          return this.p.activate(m);
+          }
+        case SC_Opcodes.CELL:
+        case SC_Opcodes.RE_CELL:{
+          if(this.TODO != m.getInstantNumber()){
+            this.TODO = m.getInstantNumber();
+          }
+	  else{
+	    throw "Cell already posted";
+	    }
+          m.addCellFun(this);
+          this.reset(m);
+          return SC_Instruction_State.TERM;
+          }
+        case SC_Opcodes.CUBE_CELL:{
+          return this.cell.activate(m);
+          }
         default: throw "activate: undefined opcode "
                        +SC_Opcodes.toString(this.oc);
         }
@@ -1494,6 +1547,14 @@ SC_Instruction.prototype = {
             this.suspended.append(tmp);
             tmp = this.stopped.pop();
             }
+          break;
+          }
+        case SC_Opcodes.MATCH_CHOOSEN:{
+          this.choice.eoi(m);
+          break;
+          }
+        case SC_Opcodes.CUBE:{
+          this.p.eoi(m);
           break;
           }
         default: throw "eoi : undefined opcode "
@@ -1749,6 +1810,27 @@ SC_Instruction.prototype = {
             }
           break;
           }
+        case SC_Opcodes.PAUSE_RT_INIT:
+        case SC_Opcodes.PAUSE_RT:{
+          this.oc = SC_Opcodes.PAUSE_RT_INIT;
+          break;
+          }
+        case SC_Opcodes.MATCH_CHOOSEN:{
+          this.choice.reset(m);
+          this.choice = null;
+          this.oc = SC_Opcodes.MATCH;
+          }
+        case SC_Opcodes.MATCH: break;
+        case SC_Opcodes.CUBE:{
+          m.addFun(this.lastWill);
+          this.p.reset(m);
+          break;
+          }
+        case SC_Opcodes.CELL: break;
+        case SC_Opcodes.RE_CELL: break;
+        case SC_Opcodes.CUBE_CELL:{
+          this.cell.reset();
+          }
         default: throw "reset : undefined opcode "
                         + SC_Opcodes.toString(this.oc);
         }
@@ -1793,6 +1875,9 @@ SC_Instruction.prototype = {
             return this.path.awake(m, flag);
             }
           return true;
+          }
+        case SC_Opcodes.MATCH_CHOOSEN:{
+          return this.path.awake(m, flag);
           }
         default: throw "awake undefined opcode "
                        +SC_Opcodes.toString(this.oc);
@@ -1952,6 +2037,7 @@ SC_Instruction.prototype = {
   , registerInProdBranch : function(pb){
       switch(this.oc){
         case SC_Opcodes.PAR_DYN_TO_REGISTER:
+        case SC_Opcodes.PAR_DYN:
         case SC_Opcodes.PAR:{
           var res = this.prodBranches.length;
           this.prodBranches.push(pb);
@@ -1984,6 +2070,56 @@ SC_Instruction.prototype = {
                          +SC_Opcodes.toString(this.oc);
         }
       }
+  , getAllValues: function(m, vals){
+      switch(this.oc){
+        case SC_Opcodes.CELL:
+        case SC_Opcodes.RE_CELL:{
+          var vals = {};
+          for(var i in this.eventList){
+            if(this.eventList[i].isPresent(m)){
+              this.eventList[i].getAllValues(m, vals);
+              }
+            }
+          return vals;
+          }
+        default: throw "getAllValues undefined for opcode "
+                         +SC_Opcodes.toString(this.oc);
+        }
+      }
+  , val : function(){
+      switch(this.oc){
+        case SC_Opcodes.CELL:{
+          return this.target[this.field];
+          }
+        case SC_Opcodes.RE_CELL:{
+          return this.state;
+	  }
+        default: throw "getAllValues undefined for opcode "
+                         +SC_Opcodes.toString(this.oc);
+        }
+      }
+  , prepare : function(m){
+      switch(this.oc){
+        case SC_Opcodes.CELL:
+        case SC_Opcodes.RE_CELL:{
+          this.futur = this.sideEffect(this.state, this.getAllValues(m), m);
+	  break;
+          }
+        default: throw "prepare undefined for opcode "
+                         +SC_Opcodes.toString(this.oc);
+        }
+      }
+  , swap : function(){
+      switch(this.oc){
+        case SC_Opcodes.CELL:
+        case SC_Opcodes.RE_CELL:{
+          this.state = this.futur;
+	  break;
+          }
+        default: throw "swap undefined for opcode "
+                         +SC_Opcodes.toString(this.oc);
+        }
+      }
   , generateValues : function(m){
       switch(this.oc){
         case SC_Opcodes.GENERATE_ONE_INIT:
@@ -1991,7 +2127,8 @@ SC_Instruction.prototype = {
         case SC_Opcodes.GENERATE_INIT:
         case SC_Opcodes.GENERATE:
         case SC_Opcodes.GENERATE_FOREVER:{
-          if(this.val instanceof SC_Cell){
+          if(this.val instanceof SC_Instruction
+	      && this.val.oc == SC_Opcodes.CELL){
             this.evt.generateValues(m, this.val.val());
             }
           else if("function" == typeof(this.val)){
@@ -2006,7 +2143,8 @@ SC_Instruction.prototype = {
           if(this.val instanceof SC_CubeBinding){
             var res = this.val.resolve();
             }
-          if(this.val instanceof SC_Cell){
+          if(this.val instanceof SC_Instruction
+	      && this.val.oc == SC_Opcodes.CELL){
             this.evt.generateValues(m, this.val.val());
             }
           else if("function" == typeof(this.val)){
@@ -2024,7 +2162,8 @@ SC_Instruction.prototype = {
           if(this.val instanceof SC_CubeBinding){
             var res = this.val.resolve();
             }
-          if(this.val instanceof SC_Cell){
+          if(this.val instanceof SC_Instruction
+	      && this.val.oc == SC_Opcodes.CELL){
             this.evt.generateValues(m, this.val.val());
             }
           else if("function" == typeof(this.val)){
@@ -2048,6 +2187,61 @@ SC_Instruction.prototype = {
           break;
           }
         default: throw "generateValues : undefined opcode "
+                       +SC_Opcodes.toString(this.oc);
+        }
+      }
+  , its : function(nom){
+      switch(this.oc){
+        case SC_Opcodes.CUBE:{
+          return this.o["$"+nom];
+          }
+        default: throw "its : undefined opcode "
+                       +SC_Opcodes.toString(this.oc);
+        }
+      }
+  , addCell : function(nom, init, el, fun){
+      switch(this.oc){
+        case SC_Opcodes.CUBE:{
+	  var tgt = this.o;
+          if((undefined !== tgt["$"+nom])
+            ||(undefined !== tgt["_"+nom])
+            ){
+            throw "naming conflict for cell "+nom
+                   + "$"+nom+" is "+tgt["$"+nom]
+                   + "_"+nom+" is "+tgt["_"+nom]
+                   ;
+          }
+          if(undefined !== fun){
+            tgt["_"+nom] = fun;
+            }
+          if(undefined === tgt["_"+nom]){
+            throw "no affectator for "+nom+" cell is defined";
+            }
+          tgt["$"+nom] = new SC_Cell({init:init
+	                     , sideEffect: (tgt["_"+nom]).bind(tgt)
+			     , eventList: el});
+          Object.defineProperty(tgt, nom,{get : (function(nom){
+            return tgt["$"+nom].val();
+            }).bind(tgt, nom)});
+	  break;
+          }
+        default: throw "addCell : undefined opcode "
+                       +SC_Opcodes.toString(this.oc);
+        }
+      }
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      switch(this.oc){
+        case SC_Opcodes.CELL:
+        case SC_Opcodes.RE_CELL:{
+          if(null === this.clock){
+            this.clock = engine;
+            }
+          else if(this.clock !== engine){
+            throw "Attempt to bind a cell to different clocks";
+            }
+          return this;
+          }
+        default: throw "bindTo : undefined opcode "
                        +SC_Opcodes.toString(this.oc);
         }
       }
@@ -2113,6 +2307,11 @@ SC_Instruction.prototype = {
         case SC_Opcodes.KILL_SUSP:{
           return "kill "+this.p.toString()
                   +" on "+this.c.toString()
+          }
+	case SC_Opcodes.CELL:
+	case SC_Opcodes.RE_CELL:{
+          return "compute "+this.sideEffect+" on "+this.state
+                 +((null == this.eventList)?"":" with "+this.eventList);
           }
         default: return "toString() : undefined opcode "
                        +SC_Opcodes.toString(this.oc);
@@ -2998,7 +3197,7 @@ SC_SendOne.prototype = {
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
-      var copy = new SC_Instruction(SC_Opcode.SEND_ONE);
+      var copy = new SC_Instruction(SC_Opcodes.SEND_ONE);
       copy.evt = binder(this.evt)
       copy.value = binder(this.value);
       copy._evt = this.evt;
@@ -3106,70 +3305,18 @@ SC_Pause.prototype = {
       }
   }
 
-// *** SC_CubePause
-function SC_CubePause(cell){
-  this.count = -1;
-  this.cell = cell;
-  }
-SC_CubePause.prototype = {
-  constructor : SC_CubePause
-  , isAnSCProgram : true
-  , activate : function(m){
-      if(0 == this.count){
-        this.reset(m);
-        return SC_Instruction_State.TERM;
-        }
-      if(this.count < 0){
-        this.count = cell.val();
-        if(this.count.isNaN() || (this.count < 1)){
-          console.log("illegal value for SC_CubePause : "+this.count);
-          this.count = 1;
-          }
-        }
-      this.count--;
-      return SC_Instruction_State.STOP;
-      }
-  , reset : function(m){
-      this.count = -1;
-      }
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      var binder = _SC._b(cube);
-      var copy = new SC_Pause(binder(this.cell));
-      copy._cell = this.cell;
-      return copy;
-      }
-  , toString : function(){
-      return "pause on cell "+this.cell+" times ";
-      }
-  }
-
 // *** SC_PauseRT
 function SC_PauseRT(duration){
   this.duration = duration;
-  this.startTime = -1;
   }
 SC_PauseRT.prototype = {
   constructor : SC_PauseRT
   , isAnSCProgram : true
-  , activate : function(m){
-    if(this.startTime < 0){
-      this.startTime = performance.now();
-      return SC_Instruction_State.STOP;
-      }
-    if(performance.now() - this.startTime > this.duration){
-      this.reset(m);
-      return SC_Instruction_State.TERM;
-      }
-    return SC_Instruction_State.STOP;
-    }
-  , reset : function(m){
-      this.startTime = -1;
-      }
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
-      var copy = new SC_PauseRT(binder(this.duration));
+      var copy = new SC_Instruction(SC_Opcodes.PAUSE_RT_INIT);
+      copy.duration = this.duration*1000;
       copy._duration = this.duration;
-      copy.duration *= 1000;
       return copy;
       }
   , toString : function(){
@@ -4000,135 +4147,70 @@ function SC_Cell(params){
   if(undefined == params){
     throw "undefined params for Cell";
     }
-  if(undefined != params.target){
+  if(undefined !== params.target){
     return new SC_ReCell(params);
     }
-  this.state = (undefined == params.init)?null:params.init;
+  var cell = new SC_Instruction(SC_Opcodes.CELL);
+  cell.state = (undefined == params.init)?null:params.init;
   if(undefined == params.sideEffect){
     throw "undefined sideEffect !";
     }
   else{
     if(undefined != params.sideEffect.t){
-      this.sideEffect = params.sideEffect.t[params.sideEffect.f].bind(params.sideEffect.t);
+      cell.sideEffect = params.sideEffect.t[params.sideEffect.f].bind(params.sideEffect.t);
       }
     else{
-      this.sideEffect = params.sideEffect;
+      cell.sideEffect = params.sideEffect;
       }
-    this.eventList = (undefined == params.eventList)?null:params.eventList;
+    cell.eventList = (undefined == params.eventList)?null:params.eventList;
     }
-    this.TODO =  -1;
-    this.futur = null;
-    //this.self = (undefined == params.self)?null:params.self;
-    this.clock = null;
+    cell.TODO =  -1;
+    cell.futur = null;
+    cell.clock = null;
+    return cell;
   }
-SC_Cell.prototype = {
-  constructor : SC_Cell
-  , isAnSCProgram : true
-  , activate : function(m){
-      if(this.TODO != m.getInstantNumber()){
-        m.addCellFun(this);
-        this.TODO = m.getInstantNumber();
-        }
-      this.reset(m);
-      return SC_Instruction_State.TERM;
-      }
-  , getAllValues : function(m, vals){
-      var vals = {};
-      for(var i in this.eventList){
-        if(this.eventList[i].isPresent(m)){
-          this.eventList[i].getAllValues(m, vals);
-          }
-        }
-      return vals;
-      }
-  , val : function(){
-      return this.state;
-      }
-  , reset : NO_FUN
-  , prepare : function(m){
-      this.futur = this.sideEffect(this.state, this.getAllValues(m), m);
-      }
-  , swap : function(){
-      this.state = this.futur;
-      }
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      if(null === this.clock){
-        this.clock = engine;
-        }
-      else if(this.clock !== engine){
-        throw "Attempt to bind a cell to different clocks";
-        }
-      return this;
-      }
-  , toString : function(){
-      return "compute "+this.sideEffect+" on "+this.state
-             +((null == this.eventList)?"":" with "+this.eventList);
-      }
-}
 
 function SC_ReCell(params){
   if(undefined == params.field || undefined == params.target[params.field]){
      throw "field not specified on target ("+params.field+")";
     }
+  var cell = new SC_Instruction(SC_Opcodes.RE_CELL);
   if(undefined == params.sideEffect){
     throw "undefined sideEffect !";
     }
   else{
-    this.sideEffect = params.sideEffect;
-    this.eventList = (undefined == params.eventList)?null:params.eventList;
+    cell.sideEffect = params.sideEffect;
+    cell.eventList = (undefined == params.eventList)?null:params.eventList;
     }
-  this.target = params.target;
-  this.field = params.field;
-  this.TODO =  -1;
-  this.futur = null;
-  //this.self = (undefined == params.self)?null:params.self;
-  Object.defineProperty(this, "state",{set : (function(nom, x){
+  cell.target = params.target;
+  cell.field = params.field;
+  cell.TODO =  -1;
+  cell.futur = null;
+  Object.defineProperty(cell, "state",{set : (function(nom, x){
       this[nom] = x;
-    }).bind(this.target, this.field)
+    }).bind(cell.target, cell.field)
     , get: (function(nom){
       return this[nom];
-    }).bind(this.target, this.field)
+    }).bind(cell.target, cell.field)
     }); 
-  this.clock = null;
+  cell.clock = null;
+  return cell;
   }
-SC_ReCell.prototype = {
-  constructor : SC_ReCell
-  , isAnSCProgram : true
-  , activate : SC_Cell.prototype.activate
-  , getAllValues : SC_Cell.prototype.getAllValues
-  , val : function(){
-      return this.target[this.field];
-      }
-  , reset : NO_FUN
-  , prepare : SC_Cell.prototype.prepare
-  , swap : SC_Cell.prototype.swap
-  , bindTo : SC_Cell.prototype.bindTo
-  , toString : SC_Cell.prototype.toString
-}
 
 function SC_CubeCell(c){
   this.cellName = c;
-  this.cell=null;
-  this.cube=null;
   }
 SC_CubeCell.prototype = {
   constructor : SC_CubeCell
   , isAnSCProgram : true
-  , activate : function(m){
-      /*if(null == this.cell){
-        this.cell = this.cube[this.cellName];
-        }*/
-      return this.cell.activate(m);
-      }
-  , reset : function(m){
-      this.cell.reset();
-      }
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var tgt = cube[this.cellName];
-      if((tgt instanceof SC_Cell)||((tgt instanceof SC_ReCell))){
+      if((tgt.oc == SC_Opcodes.Cell)||((tgt.oc == SC_Opcodes.RE_CELL))){
         return tgt.bindTo(engine, parbranch, seq, masterSeq, path, cube);
         }
-      var copy = new SC_CubeCell(this.cellName);
+      var copy = new SC_Instruction(SC_Opcodes.CUBE_CELL);
+      copy.cellName = this.cellName;
+      copy.cell=null;
       copy.cube = cube;
       return copy;
       }
@@ -4551,111 +4633,6 @@ SC_Control.prototype = {
 };
 
 /*********
- * SC_Cube Class
- *********/
-function SC_Cube(o, p, lastWill){
-  this.o = o;
-  this.p = p;
-  this.lastWill = (undefined != lastWill)?lastWill:NO_FUN;
-  //console.log("cube last will", this.lastWill);
-  this.toAdd = [];
-  //this.addProgram = this.addFirst;
-}
-SC_Cube.prototype = {
-  constructor : SC_Cube
-  , isAnSCProgram : true
-  , activate : function(m){
-      return this.p.activate(m);
-      }
-  , eoi : function(m){
-    this.p.eoi(m);
-    }
-  , reset : function(m){
-      m.addFun(this.lastWill);
-      this.p.reset(m);
-      }
-  /*, addSecond: function(p){
-    //console.log("adding second", p);
-    this.dynamic.addBranch(p, this.pb, this.m);
-    }*/
-  , addProgram : function(p){
-    //console.log("adding first", p);
-    this.toAdd.push(p);
-    }
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      //console.log("adding on bind");
-      var binder = _SC._b(this);
-      var tmp_par = SC.par();
-      var tmp_par_dyn;
-      if(undefined !== this.o.SC_cubeAddBehaviorEvt){
-        console.log("warning javascript object already configured !"
-                    +"Be sure that it is not used bound to another program, especially in a different reactive machine");
-        }
-      else{
-         SC_cubify.apply(this.o);
-         tmp_par.add(
-           SC.repeat(SC.forever
-             , SC.await(SC.or(this.o.SC_cubeCellifyEvt, this.o.SC_cubeAddCellEvt))
-             , this.o.$SC_cellMaker
-             )
-           );
-        }
-      const dieEvt = this.o.SC_cubeKillEvt;
-      tmp_par.add(SC.seq(tmp_par_dyn = SC.parex(this.o.SC_cubeAddBehaviorEvt
-                         , this.p
-                        )
-                     //, SC.log("cube finished will die")
-                     , SC.generate(dieEvt)
-                     ));
-      for(var i = 0 ; i < this.toAdd.length; i++){
-        //console.log("adding on bind", this.toAdd[i]);
-        tmp_par_dyn.add(this.toAdd[i]);
-        }
-      var tmp_beh = SC.kill(
-        dieEvt
-        , tmp_par
-        );
-      var copy = new SC_Cube(this.o, tmp_beh.bindTo(engine, parbranch, null, masterSeq, path, this.o), binder(this.lastWill));
-      if(copy.lastWill.f && copy.lastWill.t){
-        copy.lastWill = copy.lastWill.t[copy.lastWill.f].bind(copy.lastWill.t);
-        }
-      else{
-        copy.lastWill = copy.lastWill;
-        }
-      copy.dynamic = tmp_par_dyn;
-      copy.toAdd = undefined;
-      //copy.addProgram = copy.addSecond;
-      copy.m = engine;
-      copy.pb = parbranch;
-      return copy;
-      }
-  , toString : function(){
-      return "cube "+this.o.toString()
-              +" with "+this.p.toString()
-              +" end cube ";
-      }
-  , its : function(nom){
-      return this.o["$"+nom];
-      }
-/*  , me : function(){
-    return this.o;
-    }*/
-  , addCell : function(nom, init, el, fun){
-      var tgt = this.o;
-      if(undefined !== fun){
-        tgt["_"+nom] = fun;
-        }
-      if(undefined === tgt["_"+nom]){
-        throw "no affectator for "+nom+" cell is defined";
-        }
-      tgt["$"+nom] = new SC_Cell({init:init, sideEffect: (tgt["_"+nom]).bind(tgt), eventList: el});
-      Object.defineProperty(tgt, nom,{get : (function(nom){
-        return tgt["$"+nom].val();
-        }).bind(tgt, nom)});
-      }
-  };
-
-/*********
  * When Class
  *********/
 function SC_When(c){
@@ -4711,85 +4688,124 @@ SC_Test.prototype = {
 };
 
 /*********
- * Match Class
+ * SC_Match Class
  *********/
-function Match(val, cases){
+function SC_Match(val, cases){
   this.v = val;
   this.cases = cases;
-  this.choice = null;
-  this.path = null;
 }
-Match.prototype.isAnSCProgram = true;
-Match.prototype.activate = function(m){
-  if(null != this.choice){
-    var res = this.choice.activate(m);
-    if(SC_Instruction_State.TERM == res){
-      //this.choice.reset(m);
-      this.reset(m);
-    }
-    return res;
-  }
-  var val = (null == this.v.t)?eval(this.v.f):this.v.t[this.v.f];
-  this.choice = this.cases[val];
-  if(undefined == this.choice){
-    this.choice = SC_Nothing;
-    }
-  var res = this.choice.activate(m);
-  if(SC_Instruction_State.TERM == res){
-    //this.choice.reset(m);
-    this.reset(m);
-  }
-  return res;
-}
-Match.prototype.awake = function(m, flag){
-  return this.path.awake(m, flag);
-  }
-Match.prototype.eoi = function(m){
-  this.choice.eoi(m);
-}
-Match.prototype.reset = function(m){
-  if(null != this.choice){
-    this.choice.reset(m);
-  }
-  this.choice = null;
-}
-Match.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
-  var copy = new Match(this.v,new Array(this.cases.length));
-  for(var n in this.cases){
-    copy.cases[n] = this.cases[n].bindTo(engine, parbranch, null, masterSeq, copy, cube);
-  }
-  copy.path = path;
-  return copy;
-}
-Match.prototype.toString = function(){
-  var choices = "";
-  for(var v in this.cases){
-      choices += "{ "+v+" : "+this.cases[v]+"}"
-    }
-  return "match "+this.v+" selsect "+choices
-          +" end match ";
-  }
-
-/*********
- * SC_Trace Class
- *********/
-/*function SC_Trace(msg){
-  this.msg = msg;
-}
-SC_Trace.prototype = {
-  activate : function(m){
-    m.addTrace(this.msg);
-    return SC_Instruction_State.TERM;
-    }
-  , reset : function(m){}
+SC_Match.prototype = {
+  constructor : SC_Match
+  , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      return new SC_Trace(this.msg);
+      var copy = new SC_Instruction(SC_Opcodes.MATCH);
+      copy.v = this.v;
+      copy.cases = new Array(this.cases.length);
+      for(var n in this.cases){
+        copy.cases[n] = this.cases[n]
+                         .bindTo(engine, parbranch, null, masterSeq, copy, cube);
+      }
+      copy.path = path;
+      return copy;
       }
   , toString : function(){
-      return "trace(\""+this.msg+"\") ";
-  }
-};*/
+      var choices = "";
+      for(var v in this.cases){
+          choices += "{ "+v+" : "+this.cases[v]+"}"
+        }
+      return "match "+this.v+" selsect "+choices
+              +" end match ";
+      }
+  };
 
+/*********
+ * SC_Cube Class
+ *********/
+function SC_Cube(o, p, lastWill){
+  this.o = o;
+  this.p = p;
+  this.lastWill = (undefined != lastWill)?lastWill:NO_FUN;
+  this.toAdd = [];
+}
+SC_Cube.prototype = {
+  constructor : SC_Cube
+  , isAnSCProgram : true
+  , addProgram : function(p){
+    this.toAdd.push(p);
+    }
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      var binder = _SC._b(this);
+      var tmp_par = SC.par();
+      var tmp_par_dyn;
+      if(undefined !== this.o.SC_cubeAddBehaviorEvt){
+        throw "warning javascript object already configured !"
+                    +"Be sure that it is not used bound to another program"
+		    +", especially in a different reactive machine";
+        }
+      else{
+         SC_cubify.apply(this.o);
+         tmp_par.add(
+           SC.repeat(SC.forever
+             , SC.await(SC.or(this.o.SC_cubeCellifyEvt, this.o.SC_cubeAddCellEvt))
+             , this.o.$SC_cellMaker
+             )
+           );
+        }
+      const dieEvt = this.o.SC_cubeKillEvt;
+      tmp_par.add(SC.seq(tmp_par_dyn = SC.parex(this.o.SC_cubeAddBehaviorEvt
+                         , this.p
+                        )
+                     //, SC.log("cube finished will die")
+                     , SC.generate(dieEvt)
+                     ));
+      for(var i = 0 ; i < this.toAdd.length; i++){
+        //console.log("adding on bind", this.toAdd[i]);
+        tmp_par_dyn.add(this.toAdd[i]);
+        }
+      var tmp_beh = SC.kill(
+        dieEvt
+        , tmp_par
+        );
+      var copy = new SC_Instruction(SC_Opcodes.CUBE);
+      copy.o = this.o;
+      copy.p = tmp_beh.bindTo(engine, parbranch, null
+                        , masterSeq, path, this.o);
+      copy.lastWill = binder(this.lastWill);
+      copy.dynamic = tmp_par_dyn;
+      copy.m = engine;
+      copy.pb = parbranch;
+      return copy;
+      }
+  , toString : function(){
+      return "cube "+this.o.toString()
+              +" with "+this.p.toString()
+              +" end cube ";
+      }
+  , its : function(nom){
+      return this.o["$"+nom];
+      }
+  , addCell : function(nom, init, el, fun){
+      var tgt = this.o;
+      if((undefined !== tgt["$"+nom])
+	||(undefined !== tgt["_"+nom])
+	){
+        throw "naming conflict for cell "+nom
+	       + "$"+nom+" is "+tgt["$"+nom]
+	       + "_"+nom+" is "+tgt["_"+nom]
+	       ;
+      }
+      if(undefined !== fun){
+        tgt["_"+nom] = fun;
+        }
+      if(undefined === tgt["_"+nom]){
+        throw "no affectator for "+nom+" cell is defined";
+        }
+      tgt["$"+nom] = new SC_Cell({init:init, sideEffect: (tgt["_"+nom]).bind(tgt), eventList: el});
+      Object.defineProperty(tgt, nom,{get : (function(nom){
+        return tgt["$"+nom].val();
+        }).bind(tgt, nom)});
+      }
+  };
 
 function SC_ValueWrapper(tgt, n){
   this.tgt = tgt;
@@ -4827,9 +4843,6 @@ SC = {
     },
   pauseRT: function(n){
     return new SC_PauseRT(_SC.b_(n));
-  },
-  myPause: function(cell){
-    return new SC_CubePause(_SC.b_(cell));
   },
   pause: function(n){
     return new SC_Pause(_SC.b_(n));
@@ -5037,10 +5050,10 @@ SC = {
     for(var i = 1 ; i < arguments.length; i++){
       prgs[i-1] = arguments[i];
     }
-    return new Match(val, prgs);
+    return new SC_Match(val, prgs);
   },
   matches: function(val,branches){
-    return new Match(val, branches);
+    return new SC_Match(val, branches);
   },
   filter: function(s,e,f,t,n){
     return new SC_Filter(_SC.b_(s)
