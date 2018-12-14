@@ -86,9 +86,9 @@ SC_CubeBinding.prototype = {
         }
       var tgt = this.cube[this.name];
       if(undefined === tgt){
-        //console.log("target not found");
-        throw "target not found";
-        //return this;
+        console.log("target not found");
+        //throw "target not found";
+        return this;
         }
       else if("function" == typeof(tgt)){
         if(null !== this.args){
@@ -1424,11 +1424,11 @@ SC_Instruction.prototype = {
         case SC_Opcodes.RE_CELL:{
           if(this.TODO != m.getInstantNumber()){
             this.TODO = m.getInstantNumber();
+            m.addCellFun(this);
           }
-	  else{
-	    throw "Cell already posted";
-	    }
-          m.addCellFun(this);
+          /*else{
+            throw "Cell already posted";
+            }*/
           this.reset(m);
           return SC_Instruction_State.TERM;
           }
@@ -1724,6 +1724,7 @@ SC_Instruction.prototype = {
           }
         case SC_Opcodes.SEND_ONE:
         case SC_Opcodes.SEND_FOREVER: break;
+        case SC_Opcodes.PAR_DYN_TO_REGISTER:
         case SC_Opcodes.PAR_DYN_FORCE:
         case SC_Opcodes.PAR_DYN:{
           var tmp = this.suspended.pop();
@@ -2089,11 +2090,11 @@ SC_Instruction.prototype = {
   , val : function(){
       switch(this.oc){
         case SC_Opcodes.CELL:{
-          return this.target[this.field];
+          return this.state;
           }
         case SC_Opcodes.RE_CELL:{
-          return this.state;
-	  }
+          return this.target[this.field];
+          }
         default: throw "getAllValues undefined for opcode "
                          +SC_Opcodes.toString(this.oc);
         }
@@ -2103,7 +2104,7 @@ SC_Instruction.prototype = {
         case SC_Opcodes.CELL:
         case SC_Opcodes.RE_CELL:{
           this.futur = this.sideEffect(this.state, this.getAllValues(m), m);
-	  break;
+          break;
           }
         default: throw "prepare undefined for opcode "
                          +SC_Opcodes.toString(this.oc);
@@ -2114,7 +2115,7 @@ SC_Instruction.prototype = {
         case SC_Opcodes.CELL:
         case SC_Opcodes.RE_CELL:{
           this.state = this.futur;
-	  break;
+          break;
           }
         default: throw "swap undefined for opcode "
                          +SC_Opcodes.toString(this.oc);
@@ -2128,7 +2129,7 @@ SC_Instruction.prototype = {
         case SC_Opcodes.GENERATE:
         case SC_Opcodes.GENERATE_FOREVER:{
           if(this.val instanceof SC_Instruction
-	      && this.val.oc == SC_Opcodes.CELL){
+              && this.val.oc == SC_Opcodes.CELL){
             this.evt.generateValues(m, this.val.val());
             }
           else if("function" == typeof(this.val)){
@@ -2144,7 +2145,7 @@ SC_Instruction.prototype = {
             var res = this.val.resolve();
             }
           if(this.val instanceof SC_Instruction
-	      && this.val.oc == SC_Opcodes.CELL){
+              && this.val.oc == SC_Opcodes.CELL){
             this.evt.generateValues(m, this.val.val());
             }
           else if("function" == typeof(this.val)){
@@ -2163,7 +2164,7 @@ SC_Instruction.prototype = {
             var res = this.val.resolve();
             }
           if(this.val instanceof SC_Instruction
-	      && this.val.oc == SC_Opcodes.CELL){
+              && this.val.oc == SC_Opcodes.CELL){
             this.evt.generateValues(m, this.val.val());
             }
           else if("function" == typeof(this.val)){
@@ -2202,7 +2203,7 @@ SC_Instruction.prototype = {
   , addCell : function(nom, init, el, fun){
       switch(this.oc){
         case SC_Opcodes.CUBE:{
-	  var tgt = this.o;
+          var tgt = this.o;
           if((undefined !== tgt["$"+nom])
             ||(undefined !== tgt["_"+nom])
             ){
@@ -2218,12 +2219,12 @@ SC_Instruction.prototype = {
             throw "no affectator for "+nom+" cell is defined";
             }
           tgt["$"+nom] = new SC_Cell({init:init
-	                     , sideEffect: (tgt["_"+nom]).bind(tgt)
-			     , eventList: el});
+                             , sideEffect: (tgt["_"+nom]).bind(tgt)
+                             , eventList: el});
           Object.defineProperty(tgt, nom,{get : (function(nom){
             return tgt["$"+nom].val();
             }).bind(tgt, nom)});
-	  break;
+          break;
           }
         default: throw "addCell : undefined opcode "
                        +SC_Opcodes.toString(this.oc);
@@ -2308,8 +2309,8 @@ SC_Instruction.prototype = {
           return "kill "+this.p.toString()
                   +" on "+this.c.toString()
           }
-	case SC_Opcodes.CELL:
-	case SC_Opcodes.RE_CELL:{
+        case SC_Opcodes.CELL:
+        case SC_Opcodes.RE_CELL:{
           return "compute "+this.sideEffect+" on "+this.state
                  +((null == this.eventList)?"":" with "+this.eventList);
           }
@@ -4205,7 +4206,8 @@ SC_CubeCell.prototype = {
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var tgt = cube[this.cellName];
-      if((tgt.oc == SC_Opcodes.Cell)||((tgt.oc == SC_Opcodes.RE_CELL))){
+      if(tgt instanceof SC_Instruction
+        &&((tgt.oc == SC_Opcodes.Cell)||((tgt.oc == SC_Opcodes.RE_CELL)))){
         return tgt.bindTo(engine, parbranch, seq, masterSeq, path, cube);
         }
       var copy = new SC_Instruction(SC_Opcodes.CUBE_CELL);
@@ -4740,7 +4742,7 @@ SC_Cube.prototype = {
       if(undefined !== this.o.SC_cubeAddBehaviorEvt){
         throw "warning javascript object already configured !"
                     +"Be sure that it is not used bound to another program"
-		    +", especially in a different reactive machine";
+                    +", especially in a different reactive machine";
         }
       else{
          SC_cubify.apply(this.o);
@@ -4787,12 +4789,12 @@ SC_Cube.prototype = {
   , addCell : function(nom, init, el, fun){
       var tgt = this.o;
       if((undefined !== tgt["$"+nom])
-	||(undefined !== tgt["_"+nom])
-	){
+        ||(undefined !== tgt["_"+nom])
+        ){
         throw "naming conflict for cell "+nom
-	       + "$"+nom+" is "+tgt["$"+nom]
-	       + "_"+nom+" is "+tgt["_"+nom]
-	       ;
+               + "$"+nom+" is "+tgt["$"+nom]
+               + "_"+nom+" is "+tgt["_"+nom]
+               ;
       }
       if(undefined !== fun){
         tgt["_"+nom] = fun;
@@ -5067,6 +5069,9 @@ SC = {
   },
   mark: function(f){
     return new Mark(f);
+  },
+  cubeCell: function(c){
+    return new SC_CubeCell(c);
   },
   cell: function(params){
     return new SC_Cell(params);
