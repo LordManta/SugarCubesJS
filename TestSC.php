@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8"/>
-<script type="text/javascript" src="SugarCubes.js">
+<script type="text/javascript" src="SugarCubes_min.js">
 </script>
 <style>
 #program_source {
