@@ -5,7 +5,7 @@
  * Part of the SugarCubes Project
  * version : 5.0 alpha
  * implantation : 0.4
- * Copyright 2014-2016.
+ * Copyright 2014-2019.
  */
 
 SC.tools = (function(){
@@ -639,7 +639,7 @@ SC_ClientTools = {
         this.addProgram = function(p){
           this.programsToAdd.add(p);
           };
-	this.systemEvent = function(evt, val){
+        this.systemEvent = function(evt, val){
           return this.m.systemEvent.apply(this.m, arguments);
           };
         window.addEventListener("load", function(){
@@ -657,28 +657,31 @@ SC_ClientTools = {
         }
       else{
         console.log("Probably initialized too late !");
-	if(null != this.m){
+        if(null != this.m){
           this.addProgram = function(p){
             this.m.addProgram(p);
             }
-	  }
-	else{
-	  console.log("no reactiveMachine set");
-	  }
+          }
+        else{
+          console.log("no reactiveMachine set");
+          }
         }
       this.generateEvent = function(evt, val){
         this.m.generateEvent.apply(this.m, arguments);
+        }
+      this.setRunningDelay = function(d){
+        this.m.setRunningDelay.apply(this.m, arguments);
         }
       }
   , loadData : function(url, resEvt, engine){
       if(undefined === resEvt){
         resEvt = SC.sensor("lodingData("+url+")");
         }
-      console.log("loading data tool", resEvt);
+      //console.log("loading data tool", resEvt);
       var xmlHttpReq = new XMLHttpRequest();
       xmlHttpReq.open("GET", url, true);
       xmlHttpReq.onload= (function(machine, me, act){ return function(){
-              console.log("onload", me.status);
+              //console.log("onload", me.status);
               if(200 == me.status || 0 == me.status){
                 SC.tools.addProgram(SC.send(machine, act, me.responseText));
                 }
@@ -1046,8 +1049,8 @@ SC_ClientTools = {
                    + "<img id='SC_splash_FB_loading' src='/images/gif/CP48_spinner.gif'/>"
                    + "<div class='SC_splashH3' style='display:none;'"
                    + " onclick='"
-                   + "if((window.applicationCache.IDLE !== window.applicationCache.status)"
-                   + "    &&(window.applicationCache.UNCACHED !== window.applicationCache.status)){"
+                   + "if((undefined != window.applicationCache)&&((window.applicationCache.IDLE !== window.applicationCache.status)"
+                   + "    &&(window.applicationCache.UNCACHED !== window.applicationCache.status))){"
                    //+ "console.log(\"cache update pending\");"
                    + "return;};"
                    //+ "console.log(\"démarrage\");"
@@ -1066,18 +1069,20 @@ SC_ClientTools = {
         window.addEventListener("load"
           , function(sp){
             this.appPageLoaded = true;
-            console.log("page loaded", window.applicationCache.status, window.applicationCache.IDLE, window.applicationCache.CHECKING);
-            if(window.applicationCache.IDLE !== window.applicationCache.status && window.applicationCache.UNCACHED !== window.applicationCache.status){
-              console.log("still waiting for cache",window.applicationCache.status);
-              return;
+            if(undefined != window.applicationCache){
+              //console.log("page loaded", window.applicationCache.status, window.applicationCache.IDLE, window.applicationCache.CHECKING);
+              if(window.applicationCache.IDLE !== window.applicationCache.status && window.applicationCache.UNCACHED !== window.applicationCache.status){
+                //console.log("still waiting for cache",window.applicationCache.status);
+                return;
+                }
               }
-              console.log("dismissing splash");
-              this.splashScreen.children[0].children[1].style.display="none";
-              this.splashScreen.children[0].children[2].style.display="";
-              this.m.addProgram(
+            //console.log("dismissing splash");
+            this.splashScreen.children[0].children[1].style.display="none";
+            this.splashScreen.children[0].children[2].style.display="";
+            this.m.addProgram(
                 SC.seq(
-                  SC.log("awaiting evt")
-                  , SC.await(this.splashScreen.SCSS_allLoaded)
+                  /*SC.log("awaiting evt")
+                  , */SC.await(this.splashScreen.SCSS_allLoaded)
                   , SC.action(function(m){
                       this.splashScreen.parentElement.removeChild(
                                                             this.splashScreen);
@@ -1100,7 +1105,7 @@ SC_ClientTools = {
                 )
             //, SC.log("button reaction")
             , tmp_par
-            , SC.log("tmp par done")
+            //, SC.log("tmp par done")
             , SC.generate(this.splashScreen.SCSS_allLoaded)
             )
           );
@@ -1427,14 +1432,14 @@ SC_ClientTools = {
                       , SC.nop("no propagation")
                       , SC.test(SC.my(waitClick)
                           , SC.seq(SC.nop("wait ok")
-			      , SC.action(SC.my(displayNextBtn))
-			      , SC.await(SC.or(killEvt,stopItEvt))
-			      , SC.actionWhen(killEvt, SC.NO_ACTION, SC.my(RESET))
-			      )
+                              , SC.action(SC.my(displayNextBtn))
+                              , SC.await(SC.or(killEvt,stopItEvt))
+                              , SC.actionWhen(killEvt, SC.NO_ACTION, SC.my(RESET))
+                              )
                           , SC.seq(SC.nop("no wait")
-			      , SC.pause(SC.my(pauseAfterEnd))
-			      , SC.action(SC.my(RESET))
-			      )
+                              , SC.pause(SC.my(pauseAfterEnd))
+                              , SC.action(SC.my(RESET))
+                              )
                           )
                        )
                   , SC.await(SC.or(killEvt,propagateEvt))
@@ -1665,6 +1670,18 @@ SC_ClientTools = {
           }
         }
       return "";
+      }
+  , addStyleSheet : function(name,rules){
+      var style = document.styleSheets[0];
+      //style.type = 'text/css';
+      //document.getElementsByTagName('head')[0].appendChild(style);
+      style.addRule(name, rules);
+      }
+//createClass('.whatever',"background-color: green;");
+  , makeDataDrawer : function(){
+      const div = document.createElement("div");
+      const canvas = document.createElement("canvas")
+      return div;
       }
   };
 /**/

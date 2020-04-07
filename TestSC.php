@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8"/>
-<script type="text/javascript" src="SugarCubes_min.js">
+<script type="text/javascript" src="SugarCubes.js">
 </script>
 <style>
 #program_source {
@@ -62,15 +62,7 @@
 <button onclick="window.location.search='?n='+(Math.min(max_test_file_num,testNum))">&gt;</button>
 </div>
 <div id="program_source">
-[call call(function (){
-      testPanel.value += msg;
-      }) ;kill kill [control [[filter &_sens1  with fun{function (v){ return called1(v); }} generate &g   forever ||filter &_sens2  with fun{function (v){ return called1(v); }} generate &g   forever ] ]  by (&e  / &f )  end control ||[await &g  ;call call(function (){
-      testPanel.value += msg;
-      }) ] ||[pause 2/2 times ;call call(function (){
-      testPanel.value += msg;
-      }) ;repeat forever ;generate &e ;generate &f ;end repeat ] ]  on &g handle call call(function (){
-      testPanel.value += msg;
-      })  end kill  on (&e1  / &e2 ) handle nothing  end kill ] 
+ 
 </div>
 <textarea id="testPanel">
 </textarea>
@@ -100,10 +92,11 @@ function writeInConsole(msg){
   }
 
 SC.write = function(msg){
-  return SC.action(
-     function(){
+  return SC.trace(
+/*     function(){
       testPanel.value += msg;
-      }
+      }*/
+    msg
     );
   }
 SC.dump = function(msg){
@@ -115,6 +108,12 @@ SC.dump = function(msg){
   }
 
 var m = SC.machine();
+m.dumpTraceFun = function(msgs){
+  for(var i in msgs){
+    testPanel.value += msgs[i];
+    }
+  };
+
 var e = SC.evt("e");
 var f = SC.evt("f");
 var g = SC.evt("g");

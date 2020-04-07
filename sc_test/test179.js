@@ -30,5 +30,5 @@
    , async: function(){ m.generateEvent(sens1); }
    , maxI: 15
    , expected :
-       "\n1 -: start\n2 -: \n3 -: gen await to \n4 -: \n5 -: go after \n6 -: start\n7 -: \n8 -: to gen await \n9 -: \n10 -: go after \n11 -: start\n12 -: \n13 -: to gen await \n14 -: \n15 -: go after "
+       "\n1 -: start\n2 -: \n3 -: gen await to \n4 -: \n5 -: after go \n6 -: start\n7 -: \n8 -: gen await to \n9 -: \n10 -: after go \n11 -: start\n12 -: \n13 -: gen await to \n14 -: \n15 -: after go "
   }

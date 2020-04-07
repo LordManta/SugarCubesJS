@@ -25,5 +25,5 @@
    , init: function(){}
    , async: function(){}
    , expected :
-       "\n1 -: \n2 -: \n3 -: gen await to \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: go after \n10 -: "
+       "\n1 -: \n2 -: \n3 -: gen await to \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: after go \n10 -: "
   }
