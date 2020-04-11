@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta content="charset=uft-8;"/>
+  <title>Demo Zero</title>
+  <script type="text/javascript" src="http://jeanferdysusini.free.fr/SugarCubes.js">
+  </script>
+</head>
+<body>
+<script>
+var machine = SC.machine();
+var e = SC.evt("e");
+var program1 = SC.repeatForever(SC.await(e), SC.log("event &e is generated !"));
+var program2 = SC.repeatForever(SC.pause(5), SC.generate(e));
+machine.addProgram(program1);
+machine.addProgram(program2);
+var output = document.createElement("pre");
+document.body.appendChild(output);
+machine.setStdOut(function(msg){
+  output.innerText += msg;
+  });
+
+for(var i = 0 ; i < 20; i++){
+  machine.react();
+  }
+</script>
+</body>
+</html>

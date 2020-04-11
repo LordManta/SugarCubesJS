@@ -2,11 +2,11 @@
 ##### Author : Jean-Ferdy Susini
 ##### Created : 2/12/2014 9:23 PM
 ##### version : 5.0 alpha
-##### implantation : 0.9.1
-##### Copyright 2014-2018.
+##### implantation : 0.9.5
+##### Copyright 2014-2020.
 
 A Javascript implementation of the Reactive Programming Framework SugarCubes v5 originally designed on top of Java.
-It uses Frederic Boussinot's synchronous/reactive paradigm proposed in the early 90's by Frédéric BOUSSINOT[Bo1] and allows one to write reactive parallel/concurrent programs on top of Javascript.
+It uses Frederic Boussinot's synchronous/reactive paradigm proposed in the early 90's by Frédéric BOUSSINOT[Bo1] and allows one to write reactive parallel/concurrent programs on top of sequential Javascript.
 
 Quick start:
 ------------
@@ -17,7 +17,7 @@ Quick start:
    ```
    to your HTML
 
-2. then build a reactive engine to execute reactive programs :
+2. then in a script node, build a reactive engine to execute reactive programs :
    ```javascript
    var machine = SC.machine();
    ```
@@ -29,10 +29,10 @@ Quick start:
 4. write programs :
    ```javascript
    var program1 = SC.repeatForever(SC.await(e), SC.log("event &e is generated !"));
-   var program2 = SC.repeatForever(SC.pause(10), SC.generate(e));
+   var program2 = SC.repeatForever(SC.pause(5), SC.generate(e));
    ```
 
-5. add programs to the execution machine (each program will be added to execute in parallel with the others) :
+5. add each program to the execution machine (each program will be added to execute in parallel each with the others) :
    ```javascript
    machine.addProgram(program1);
    machine.addProgram(program2);
@@ -40,12 +40,12 @@ Quick start:
 
 6. cyclically activate the execution machine :
    ```javascript
-   for(var i = 0 ; i < 100; i++){
+   for(var i = 0 ; i < 20; i++){
      machine.react();
      }
    ```
    
-   It is a common practice to trigger the reactions of the execution machine according to a «real time» clock. A simple way to do this is to use the `setInterval()` method :
+   *Note:* It is a common practice to trigger the reactions of the execution machine according to a "real time" clock. A simple way to do this is to use the `setInterval()` method :
    ```javascript
    window.setInterval(
            function(){
@@ -59,21 +59,35 @@ Quick start:
    ```javascript
    var machine = SC.machine(30);
    ```
-   where 30 is the delay (in milliseconds) between two consecutive reactions. So you don't need to deal with a loop of react() method calls or the setInterval() method in your code. The execution machine will be triggered automatically every 30ms (or more... because only minimal delay is guarantied).
+   where 30 is the delay (in milliseconds) between two consecutive reactions. So you don't need to deal with a loop of react() method calls or the `setInterval()` method in your code. The execution machine will be triggered automatically every 30ms (or more... Because only minimal delay is guarantied).
+
+7. The result of such execution goes to the debugging console, so it doesn't provide anything observable to the user in the document page. To redirect output to the content of a HTML document, you can for example declare a HTML element in your document : for example a PRE element :
+   ```javascript
+   var output = document.createElement("pre");
+   document.body.appendChild(output);
+   ```
+   Then set a closure to capture and redirect standard SugarCubesJS output :
+   ```javascript
+   machine.setStdOut(function(msg){
+     output.innerText += msg;
+     });
+   ```
+
+Look at the source of `SC_Demo0.html` HTML file to see the big picture of this very first example.
 
 Basic Principles:
 -----------------
 
-SugarCubes Framework provides a specific API to build reactive programs. To write a reactive program, a developer will nest calls of methods of the object SC to instantiate instructions. Doing so one builds a tree structure, which is the AST of the reactive program. For example :
+SugarCubes Framework provides a specific API to build reactive programs. To write a reactive program, a developer will nest calls of methods of the object `SC` to instantiate instructions. Doing so one builds a tree structure, which is the AST of the reactive program. For example :
    ```javascript
    var aProgram = SC.repeat(SC.forever
                     , SC.await(e)
                     , SC.log("message in the console")
                     );
    ```
-In this example, one writes a *repeat* instruction (which is the root of the AST of the program). The repeat instruction takes a first parameter which is a number iterations (that is the number of times it will executes its body). In this example, one uses the predefined constant `SC.forever` which means an infinite number of iterations. The rest of the parameters are the instructions of the body of the *repeat* instruction put into a sequence. In this example, the body of the *repeat* instruction is made of two instructions in sequence. First the `SC.await()` is an instruction which awaits the presence of the event `e`. And the second instruction `SC.log()` which writes a string in the javascript console.
+In this example, one writes a *repeat* instruction (which is the root of the AST of the program). The repeat instruction takes a first parameter which is a number iterations (that is the number of times it will executes its body). In this example, one uses the predefined constant `SC.forever` which means an infinite number of iterations. The rest of the parameters are the instructions of the body of the *repeat* instruction put into a sequence. In this example, the body of the *repeat* instruction is made of two instructions in sequence. First the `SC.await()` is an instruction which awaits the presence of the event `&e`. And the second instruction `SC.log()` which writes a string in the javascript console.
 
-The *await* instruction awaits the event `e` and at the precise instant where that event is present, the await instruction terminates. Letting the *log* instruction be executed in very same instant of execution. As this body is in an infinite loop, this programs means that at every instant where the event `e` is present a message is written into the javascript console.
+The *await* instruction awaits the event `&e` and at the precise instant where that event is present, the await instruction terminates. Letting the *log* instruction be executed in very same instant of execution. As this body is in an infinite loop, this programs means that at every instant where the event `&e` is present a message is written into the javascript console.
 
 One word about Reactive Synchronous Programming Model « à la » Boussinot:
 -------------------------------------------------------------------------
