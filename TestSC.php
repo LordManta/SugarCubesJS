@@ -90,6 +90,7 @@ catch(e){
 function writeInConsole(msg){
   testPanel.value += msg;
   }
+SC.log = function(){return SC.nothing()};
 
 SC.write = function(msg){
   return SC.trace(

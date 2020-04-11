@@ -3,9 +3,9 @@
      SC.par(
        SC.repeat(3
          , SC.pause(0)
-           , SC.log("e")
+         , SC.log("e")
          , SC.await(e)
-           , SC.log("e et f")
+         , SC.log("e et f")
          , SC.await(SC.and(e,f))
          , SC.write("Hello World !")
          )
