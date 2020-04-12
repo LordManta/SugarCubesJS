@@ -460,6 +460,9 @@ const SC_OpcodesNames = [
   , "GENERATE_ONE_NO_VAL"
   , "GENERATE_ONE_INLINE"
   , "GENERATE_ONE"
+  , "GENERATE_FOREVER_NO_VAL_INIT"
+  , "GENERATE_FOREVER_NO_VAL_CONTROLED"
+  , "GENERATE_FOREVER_NO_VAL_HALTED"
   , "GENERATE_FOREVER_NO_VAL"
   , "GENERATE_FOREVER"
   , "GENERATE_INIT_INLINE"
@@ -594,48 +597,48 @@ SC_Instruction.prototype = {
         case 32:{
           return this.path.awake(m, flag, toEOI);
           }
-        case 67:
-        case 68:{
+        case 70:
+        case 71:{
           this.path.awake(m, flag, toEOI);
           return true;
           }
-        case 72:
-        case 69:{
+        case 75:
+        case 72:{
           this.path.awake(m, flag, toEOI);
-          this.oc = 67;
+          this.oc = 70;
           return true;
           }
-        case 77:
         case 80:
-        case 78:{
+        case 83:
+        case 81:{
           if(this.c.isPresent(m)){
             var res = this.path.awake(m, flag, toEOI);
             if(res){
-              this.oc = 78;
+              this.oc = 81;
               }
             return res;
             }
           return true;
           }
-        case 79:{
+        case 82:{
           if(this.c.isPresent(m)){
             return this.path.awake(m, flag, toEOI);
             }
           return true;
           }
-        case 118:
-        case 116:
-        case 123:
-        case 121:{
+        case 121:
+        case 119:
+        case 126:
+        case 124:{
           if(null != this.path){
             return this.path.awake(m, flag, toEOI);
             }
           return true;
           }
-        case 129:{
+        case 132:{
           return this.path.awake(m, flag, toEOI);
           }
-        case 139:{
+        case 142:{
           var res = false;
           if(1 == this.flag){
             return true;
@@ -670,36 +673,27 @@ SC_Instruction.prototype = {
       }
   , wakeup : function(m, flag){
       switch(this.oc){
-        case 60:{
+        case 63:{
           if(this.config.isPresent(m)){
             return this.path.awake(m, flag);
             }
           return false;
           }
-        case 62:{
+        case 65:{
           if(this.config.isPresent(m)){
             return this.path.awake(m, flag);
             }
           return false;
           }
-        case 64:{
+        case 67:{
           return this.path.awake(m, flag);
           }
-        case 77:
         case 80:
-        case 81:
-        case 79:
-        case 78:{
+        case 83:
+        case 84:
+        case 82:
+        case 81:{
           this.awake(m, flag);
-          return false;
-          }
-        case 85:{
-          return false;
-          }
-        case 84:{
-          if(this.evtFun.config.isPresent(m)){
-            return this.path.awake(m, flag);
-            }
           return false;
           }
         case 88:{
@@ -729,13 +723,13 @@ SC_Instruction.prototype = {
             }
           return false;
           }
+        case 97:{
+          return false;
+          }
         case 96:{
           if(this.evtFun.config.isPresent(m)){
             return this.path.awake(m, flag);
             }
-          return false;
-          }
-        case 97:{
           return false;
           }
         case 99:{
@@ -744,27 +738,36 @@ SC_Instruction.prototype = {
             }
           return false;
           }
-        case 73:
-        case 72:{
+        case 100:{
+          return false;
+          }
+        case 102:{
+          if(this.evtFun.config.isPresent(m)){
+            return this.path.awake(m, flag);
+            }
+          return false;
+          }
+        case 76:
+        case 75:{
           if(this.c.isPresent(m)){
             return this.path.awake(m, flag, true);
             }
           }
-        case 69:
+        case 72:
+        case 73:
+        case 74:
         case 70:
-        case 71:
-        case 67:
-        case 68:{
+        case 71:{
           return false;
           }
-        case 100:{
+        case 103:{
           return false;
           }
-        case 105:{
+        case 108:{
           return this.path.awake(m, flag);
           }
-        case 118:
-        case 116:{
+        case 121:
+        case 119:{
           if(this.channel.isPresent(m)){
             const res =  this.path.awake(m, flag, true);
             return res;
@@ -779,7 +782,7 @@ SC_Instruction.prototype = {
       }
   , computeAndAdd : function(m){
       switch(this.oc){
-        case 116:{
+        case 119:{
           var vals = {};
           this.channel.getAllValues(m, vals);
           var prgs = vals[this.channel];
@@ -794,10 +797,10 @@ SC_Instruction.prototype = {
   }
   , setPurgeable : function(flag){
       switch(this.oc){
-        case 120:
-        case 115:
-        case 116:
-        case 121:{
+        case 123:
+        case 118:
+        case 119:
+        case 124:{
           this.purgeable = flag;
           break;
           }
@@ -807,10 +810,10 @@ SC_Instruction.prototype = {
       }
   , addBranch : function(p, pb, engine){
       switch(this.oc){
-        case 115:
-        case 120:
-        case 116:
-        case 121:{
+        case 118:
+        case 123:
+        case 119:
+        case 124:{
           if(p instanceof SC_Par){
             for(var n = 0 ; n < p.branches.length; n ++){
               this.addBranch(p.branches[n].prg, pb, engine);
@@ -841,13 +844,13 @@ SC_Instruction.prototype = {
       }
   , registerInProdBranch : function(pb){
       switch(this.oc){
-        case 114:
-        case 115:
+        case 117:
         case 118:
-        case 116:
-        case 120:
+        case 121:
+        case 119:
         case 123:
-        case 121:{
+        case 126:
+        case 124:{
           var res = this.prodBranches.length;
           this.prodBranches.push(pb);
           return res;
@@ -858,13 +861,13 @@ SC_Instruction.prototype = {
       }
   , registerForProduction : function(b){
       switch(this.oc){
-        case 118:
-        case 116:
-        case 123:
-        case 121:{
+        case 121:
+        case 119:
+        case 126:
+        case 124:{
           break;
           }
-        case 139:{
+        case 142:{
           this.emitters.push(b);
           if(null != this.itsParent){
             this.itsParent.registerForProduction(this.itsPar);
@@ -880,10 +883,10 @@ SC_Instruction.prototype = {
       }
   , removeBranch : function(elt){
       switch(this.oc){
-        case 122:
-        case 117:
-        case 123:
-        case 118:{
+        case 125:
+        case 120:
+        case 126:
+        case 121:{
           var i = this.branches.indexOf(elt);
           this.branches.splice(i,1);
           break;
@@ -894,8 +897,8 @@ SC_Instruction.prototype = {
       }
   , getAllValues: function(m, vals){
       switch(this.oc){
-        case 134:
-        case 135:{
+        case 137:
+        case 138:{
           var vals = {};
           for(var i in this.eventList){
             if(this.eventList[i].isPresent(m)){
@@ -910,10 +913,10 @@ SC_Instruction.prototype = {
       }
   , val : function(){
       switch(this.oc){
-        case 134:{
+        case 137:{
           return this.state;
           }
-        case 135:{
+        case 138:{
           return this.target[this.field];
           }
         default: throw "getAllValues undefined for opcode "
@@ -922,8 +925,8 @@ SC_Instruction.prototype = {
       }
   , prepare : function(m){
       switch(this.oc){
-        case 134:
-        case 135:{
+        case 137:
+        case 138:{
           this.futur = this.sideEffect(this.state, this.getAllValues(m), m);
           break;
           }
@@ -933,8 +936,8 @@ SC_Instruction.prototype = {
       }
   , swap : function(){
       switch(this.oc){
-        case 134:
-        case 135:{
+        case 137:
+        case 138:{
           this.state = this.futur;
           break;
           }
@@ -948,13 +951,13 @@ SC_Instruction.prototype = {
         case SC_Opcodes.GENERATE_ONE_INIT:
         case 47:
         case 48:
-        case 51:
-        case 53:
-        case 52:
         case 54:
-        case 50:{
+        case 56:
+        case 55:
+        case 57:
+        case 53:{
           if(this.val instanceof SC_Instruction
-              && this.val.oc == 134){
+              && this.val.oc == 137){
             this.evt.generateValues(m, this.val.val());
             }
           else if("function" == typeof(this.val)){
@@ -965,12 +968,12 @@ SC_Instruction.prototype = {
             }
           break;
           }
-        case 103:{
+        case 106:{
           if(this.val instanceof SC_CubeBinding){
             var res = this.val.resolve();
             }
           if(this.val instanceof SC_Instruction
-              && this.val.oc == 134){
+              && this.val.oc == 137){
             this.evt.generateValues(m, this.val.val());
             }
           else if("function" == typeof(this.val)){
@@ -981,16 +984,16 @@ SC_Instruction.prototype = {
             }
           break;
           }
-        case 104:
-        case 105:
-        case 106:
         case 107:
-        case 108:{
+        case 108:
+        case 109:
+        case 110:
+        case 111:{
           if(this.val instanceof SC_CubeBinding){
             var res = this.val.resolve();
             }
           if(this.val instanceof SC_Instruction
-              && this.val.oc == 134){
+              && this.val.oc == 137){
             this.evt.generateValues(m, this.val.val());
             }
           else if("function" == typeof(this.val)){
@@ -1002,17 +1005,17 @@ SC_Instruction.prototype = {
           this.val = null;
           break;
           }
+        case 122:
+        case 127:
+        case 118:
         case 119:
-        case 124:
-        case 115:
-        case 116:
-        case 121:{
+        case 124:{
           for(var nb = 0; nb < this.prodBranches.length; nb++){
             this.prodBranches[nb].generateValues(m);
             }
           break;
           }
-        case 139:{
+        case 142:{
           for(var i = 0; i < this.emitters.length; i++){
             this.emitters[i].generateValues(m);
             }
@@ -1025,7 +1028,7 @@ SC_Instruction.prototype = {
       }
   , its : function(nom){
       switch(this.oc){
-        case 132:{
+        case 135:{
           return this.o["$"+nom];
           }
         default: throw "its : undefined opcode "
@@ -1034,7 +1037,7 @@ SC_Instruction.prototype = {
       }
   , addCell : function(nom, init, el, fun){
       switch(this.oc){
-        case 132:{
+        case 135:{
           var tgt = this.o;
           if((undefined !== tgt["$"+nom])
             ||(undefined !== tgt["_"+nom])
@@ -1064,8 +1067,8 @@ SC_Instruction.prototype = {
       }
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       switch(this.oc){
-        case 134:
-        case 135:{
+        case 137:
+        case 138:{
           if(null === this.clock){
             this.clock = engine;
             }
@@ -1132,30 +1135,30 @@ SC_Instruction.prototype = {
           return "generate "+this.evt.toString()
                  +((null != this.val)?"("+this.val.toString()+") ":"");
           }
-        case 49:{
+        case 52:{
           return "generate "+this.evt.toString()+" forever ";
           }
-        case 51:
-        case 52:
-        case 53:
-        case 54:{
+        case 54:
+        case 55:
+        case 56:
+        case 57:{
           return "generate "+this.evt.toString()+" ("
                  +this.val+") for "+this.count+"/"+this.times+" times ";
           }
-        case 63:{
+        case 66:{
           return "when "+this.c.toString()+" then ";
           }
-        case 66:{
+        case 69:{
           return "kill \n"
                   +tab+"\t"+this.p.toString(tab+"\t")
                   +"\n"+tab+"on "+this.c.toString() +" end kill "
           }
-        case 132:{
+        case 135:{
           return "cube "+(this.o.constructor.name)+" with \n"
                   +tab+"\t"+this.p.toString(tab+"\t")
                   +"\n"+tab+" end cube"
           }
-        case 116:{
+        case 119:{
           var res = "{\n"+tab+"\t";
           for(var i = 0; i < this.branches.length; i++){
             res += this.branches[i].prg.toString(tab+"\t");
@@ -1163,7 +1166,7 @@ SC_Instruction.prototype = {
             }
           return res+"\n"+tab+"} "+" <"+this.channel.toString()+">";
           }
-        case 121:{
+        case 124:{
           var res = "{\n"+tab+"\t";
           for(var i = 0; i < this.branches.length; i++){
             res += this.branches[i].prg.toString(tab+"\t");
@@ -1171,25 +1174,25 @@ SC_Instruction.prototype = {
             }
           return res+"\n"+tab+"} ";
           }
-        case 59:
-        case 61:
         case 62:
-        case 60:{
+        case 64:
+        case 65:
+        case 63:{
           return "await "+this.config.toString();
           }
-        case 95:{
+        case 98:{
           return "action on "+this.evtFun.config.toString()
                + this.evtFun.action.toString()
                ;
           }
-        case 84:{
+        case 87:{
           return "action on "+this.evtFun.config.toString()
                + this.evtFun.action.toString()
                + " forever "
                ;
           }
-        case 134:
-        case 135:{
+        case 137:
+        case 138:{
           return "compute "+this.sideEffect+" on "+this.state
                  +((null == this.eventList)?"":" with "+this.eventList);
           }
@@ -1306,7 +1309,7 @@ SC_Await.prototype = {
       var bound_config = binder(this.config);
       var zeConf = bound_config
                   .bindTo(engine, parbranch, seq, masterSeq, path, cube);
-      var copy = new SC_Instruction(61);
+      var copy = new SC_Instruction(64);
       copy.config = zeConf;
       copy._config = this.config;
       copy.path = path;
@@ -1327,7 +1330,7 @@ SC_GenerateForeverLateEvtNoVal.prototype = {
   constructor : SC_GenerateForeverLateEvtNoVal
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      var copy = new SC_Instruction(101);
+      var copy = new SC_Instruction(104);
       copy.evt = this.evt;
       copy._evt = this._evt;
       return copy;
@@ -1359,14 +1362,14 @@ SC_GenerateForeverLateVal.prototype =
                    .bindTo(engine, parbranch, seq, masterSeq, path, cube);
           }
         else{
-          copy = new SC_Instruction(103);
+          copy = new SC_Instruction(106);
           copy.evt = bound_evt;
           copy.val = bound_value;
           }
         }
       else{
         if(bound_value instanceof SC_CubeBinding){
-          copy = new SC_Instruction(103);
+          copy = new SC_Instruction(106);
           copy.evt = bound_evt;
           copy.val = bound_value;
           }
@@ -1436,7 +1439,7 @@ SC_GenerateForever.prototype = {
         return new SC_GenerateForeverLateVal(bound_evt, bound_value)
                  .bindTo(engine, parbranch, seq, masterSeq, path, cube);
         }
-      copy = new SC_Instruction(50);
+      copy = new SC_Instruction(53);
       copy.evt = bound_evt;
       copy.val = bound_value;
       copy.itsParent = parbranch;
@@ -1544,7 +1547,7 @@ SC_Generate.prototype = {
         return new SC_GenerateOne(tmp_evt, tmp_val)
                    .bindTo(engine, parbranch, seq, masterSeq, path, cube);
         }
-      copy = new SC_Instruction(53);
+      copy = new SC_Instruction(56);
       copy.evt = tmp_evt;
       copy.val = tmp_val;
       copy.times = tmp_times;
@@ -1584,7 +1587,7 @@ SC_GenerateNoVal.prototype = {
         return new SC_GenerateOneNoVal(tmp_evt)
                .bindTo(engine, parbranch, seq, masterSeq, path, cube);
         }
-      copy = new SC_Instruction(55);
+      copy = new SC_Instruction(58);
       copy.evt = tmp_evt
       copy.times = tmp_times;
       copy.itsParent = parbranch;
@@ -1623,7 +1626,7 @@ SC_FilterForeverNoSens.prototype = {
       var bound_fun = binder(this.filterFun);
       var bound_evt = binder(this.evt);
       bound_fun = _SC.bindIt(bound_fun);
-      var copy = new SC_Instruction(104);
+      var copy = new SC_Instruction(107);
       copy.sensor = bound_sensor;
       copy.filterFun = bound_fun;
       copy.evt = bound_evt;
@@ -1685,7 +1688,7 @@ SC_FilterForever.prototype = {
                 .bindTo(engine, parbranch, seq, masterSeq, path, cube);
         return copy;
         }
-      var copy = new SC_Instruction(106);
+      var copy = new SC_Instruction(109);
       copy.sensor = bound_sensor;
       copy.filterFun = bound_fun;
       copy.evt = bound_evt;
@@ -1733,7 +1736,7 @@ SC_FilterOneNoSens.prototype = {
       var bound_evt = binder(this.evt);
       var bound_noSens_evt = binder(this.noSens_evt);
       bound_fun = _SC.bindIt(bound_fun);
-      var copy = new SC_Instruction(108);
+      var copy = new SC_Instruction(111);
       copy.sensor = bound_sensor;
       copy.filterFun = bound_fun;
       copy.evt = bound_evt;
@@ -1790,7 +1793,7 @@ SC_FilterOne.prototype = {
       var bound_evt = binder(this.evt);
       var bound_noSens_evt = binder(this.noSens_evt);
       bound_fun = _SC.bindIt(bound_fun);
-      var copy = new SC_Instruction(107);
+      var copy = new SC_Instruction(110);
       copy.sensor = bound_sensor;
       copy.filterFun = bound_fun;
       copy.evt = bound_evt;
@@ -1857,7 +1860,7 @@ SC_FilterNoSens.prototype = {
            .bindTo(engine, parbranch, seq, masterSeq, path, cube);
         }
       else{
-        copy = new SC_Instruction(110);
+        copy = new SC_Instruction(113);
         copy.sensor = bound_sensor
         copy.evt = bound_evt
         copy.filterFun = bound_fun
@@ -1982,7 +1985,7 @@ SC_Send.prototype = {
         return SC_SendForever(bound_evt, bound_val)
                .bindTo(engine, parbranch, seq, masterSeq, path, cube);
         }
-      copy = new SC_Instruction(111);
+      copy = new SC_Instruction(114);
       copy.evt = bound_evt;
       copy.value = bound_val;
       copy.count = copy.times = bound_times;
@@ -2007,7 +2010,7 @@ SC_SendOne.prototype = {
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
-      var copy = new SC_Instruction(112);
+      var copy = new SC_Instruction(115);
       copy.evt = binder(this.evt)
       copy.value = binder(this.value);
       copy._evt = this.evt;
@@ -2117,7 +2120,7 @@ SC_PauseRT.prototype = {
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
-      var copy = new SC_Instruction(125);
+      var copy = new SC_Instruction(128);
       copy.duration = this.duration*1000;
       copy._duration = this.duration;
       return copy;
@@ -2195,16 +2198,16 @@ SC_Seq.prototype = {
             copy.seqElements[i].oc = SC_Opcodes.GENERATE_ONE_INIT_INLINE;
             break;
             }
-          case 53:{
-            copy.seqElements[i].oc = 51;
+          case 56:{
+            copy.seqElements[i].oc = 54;
             break;
             }
-          case 55:{
-            copy.seqElements[i].oc = 57;
+          case 58:{
+            copy.seqElements[i].oc = 60;
             break;
             }
-          case 61:{
-            copy.seqElements[i].oc = 59;
+          case 64:{
+            copy.seqElements[i].oc = 62;
             break;
             }
           default:{
@@ -2338,7 +2341,7 @@ SC_Log.prototype={
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
-      var copy = new SC_Instruction(140);
+      var copy = new SC_Instruction(143);
       copy.msg = binder(this.msg);
       copy._msg = this.msg;
       if(copy.msg.f && copy.msg.t){
@@ -2363,7 +2366,7 @@ SC_ActionOnEventForeverNoDef.prototype = {
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
-      var copy = new SC_Instruction(83);
+      var copy = new SC_Instruction(86);
       copy.evtFun = {
         action:binder(this.evtFun.action)
         , config:binder(this.evtFun.config)
@@ -2390,7 +2393,7 @@ SC_ActionOnEventForever.prototype = {
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
-      var copy = new SC_Instruction(86);
+      var copy = new SC_Instruction(89);
       copy.evtFun = {
         action:binder(this.evtFun.action)
         , config:binder(this.evtFun.config)
@@ -2416,7 +2419,7 @@ SC_ActionOnEventNoDef.prototype = {
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
-      var copy = new SC_Instruction(92);
+      var copy = new SC_Instruction(95);
       copy.evtFun = {
         action:binder(this.evtFun.action)
         , config:binder(this.evtFun.config)
@@ -2451,7 +2454,7 @@ SC_ActionOnEvent.prototype = {
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
     var binder = _SC._b(cube);
-    var copy = new SC_Instruction(89);
+    var copy = new SC_Instruction(92);
     copy.evtFun = {
       action:binder(this.evtFun.action)
       , config:binder(this.evtFun.config)
@@ -2480,7 +2483,7 @@ SC_SimpleActionOnEventNoDef.prototype = {
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
-      var copy = new SC_Instruction(95);
+      var copy = new SC_Instruction(98);
       copy.evtFun = {
         action:binder(this.evtFun.action)
         , config:binder(this.evtFun.config)
@@ -2509,7 +2512,7 @@ SC_SimpleActionOnEvent.prototype = {
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
-      var copy = new SC_Instruction(98);
+      var copy = new SC_Instruction(101);
       copy.evtFun = {
         action:binder(this.evtFun.action)
         , config:binder(this.evtFun.config)
@@ -2526,7 +2529,7 @@ SC_SimpleActionOnEvent.prototype = {
       }
   }
 function SC_ParBranch(aParent, aPar, prg){
-  this.oc = 139;
+  this.oc = 142;
   this.prev = null;
   this.next = null;
   this.prg = prg;
@@ -2596,8 +2599,8 @@ SC_Queues.prototype = {
   , setFlags : function(st){
       var b = this.start;
       while(null != b){
-	b.flag = st;
-	b = b.next;
+        b.flag = st;
+        b = b.next;
         }
       }
   };
@@ -2614,7 +2617,7 @@ SC_Par.prototype = {
   constructor : SC_Par
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      var copy = new SC_Instruction(120);
+      var copy = new SC_Instruction(123);
       copy.suspended = new SC_Queues();
       copy.waittingEOI = new SC_Queues();
       copy.stopped = new SC_Queues();
@@ -2682,7 +2685,7 @@ SC_ParDyn.prototype = {
   constructor : SC_ParDyn
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      var copy = new SC_Instruction(114);
+      var copy = new SC_Instruction(117);
       copy.suspended = new SC_Queues();
       copy.waittingEOI = new SC_Queues();
       copy.stopped = new SC_Queues();
@@ -2876,7 +2879,7 @@ function SC_Cell(params){
   if(undefined !== params.target){
     return new SC_ReCell(params);
     }
-  var cell = new SC_Instruction(134);
+  var cell = new SC_Instruction(137);
   cell.state = (undefined == params.init)?null:params.init;
   if(undefined == params.sideEffect){
     throw "undefined sideEffect !";
@@ -2899,7 +2902,7 @@ function SC_ReCell(params){
   if(undefined == params.field || undefined == params.target[params.field]){
      throw "field not specified on target ("+params.field+")";
     }
-  var cell = new SC_Instruction(135);
+  var cell = new SC_Instruction(138);
   if(undefined == params.sideEffect){
     throw "undefined sideEffect !";
     }
@@ -2930,10 +2933,10 @@ SC_CubeCell.prototype = {
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var tgt = cube[this.cellName];
       if(tgt instanceof SC_Instruction
-        &&((tgt.oc == 134)||((tgt.oc == 135)))){
+        &&((tgt.oc == 137)||((tgt.oc == 138)))){
         return tgt.bindTo(engine, parbranch, seq, masterSeq, path, cube);
         }
-      var copy = new SC_Instruction(136);
+      var copy = new SC_Instruction(139);
       copy.cellName = this.cellName;
       copy.cell=null;
       copy.cube = cube;
@@ -2952,6 +2955,7 @@ function SC_Machine(delay, params){
                       :function(){this.react();}).bind(this)
                       ;
   this.permanentActions = [];
+  this.permanentGenerate = [];
   this.actions = [];
   this.actionsOnEvents = [];
   this.cells = [];
@@ -3135,7 +3139,16 @@ SC_Machine.prototype =
   , addEvtFun : function(f){
       this.actionsOnEvents.push(f);
       }
-  , addPrermanentFun : function(fun){
+  , addPermanentGenerate : function(evt){
+      this.permanentGenerate.push(evt);
+      }
+  , removeFromPermanentGenerate : function(evt){
+      var t = this.permanentGenerate.indexOf(evt);
+      if(t > -1){
+        this.permanentGenerate.splice(t,1);
+        }
+      }
+  , addPermanentFun : function(fun){
       this.permanentActions.push(fun);
       }
   , removeFromPermanent : function(fun){
@@ -3194,6 +3207,9 @@ SC_Machine.prototype =
           tmp[n].e.generate(this, true);
           tmp[n].e.generateValues(this, tmp[n].v);
           }
+        }
+      for(var n in this.permanentGenerate){
+        this.permanentGenerate[n].generate(this, true);
         }
       tmp = this.pendingPrograms;
       this.pendingPrograms = [];
@@ -3408,7 +3424,7 @@ ACT:    switch(inst.oc){
               }
             }
           case 17:{
-            this.addPrermanentFun(inst.closure);
+            this.addPermanentFun(inst.closure);
             st = 6;
             inst.oc = 19;
             inst = caller;
@@ -3452,7 +3468,7 @@ ACT:    switch(inst.oc){
               }
             }
           case 25:{
-            this.addPrermanentFun(inst.closure);
+            this.addPermanentFun(inst.closure);
             st = 6;
             inst.oc = 24;
             inst = caller;
@@ -3497,7 +3513,7 @@ ACT:    switch(inst.oc){
               }
             }
           case 28:{
-            this.addPrermanentFun(inst.closure);
+            this.addPermanentFun(inst.closure);
             st = 6;
             inst.oc = 29;
             inst = caller;
@@ -3627,28 +3643,42 @@ ACT:    switch(inst.oc){
             break;
             }
           case 49:{
+            if(control_body){
+              inst.oc = 50;
+              break;
+              }
+            }
+          case 52:{
             inst.evt.generate(this);
-            st = 4;
+            this.addPermanentGenerate(inst.evt);
+            inst.oc = 51;
+            st = 6;
             inst = caller;
             break;
             }
           case 50:{
+            inst.evt.generate(this);
+            st = 4;
+            inst = caller;
+            break;
+            }
+          case 53:{
             inst.itsParent.registerForProduction(inst);
             inst.evt.generate(this);
             st = 4;
             inst = caller;
             break;
             }
-          case 51:{
+          case 54:{
             inst.count = inst.times;
-            inst.oc = 52;
+            inst.oc = 55;
             }
-          case 52:{
+          case 55:{
             inst.itsParent.registerForProduction(inst);
             inst.evt.generate(this);
             inst.count--;
             if(0 == inst.count){
-              inst.oc = 51;
+              inst.oc = 54;
               inst = seq.seqElements[++seq.idx];
               break;
               }
@@ -3656,16 +3686,16 @@ ACT:    switch(inst.oc){
             inst = caller;
             break;
             }
-          case 53:{
+          case 56:{
             inst.count = inst.times;
-            inst.oc = 54;
+            inst.oc = 57;
             }
-          case 54:{
+          case 57:{
             inst.itsParent.registerForProduction(inst);
             inst.evt.generate(this);
             inst.count--;
             if(0 == inst.count){
-              inst.oc = 53;
+              inst.oc = 56;
               st = 7;
               inst = caller;
               break;
@@ -3674,15 +3704,15 @@ ACT:    switch(inst.oc){
             inst = caller;
             break;
             }
-          case 57:{
+          case 60:{
             inst.count = inst.times;
-            inst.oc = 58;
+            inst.oc = 61;
             }
-          case 58:{
+          case 61:{
             inst.evt.generate(this);
             inst.count--;
             if(0 == inst.count){
-              inst.oc = 57;
+              inst.oc = 60;
               inst = seq.seqElements[++seq.idx];
               break;
               }
@@ -3690,15 +3720,15 @@ ACT:    switch(inst.oc){
             inst = caller;
             break;
             }
-          case 55:{
+          case 58:{
             inst.count = inst.times;
-            inst.oc = 56;
+            inst.oc = 59;
             }
-          case 56:{
+          case 59:{
             inst.evt.generate(this);
             inst.count--;
             if(0 == inst.count){
-              inst.oc = 55;
+              inst.oc = 58;
               st = 7;
               }
             else{
@@ -3707,66 +3737,66 @@ ACT:    switch(inst.oc){
             inst = caller;
             break;
             }
-          case 59:{
-            if(inst.config.isPresent(this)){
-              inst = seq.seqElements[++seq.idx];
-              break;
-              }
-            inst.config.registerInst(this, inst);
-            inst.oc = 60;
-            st = 5;
-            inst = caller;
-            break;
-            }
-          case 60:{
-            if(inst.config.isPresent(this)){
-              inst.oc = 59;
-              inst.config.unregister(inst);
-              inst = seq.seqElements[++seq.idx];
-              break;
-              }
-            st = 5;
-            inst = caller;
-            break;
-            }
-          case 61:{
-            if(inst.config.isPresent(this)){
-              st = 7;
-              inst = caller;
-              break;
-              }
-            inst.config.registerInst(this, inst);
-            inst.oc = 62
-            st = 5;
-            inst = caller;
-            break;
-            }
           case 62:{
             if(inst.config.isPresent(this)){
-              inst.oc = 61;
-              inst.config.unregister(inst);
-              st = 7;
-              inst = caller;
+              inst = seq.seqElements[++seq.idx];
               break;
               }
+            inst.config.registerInst(this, inst);
+            inst.oc = 63;
             st = 5;
             inst = caller;
             break;
             }
           case 63:{
+            if(inst.config.isPresent(this)){
+              inst.oc = 62;
+              inst.config.unregister(inst);
+              inst = seq.seqElements[++seq.idx];
+              break;
+              }
+            st = 5;
+            inst = caller;
+            break;
+            }
+          case 64:{
+            if(inst.config.isPresent(this)){
+              st = 7;
+              inst = caller;
+              break;
+              }
+            inst.config.registerInst(this, inst);
+            inst.oc = 65
+            st = 5;
+            inst = caller;
+            break;
+            }
+          case 65:{
+            if(inst.config.isPresent(this)){
+              inst.oc = 64;
+              inst.config.unregister(inst);
+              st = 7;
+              inst = caller;
+              break;
+              }
+            st = 5;
+            inst = caller;
+            break;
+            }
+          case 66:{
             if(inst.c.isPresent(this)){
               inst = seq.seqElements[++seq.idx];
               break;
               }
-            inst.oc = 64;
+            inst.oc = 67;
             inst.c.registerInst(this, inst);
             st = 2;
             inst = caller;
             break;
             }
-          case 64:{
+          case 67:{
             if(inst.c.isPresent(this)){
-              inst.oc = 63;
+              inst.oc = 66;
               inst.c.unregister(inst);
               inst = seq.seqElements[++seq.idx];
               break;
@@ -3775,23 +3805,23 @@ ACT:    switch(inst.oc){
             inst = caller;
             break;
             }
-          case 65:{
+          case 68:{
             inst.caller = caller;
             }
-          case 66:{
+          case 69:{
             inst.c.registerInst(this, inst);
             }
-          case 67:{
+          case 70:{
             caller = inst;
-            inst.oc = 68;
+            inst.oc = 71;
             inst = inst.p;
             break;
             }
-          case 68:{
+          case 71:{
             switch(st){
               case 7:{
                 caller = inst.caller;
-                inst.oc = 66;
+                inst.oc = 69;
                 inst.c.unregister(inst);
                 seq.idx += inst.end;
                 inst = seq.seqElements[seq.idx];
@@ -3804,27 +3834,27 @@ ACT:    switch(inst.oc){
                 }
               case 2:{
                 caller = inst.caller;
-                inst.oc = 69;
+                inst.oc = 72;
                 inst = inst.caller;
                 break;
                 }
               case 3:{
                 caller = inst.caller;
-                inst.oc = 70;
+                inst.oc = 73;
                 st = 2;
                 inst = inst.caller;
                 break;
                 }
               case 4:{
                 caller = inst.caller;
-                inst.oc = 71;
+                inst.oc = 74;
                 st = 2;
                 inst = inst.caller;
                 break;
                 }
               case 5:{
                 caller = inst.caller;
-                inst.oc = 72;
+                inst.oc = 75;
                 st = (inst.c.isPresent(this))?2
                                              :5;
                 inst = inst.caller;
@@ -3832,7 +3862,7 @@ ACT:    switch(inst.oc){
                 }
               case 6:{
                 caller = inst.caller;
-                inst.oc = 73;
+                inst.oc = 76;
                 st = (inst.c.isPresent(this))?2
                                              :5;
                 inst = inst.caller;
@@ -3844,29 +3874,29 @@ ACT:    switch(inst.oc){
               }
             break;
             }
-          case 69:
           case 72:
-          case 73:{
+          case 75:
+          case 76:{
             st = 2;
             caller = inst = inst.caller;
             break;
             }
-          case 74:{
-            inst.oc = 66;
+          case 77:{
+            inst.oc = 69;
             inst = seq.seqElements[++seq.idx];
             break;
             }
-          case 75:{
+          case 78:{
             inst.caller = caller;
             inst.activ_cb = control_body;
             }
-          case 76:{
+          case 79:{
             inst.c.registerInst(this, inst); 
-            inst.oc = 77;
+            inst.oc = 80;
             }
-          case 77:{
+          case 80:{
             if(inst.c.isPresent(this)){
-              inst.oc = 78;
+              inst.oc = 81;
               }
             else{
               st = 5;
@@ -3874,14 +3904,14 @@ ACT:    switch(inst.oc){
               break;
               }
             }
-          case 78:{
+          case 81:{
             control_body = true;
             caller = inst;
-            inst.oc = 79;
+            inst.oc = 82;
             inst = inst.p;
             break;
             }
-          case 79:{
+          case 82:{
             switch(st){
               case 1:{
                 inst = inst.p;
@@ -3890,28 +3920,28 @@ ACT:    switch(inst.oc){
               case 3:
               case 2:{
                 caller = inst.caller;
-                inst.oc = 80;
+                inst.oc = 83;
                 st = 2;
                 inst = caller;
                 break;
                 }
-              case 6:{
+              case 4:{
                 caller = inst.caller;
-                inst.oc = 81;
+                inst.oc = 80;
                 st = 5;
                 inst = caller;
                 break;
                 }
               case 5:{
                 caller = inst.caller;
-                inst.oc = 77;
+                inst.oc = 80;
                 st = 5;
                 inst = caller;
                 break;
                 }
-              case 4:{
+              case 6:{
                 caller = inst.caller;
-                inst.oc = 77;
+                inst.oc = 84;
                 st = 5;
                 inst = caller;
                 break;
@@ -3919,7 +3949,7 @@ ACT:    switch(inst.oc){
               case 7:{
                 caller = inst.caller;
                 inst.c.unregister(inst);
-                inst.oc = 76;
+                inst.oc = 79;
                 inst = caller;
                 break;
                 }
@@ -3927,25 +3957,13 @@ ACT:    switch(inst.oc){
             control_body = inst.activ_cb;
             break;
             }
-          case 82:{
+          case 85:{
             if(!inst.test(this)){
               seq.idx += inst.elsB;
               inst = seq.seqElements[seq.idx];
               break;
               }
             inst = seq.seqElements[++seq.idx];
-            break;
-            }
-          case 83:{
-            inst.evtFun.config.registerInst(this, inst);
-            inst.oc = 84;
-            }
-          case 84:{
-            if(inst.evtFun.config.isPresent(this)){
-              this.addEvtFun(inst.evtFun);
-              }
-            st = 5;
-            inst = caller;
             break;
             }
           case 86:{
@@ -3955,52 +3973,18 @@ ACT:    switch(inst.oc){
           case 87:{
             if(inst.evtFun.config.isPresent(this)){
               this.addEvtFun(inst.evtFun);
-              inst.oc = 88;
-              st = 4;
-              inst = caller;
-              break;
               }
-            st = 2;
-            inst = caller;
-            break;
-            }
-          case 88:{
-            if(inst.evtFun.config.isPresent(this)){
-              this.addEvtFun(inst.evtFun);
-              st = 4;
-              inst = caller;
-              break;
-              }
-            inst.oc = 87;
-            st = 2;
+            st = 5;
             inst = caller;
             break;
             }
           case 89:{
-            inst.count = inst.times;
             inst.evtFun.config.registerInst(this, inst);
             inst.oc = 90;
             }
           case 90:{
-            if(0 == inst.count){
-              inst.evtFun.config.unregister(inst);
-              inst.oc = 89;
-              st = 7;
-              inst = caller;
-              break;
-              }
             if(inst.evtFun.config.isPresent(this)){
               this.addEvtFun(inst.evtFun);
-              if(inst.count > 0){
-                inst.count--;
-                }
-              if(0 == inst.count){
-                inst.evtFun.config.unregister(inst);
-                inst.oc = 89;
-                st = 7;
-                inst = caller;
-                break;
-                }
               inst.oc = 91;
               st = 4;
               inst = caller;
@@ -4011,25 +3995,8 @@ ACT:    switch(inst.oc){
             break;
             }
           case 91:{
-            if(0 == inst.count){
-              inst.evtFun.config.unregister(inst);
-              inst.oc = 89;
-              st = 7;
-              inst = caller;
-              break;
-              }
             if(inst.evtFun.config.isPresent(this)){
               this.addEvtFun(inst.evtFun);
-              if(inst.count > 0){
-                inst.count--;
-                }
-              if(0 == inst.count){
-                inst.evtFun.config.unregister(inst);
-                inst.oc = 89;
-                st = 7;
-                inst = caller;
-                break;
-                }
               st = 4;
               inst = caller;
               break;
@@ -4103,24 +4070,64 @@ ACT:    switch(inst.oc){
             break;
             }
           case 95:{
-            if(inst.evtFun.config.isPresent(this)){
-              this.addEvtFun(inst.evtFun);
-              st = 7;
-              inst = caller;
-              break;
-              }
+            inst.count = inst.times;
             inst.evtFun.config.registerInst(this, inst);
             inst.oc = 96;
             }
           case 96:{
-            if(inst.evtFun.config.isPresent(this)){
-              this.addEvtFun(inst.evtFun);
+            if(0 == inst.count){
               inst.evtFun.config.unregister(inst);
               inst.oc = 95;
               st = 7;
               inst = caller;
               break;
               }
+            if(inst.evtFun.config.isPresent(this)){
+              this.addEvtFun(inst.evtFun);
+              if(inst.count > 0){
+                inst.count--;
+                }
+              if(0 == inst.count){
+                inst.evtFun.config.unregister(inst);
+                inst.oc = 95;
+                st = 7;
+                inst = caller;
+                break;
+                }
+              inst.oc = 97;
+              st = 4;
+              inst = caller;
+              break;
+              }
+            st = 2;
+            inst = caller;
+            break;
+            }
+          case 97:{
+            if(0 == inst.count){
+              inst.evtFun.config.unregister(inst);
+              inst.oc = 95;
+              st = 7;
+              inst = caller;
+              break;
+              }
+            if(inst.evtFun.config.isPresent(this)){
+              this.addEvtFun(inst.evtFun);
+              if(inst.count > 0){
+                inst.count--;
+                }
+              if(0 == inst.count){
+                inst.evtFun.config.unregister(inst);
+                inst.oc = 95;
+                st = 7;
+                inst = caller;
+                break;
+                }
+              st = 4;
+              inst = caller;
+              break;
+              }
+            inst.oc = 96;
             st = 2;
             inst = caller;
             break;
@@ -4144,16 +4151,32 @@ ACT:    switch(inst.oc){
               inst = caller;
               break;
               }
+            st = 2;
+            inst = caller;
+            break;
+            }
+          case 101:{
+            if(inst.evtFun.config.isPresent(this)){
+              this.addEvtFun(inst.evtFun);
+              st = 7;
+              inst = caller;
+              break;
+              }
+            inst.evtFun.config.registerInst(this, inst);
+            inst.oc = 102;
+            }
+          case 102:{
+            if(inst.evtFun.config.isPresent(this)){
+              this.addEvtFun(inst.evtFun);
+              inst.evtFun.config.unregister(inst);
+              inst.oc = 101;
+              st = 7;
+              inst = caller;
+              break;
+              }
               st = 2;
               inst = caller;
               break;
-            }
-          case 97:{
-            inst.evtFun.config.unregister(inst);
-            inst.oc = 95;
-            st = 7;
-            inst = caller;
-            break;
             }
           case 100:{
             inst.evtFun.config.unregister(inst);
@@ -4162,30 +4185,37 @@ ACT:    switch(inst.oc){
             inst = caller;
             break;
             }
-          case 101:{
+          case 103:{
+            inst.evtFun.config.unregister(inst);
+            inst.oc = 101;
+            st = 7;
+            inst = caller;
+            break;
+            }
+          case 104:{
             if(inst.evt instanceof SC_CubeBinding){
               inst.evt = inst.evt.resolve();
               }
-            inst.oc = 102;
+            inst.oc = 105;
             }
-          case 102:{
+          case 105:{
             inst.evt.generate(this);
             st = 4;
             inst = caller;
             break;
             }
-          case 103:{
+          case 106:{
             inst.itsParent.registerForProduction(inst);
             inst.evt.generate(this);
             st = 4;
             inst = caller;
             break;
             }
-          case 104:{
+          case 107:{
             inst.sensor.registerInst(this, inst);
-            inst.oc = 105;
+            inst.oc = 108;
             }
-          case 105:{
+          case 108:{
             if(inst.sensor.isPresent(this)){
               inst.val = inst.filterFun(inst.sensor.getValues(this), this);
               if(undefined !== inst.val){
@@ -4197,7 +4227,7 @@ ACT:    switch(inst.oc){
             inst = caller;
             break;
             }
-          case 106:{
+          case 109:{
             if(inst.sensor.isPresent(this)){
               inst.val = inst.filterFun(inst.sensor.getValues(this), this);
               if(undefined !== inst.val){
@@ -4212,49 +4242,49 @@ ACT:    switch(inst.oc){
             inst = caller;
             break;
             }
-          case 107:{
-            if(inst.sensor.isPresent(this)){
-              inst.val = inst.filterFun(inst.sensor.getValues(this), this);
-              if(null != inst.val){
-                inst.itsParent.registerForProduction(inst);
-                inst.evt.generate(this);
-                }
-              }
-            else{
-              inst.noSens_evt.generate(this);
-              }
-            st = 7;
-            inst = caller;
-            break;
-            }
-          case 108:{
-            if(inst.sensor.isPresent(this)){
-              inst.val = inst.filterFun(inst.sensor.getValues(this), this);
-              if(null != inst.val){
-                inst.itsParent.registerForProduction(inst);
-                inst.evt.generate(this);
-                }
-              }
-            st = 7;
-            inst = caller;
-            break;
-            }
-          case 109:{
-            if(inst.sensor.isPresent(this)){
-              inst.val = inst.filterFun(inst.sensor.getValues(this), this);
-              if(null != inst.val){
-                inst.itsParent.registerForProduction(inst);
-                inst.evt.generate(this);
-                }
-              }
-            else{
-              inst.noSens_evt.generate(this);
-              }
-            st = 7;
-            inst = caller;
-            break;
-            }
           case 110:{
+            if(inst.sensor.isPresent(this)){
+              inst.val = inst.filterFun(inst.sensor.getValues(this), this);
+              if(null != inst.val){
+                inst.itsParent.registerForProduction(inst);
+                inst.evt.generate(this);
+                }
+              }
+            else{
+              inst.noSens_evt.generate(this);
+              }
+            st = 7;
+            inst = caller;
+            break;
+            }
+          case 111:{
+            if(inst.sensor.isPresent(this)){
+              inst.val = inst.filterFun(inst.sensor.getValues(this), this);
+              if(null != inst.val){
+                inst.itsParent.registerForProduction(inst);
+                inst.evt.generate(this);
+                }
+              }
+            st = 7;
+            inst = caller;
+            break;
+            }
+          case 112:{
+            if(inst.sensor.isPresent(this)){
+              inst.val = inst.filterFun(inst.sensor.getValues(this), this);
+              if(null != inst.val){
+                inst.itsParent.registerForProduction(inst);
+                inst.evt.generate(this);
+                }
+              }
+            else{
+              inst.noSens_evt.generate(this);
+              }
+            st = 7;
+            inst = caller;
+            break;
+            }
+          case 113:{
             if(inst.sensor.isPresent(this)){
               inst.val = inst.filterFun(inst.sensor.getValues(this), this);
               if(null != inst.val){
@@ -4272,7 +4302,7 @@ ACT:    switch(inst.oc){
             inst = caller;
             break;
             }
-          case 111:{
+          case 114:{
             if(inst.count-- > 0){
               this.generateEvent(inst.evt, inst.value);
               st = 4;
@@ -4284,39 +4314,39 @@ ACT:    switch(inst.oc){
             inst = caller;
             break;
             }
-          case 112:{
+          case 115:{
             this.generateEvent(inst.evt, inst.value);
             st = 7;
             inst = caller;
             break;
             }
-          case 113:{
+          case 116:{
             this.generateEvent(inst.evt, inst.value);
             st = 4;
             inst = caller;
             break;
             }
-          case 114:{
+          case 117:{
             inst.caller = caller;
-            inst.oc = 115;
+            inst.oc = 118;
             }
-          case 115:{
+          case 118:{
             inst.channel.registerInst(this, inst);
             inst.tmp = null;
             }
-          case 116:{
+          case 119:{
             caller = inst;
             }
-          case 117:{
+          case 120:{
             if(null != inst.suspended.start){
-              inst.oc = 118;
+              inst.oc = 121;
               inst.toActivate = inst.suspended.start;
               inst.suspended.start = inst.suspended.start.next;
               inst = inst.toActivate.prg;
               break;
               }
             caller = inst.caller;
-            inst.oc = 116;
+            inst.oc = 119;
             if((inst.waittingEOI.start != null) || (inst.stopped.start != null)){
               st = 2;
               inst = caller;
@@ -4334,7 +4364,7 @@ ACT:    switch(inst.oc){
             inst = inst.caller;
             break;
             }
-          case 118:{
+          case 121:{
             switch(inst.toActivate.flag = st){
               case 1:{
                    inst = inst.toActivate.prg
@@ -4342,27 +4372,27 @@ ACT:    switch(inst.oc){
                    }
               case 3:
               case 2:{
-                   inst.oc = 117;
+                   inst.oc = 120;
                    inst.waittingEOI.append(inst.toActivate);
                    break;
                    }
               case 4:{
-                   inst.oc = 117;
+                   inst.oc = 120;
                    inst.stopped.append(inst.toActivate);
                    break;
                    }
               case 5:{
-                   inst.oc = 117;
+                   inst.oc = 120;
                    inst.waitting.append(inst.toActivate);
                    break;
                    }
               case 6:{
-                   inst.oc = 117;
+                   inst.oc = 120;
                    inst.halted.append(inst.toActivate);
                    break;
                    }
               case 7:{
-                   inst.oc = 117;
+                   inst.oc = 120;
                    if(inst.purgeable){
                      inst.removeBranch(inst.toActivate);
                      }
@@ -4374,29 +4404,29 @@ ACT:    switch(inst.oc){
               }
             break;
             }
-          case 119 : {
+          case 122 : {
             this.reset(inst);
             st = 7;
             inst = caller;
             break;
             }
-          case 120:{
+          case 123:{
             inst.caller = caller;
             inst.tmp = null;
             }
-          case 121 :{
+          case 124 :{
             caller = inst;
             }
-          case 122:{
+          case 125:{
             if(null != inst.suspended.start){
-              inst.oc = 123;
+              inst.oc = 126;
               inst.toActivate = inst.suspended.start;
               inst.suspended.start = inst.suspended.start.next;
               inst = inst.toActivate.prg;
               break;
               }
             caller = inst.caller;
-            inst.oc = 121;
+            inst.oc = 124;
             if(inst.waittingEOI.start != null){
               st = 2;
               caller = inst = inst.caller;
@@ -4431,7 +4461,7 @@ ACT:    switch(inst.oc){
             caller = inst = inst.caller;
             break;
             }
-          case 123:{
+          case 126:{
             switch(inst.toActivate.flag = st){
               case 1:{
                 inst = inst.toActivate.prg;
@@ -4439,27 +4469,27 @@ ACT:    switch(inst.oc){
                 }
               case 3:
               case 2:{
-                inst.oc = 122;
+                inst.oc = 125;
                 inst.waittingEOI.append(inst.toActivate);
                 break;
                 }
               case 4:{
-                inst.oc = 122;
+                inst.oc = 125;
                 inst.stopped.append(inst.toActivate);
                 break;
                 }
               case 5:{
-                inst.oc = 122;
+                inst.oc = 125;
                 inst.waitting.append(inst.toActivate);
                 break;
                 }
               case 6:{
-                inst.oc = 122;
+                inst.oc = 125;
                 inst.halted.append(inst.toActivate);
                 break;
                 }
               case 7:{
-                inst.oc = 122;
+                inst.oc = 125;
                 if(inst.purgeable){
                   inst.removeBranch(inst.toActivate);
                   }
@@ -4471,16 +4501,16 @@ ACT:    switch(inst.oc){
               }
             break;
             }
-          case 125:{
+          case 128:{
             inst.startTime = performance.now();
-            inst.oc = 126;
+            inst.oc = 129;
             st = 4;
             inst = caller;
             break;
             }
-          case 126:{
+          case 129:{
             if(performance.now() - inst.startTime > inst.duration){
-              inst.oc = 125;
+              inst.oc = 128;
               st =  7;
               inst = caller;
               break;
@@ -4489,10 +4519,10 @@ ACT:    switch(inst.oc){
             inst = caller;
             break;
             }
-          case 127:{
+          case 130:{
             inst.caller = caller;
             }
-          case 128:{
+          case 131:{
             var val = parseInt((null == inst.v.t)
                                    ?eval(inst.v.f):inst.v.t[inst.v.f]);
             inst.choice = inst.cases[val];
@@ -4500,37 +4530,37 @@ ACT:    switch(inst.oc){
               inst.choice = SC_Nothing;
               }
             }
-          case 129:{
-            caller = inst;
-            inst.oc = 130;
-            inst = inst.choice;
-            break;
-            }
-          case 130:{
-            inst.oc = 129;
-            if(7 == st){
-              inst.choice = null;
-              inst.oc = 128;
-              }
-            caller = inst = inst.caller;
-            break;
-            }
-          case 131:{
-            inst.caller = caller;
-            }
           case 132:{
             caller = inst;
             inst.oc = 133;
-            inst = inst.p;
+            inst = inst.choice;
             break;
             }
           case 133:{
             inst.oc = 132;
+            if(7 == st){
+              inst.choice = null;
+              inst.oc = 131;
+              }
             caller = inst = inst.caller;
             break;
             }
-          case 134:
+          case 134:{
+            inst.caller = caller;
+            }
           case 135:{
+            caller = inst;
+            inst.oc = 136;
+            inst = inst.p;
+            break;
+            }
+          case 136:{
+            inst.oc = 135;
+            caller = inst = inst.caller;
+            break;
+            }
+          case 137:
+          case 138:{
             if(inst.TODO != this.getInstantNumber()){
               inst.TODO = this.getInstantNumber();
               this.addCellFun(inst);
@@ -4539,27 +4569,27 @@ ACT:    switch(inst.oc){
             inst = caller;
             break;
             }
-          case 136:{
+          case 139:{
             inst.caller = caller;
             inst.cell = inst.cube[inst.cellName];
             }
-          case 137:{
+          case 140:{
             caller = inst;
             if(undefined != inst.cell){
-              inst.oc = 138;
+              inst.oc = 141;
               inst = inst.cell;
               break;
               }
             }
-          case 138:{
-            inst.oc = 137;
+          case 141:{
+            inst.oc = 140;
             if(7 == st){
-              inst.oc = 137;
+              inst.oc = 140;
               }
             caller = inst = inst.caller;
             break;
             }
-          case 140:{
+          case 143:{
             this.stdOut(inst.msg);
             st = 7;
             inst = caller;
@@ -4594,81 +4624,81 @@ EOI:    switch(inst.oc){
             caller = inst = inst.caller;
             break;
             }
-          case 64:{
+          case 67:{
             seq.idx += inst.elsB;
-            inst.oc = 63;
+            inst.oc = 66;
             inst.c.unregister(inst);
             inst = caller;
             break;
             }
-          case 67:
           case 70:
-          case 69:{
-            inst.oc = 71;
+          case 73:
+          case 72:{
+            inst.oc = 74;
             caller = inst;
             inst = inst.p;
             break;
             }
-          case 71:{
+          case 74:{
             if(inst.c.isPresent(this)){
-              inst.oc = 74;
+              inst.oc = 77;
               this.reset(inst.p);
               inst.c.unregister(inst);
               }
             else{
-              inst.oc = 67;
+              inst.oc = 70;
               }
             inst = caller = inst.caller;
             break;
             }
-          case 73:
-          case 72:{
+          case 76:
+          case 75:{
             if(inst.c.isPresent(this)){
-              inst.oc = 74;
+              inst.oc = 77;
               inst.c.unregister(inst);
               this.reset(inst.p);
               }
             inst = caller = inst.caller;
             break;
             }
-          case 80:{
+          case 83:{
             caller = inst;
-            inst.oc = 79;
+            inst.oc = 82;
             inst = inst.p;
             break;
             }
-          case 79:{
-            inst.oc = 77;
+          case 82:{
+            inst.oc = 80;
             inst = caller = inst.caller;
-            break;
-            }
-          case 87:{
-            this.addFun(inst.defaultAct);
-            inst = caller;
             break;
             }
           case 90:{
             this.addFun(inst.defaultAct);
+            inst = caller;
+            break;
             }
           case 93:{
+            this.addFun(inst.defaultAct);
+            }
+          case 96:{
             if(inst.count > 0){
               inst.count--;
               }
             inst = caller;
             break;
             }
-          case 99:{
+          case 102:{
             this.addFun(inst.defaultAct);
+            inst.oc = 103;
+            inst = caller;
+            break;
+            }
+          case 99:{
             inst.oc = 100;
             inst = caller;
             break;
             }
-          case 96:{
-            inst.oc = 97;
-            inst = caller;
-            break;
-            }
-          case 116:{
+          case 119:{
             if(null != inst.tmp){
               inst.suspended.append(inst.tmp);
               }
@@ -4693,13 +4723,13 @@ EOI:    switch(inst.oc){
                 && inst.waitting.isEmpty()
                 && inst.halted.isEmpty()
                 ){
-                  inst.oc = 119;
+                  inst.oc = 122;
                 }
               }
             inst = caller = inst.caller;
             break;
             }
-          case 121:{
+          case 124:{
             if(null != inst.tmp){
               inst.suspended.append(inst.tmp);
               }
@@ -4719,25 +4749,25 @@ EOI:    switch(inst.oc){
             inst = caller = inst.caller;
             break;
             }
-          case 129:{
-            caller = inst;
-            inst.oc = 130;
-            inst = inst.choice;
-            break;
-            }
-          case 130:{
-            inst.oc = 129;
-            inst = caller = inst.caller;
-            break;
-            }
           case 132:{
             caller = inst;
             inst.oc = 133;
-            inst = inst.p;
+            inst = inst.choice;
             break;
             }
           case 133:{
             inst.oc = 132;
+            inst = caller = inst.caller;
+            break;
+            }
+          case 135:{
+            caller = inst;
+            inst.oc = 136;
+            inst = inst.p;
+            break;
+            }
+          case 136:{
+            inst.oc = 135;
             inst = caller = inst.caller;
             break;
             }
@@ -4868,109 +4898,109 @@ RST:    switch(oldInstOC = inst.oc){
           case 46:
           case 47:
           case 48:
-          case 49:
+          case 51:{
+            this.removeFromPermanentGenerate(inst.evt);
+            }
           case 50:{
+            inst.oc = 49;
+            }
+          case 49:{
             inst = caller;
             break;
             }
-          case 51:
-          case 52:{
-            inst.oc = 51;
+          case 53:{
             inst = caller;
             break;
             }
-          case 53:
-          case 54:{
-            inst.oc = 53;
+          case 54:
+          case 55:{
+            inst.oc = 54;
             inst = caller;
             break;
             }
-          case 57:
-          case 58:{
-            inst.oc = 57;
+          case 56:
+          case 57:{
+            inst.oc = 56;
             inst = caller;
             break;
             }
-          case 55:
-          case 56:{
-            inst.oc = 55;
-            inst = caller;
-            break;
-            }
-          case 59:{
-            inst = caller;
-            break;
-            }
-          case 60:{
-            inst.oc = 59;
-            inst.config.unregister(inst);
-            inst = caller;
-            break;
-            }
+          case 60:
           case 61:{
+            inst.oc = 60;
+            inst = caller;
+            break;
+            }
+          case 58:
+          case 59:{
+            inst.oc = 58;
             inst = caller;
             break;
             }
           case 62:{
-            inst.oc = 61;
+            inst = caller;
+            break;
+            }
+          case 63:{
+            inst.oc = 62;
             inst.config.unregister(inst);
             inst = caller;
             break;
             }
           case 64:{
-            inst.oc = 63;
+            inst = caller;
+            break;
+            }
+          case 65:{
+            inst.oc = 64;
+            inst.config.unregister(inst);
+            inst = caller;
+            break;
+            }
+          case 67:{
+            inst.oc = 66;
             inst.c.unregister(inst);
             inst = caller;
             break;
             }
-          case 67:
-          case 69:
           case 70:
-          case 71:
           case 72:
-          case 73:{
+          case 73:
+          case 74:
+          case 75:
+          case 76:{
             inst.resetCaller = caller;
             caller = inst;
-            inst.oc = 68;
+            inst.oc = 71;
             inst = inst.p;
             break;
             }
-          case 68:{
+          case 71:{
             inst.c.unregister(inst);
             }
-          case 74:{
-            inst.oc = 66;
+          case 77:{
+            inst.oc = 69;
             caller = inst.resetCaller;
             }
-          case 66:{
+          case 69:{
             inst = caller;
             break;
             }
-          case 76:
-          case 77:
-          case 78:{
+          case 79:
+          case 80:
+          case 81:{
             inst.resetCaller = caller;
-            inst.oc = 79;
+            inst.oc = 82;
             caller = inst;
             inst = inst.p;
             break;
             }
-          case 79:{
+          case 82:{
             inst.c.unregister(inst);
-            inst.oc = 76;
+            inst.oc = 79;
             inst = caller = inst.resetCaller;
             break;
             }
-          case 82:
-          case 83:{
-            inst = caller;
-            break;
-            }
-          case 84:
-          case 85:{
-            inst.evtFun.config.unregister(inst);
-            inst.oc = 83;
-            }
+          case 85:
           case 86:{
             inst = caller;
             break;
@@ -4996,7 +5026,6 @@ RST:    switch(oldInstOC = inst.oc){
           case 93:
           case 94:{
             inst.evtFun.config.unregister(inst);
-            inst.count = inst.times;
             inst.oc = 92;
             }
           case 95:{
@@ -5006,6 +5035,7 @@ RST:    switch(oldInstOC = inst.oc){
           case 96:
           case 97:{
             inst.evtFun.config.unregister(inst);
+            inst.count = inst.times;
             inst.oc = 95;
             }
           case 98:{
@@ -5016,48 +5046,57 @@ RST:    switch(oldInstOC = inst.oc){
           case 100:{
             inst.evtFun.config.unregister(inst);
             inst.oc = 98;
+            }
+          case 101:{
             inst = caller;
             break;
             }
-          case 101:
-          case 102:{
-            inst.evt = inst._evt;
+          case 102:
+          case 103:{
+            inst.evtFun.config.unregister(inst);
             inst.oc = 101;
-            }
-          case 104:{
             inst = caller;
             break;
             }
+          case 104:
           case 105:{
-            inst.sensor.unregister(inst);
+            inst.evt = inst._evt;
             inst.oc = 104;
+            }
+          case 107:{
             inst = caller;
             break;
             }
-          case 106:
-          case 107:
-          case 108:
+          case 108:{
+            inst.sensor.unregister(inst);
+            inst.oc = 107;
+            inst = caller;
+            break;
+            }
           case 109:
-          case 110:{
-            inst = caller;
-            break;
-            }
-          case 111: {
-            inst.count = inst.times;
-            }
+          case 110:
+          case 111:
           case 112:
           case 113:{
             inst = caller;
             break;
             }
+          case 114: {
+            inst.count = inst.times;
+            }
           case 115:
-          case 119:
           case 116:{
+            inst = caller;
+            break;
+            }
+          case 118:
+          case 122:
+          case 119:{
             inst.resetCaller = caller;
-            inst.oc = 117;
+            inst.oc = 120;
             caller = inst;
             }
-          case 117:{
+          case 120:{
             inst.tmp = inst.suspended.pop();
             if(null != inst.tmp){
               inst = inst.tmp.prg;
@@ -5096,18 +5135,18 @@ RST:    switch(oldInstOC = inst.oc){
               inst.suspended.append(inst.originalBranches[i]);
               }
             inst.channel.unregister(inst);
-            inst.oc = 115;
+            inst.oc = 118;
             inst = caller = inst.resetCaller;
             break;
             }
-          case 120:
-          case 121:
-          case 124:{
+          case 123:
+          case 124:
+          case 127:{
             inst.resetCaller = caller;
-            inst.oc = 122;
+            inst.oc = 125;
             caller = inst;
             }
-          case 122:{
+          case 125:{
             inst.tmp = inst.suspended.pop();
             if(null != inst.tmp){
               inst = inst.tmp.prg;
@@ -5145,29 +5184,13 @@ RST:    switch(oldInstOC = inst.oc){
             for(var i = 0; i < inst.branches.length; i++){
               inst.suspended.append(inst.branches[i]);
               }
-            inst.oc = 121;
+            inst.oc = 124;
             inst = caller = inst.resetCaller;
             break;
             }
-          case 125:
-          case 126:{
-            inst.oc = 125;
-            inst = caller;
-            break;
-            }
+          case 128:
           case 129:{
-            inst.resetCaller = caller;
-            caller = inst;
-            inst.oc = 130;
-            inst = inst.choice;
-            break;
-            }
-          case 130:{
-            caller = inst.resetCaller;
-            inst.choice = null;
             inst.oc = 128;
-            }
-          case 128:{
             inst = caller;
             break;
             }
@@ -5175,32 +5198,48 @@ RST:    switch(oldInstOC = inst.oc){
             inst.resetCaller = caller;
             caller = inst;
             inst.oc = 133;
-            this.addFun(inst.lastWill);
-            inst = inst.p;
+            inst = inst.choice;
             break;
             }
           case 133:{
-            inst.oc = 132;
-            inst = caller = inst.resetCaller;
-            break;
+            caller = inst.resetCaller;
+            inst.choice = null;
+            inst.oc = 131;
             }
-          case 134:{
+          case 131:{
             inst = caller;
             break;
             }
           case 135:{
-            inst = caller;
+            inst.resetCaller = caller;
+            caller = inst;
+            inst.oc = 136;
+            this.addFun(inst.lastWill);
+            inst = inst.p;
+            break;
+            }
+          case 136:{
+            inst.oc = 135;
+            inst = caller = inst.resetCaller;
             break;
             }
           case 137:{
-            inst.resetCaller = caller;
-            caller = inst;
-            inst.oc = 138;
-            inst = inst.cell;
+            inst = caller;
             break;
             }
           case 138:{
-            inst.oc = 137;
+            inst = caller;
+            break;
+            }
+          case 140:{
+            inst.resetCaller = caller;
+            caller = inst;
+            inst.oc = 141;
+            inst = inst.cell;
+            break;
+            }
+          case 141:{
+            inst.oc = 140;
             inst = caller = inst.resetCaller;
             break;
             }
@@ -5222,7 +5261,7 @@ SC_Kill.prototype = {
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);  
-      var copy = new SC_Instruction(65);
+      var copy = new SC_Instruction(68);
       copy.c = binder(this.c)
                   .bindTo(engine, parbranch, null, masterSeq, copy, cube);
       copy.p = this.p.bindTo(engine, parbranch, null, masterSeq, copy, cube);
@@ -5246,7 +5285,7 @@ SC_Control.prototype = {
   constructor:SC_Control
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      var copy = new SC_Instruction(75);
+      var copy = new SC_Instruction(78);
       copy.c = this.c.bindTo(engine, parbranch, null, masterSeq, copy, cube);
       copy.p = this.p.bindTo(engine, parbranch, null, masterSeq, copy, cube);
       copy.path = path;
@@ -5266,7 +5305,7 @@ SC_When.prototype = {
   constructor: SC_When
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      var copy = new SC_Instruction(63);
+      var copy = new SC_Instruction(66);
       copy.c = this.c.bindTo(engine, parbranch, null, masterSeq, copy, cube)
       copy.elsB = parseInt(this.elsB);
       copy.path = path;
@@ -5285,7 +5324,7 @@ SC_Test.prototype = {
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var binder = _SC._b(cube);
-      var copy = new SC_Instruction(82);
+      var copy = new SC_Instruction(85);
       copy.b = binder(this.b);
       copy.test = function(m){
         if("function" == typeof(this.b)){
@@ -5314,7 +5353,7 @@ SC_Match.prototype = {
   constructor : SC_Match
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      var copy = new SC_Instruction(127);
+      var copy = new SC_Instruction(130);
       copy.v = this.v;
       copy.cases = new Array(this.cases.length);
       for(var n in this.cases){
@@ -5375,7 +5414,7 @@ SC_Cube.prototype = {
       for(var i = 0 ; i < this.toAdd.length; i++){
         tmp_par_dyn.add(this.toAdd[i]);
         }
-      var copy = new SC_Instruction(131);
+      var copy = new SC_Instruction(134);
       copy.o = this.o;
       copy.lastWill = binder(this.lastWill);
       copy.p = tmp_beh.bindTo(engine, parbranch, null
