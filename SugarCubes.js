@@ -469,9 +469,19 @@ function SC_cubify(params){
 function SC_Event(params){
   this.lein = -1; // numéro de la l'instant de la dernière émission
   this.name = params.name; // nom donné à l'événement (sert au debug)
-  this.distribute = params.distribute;
-  this.vals = []; // liste des valeurs associées aux emissions dans un même
-                  // instant.
+  if(
+    (undefined != params.makeNew)
+    && (undefined != params.distribute)
+    ){
+    this.makeNew = params.makeNew;
+    this.distribute = params.distribute;
+    }
+  else{
+    this.makeNew = function(){return [];};
+    }
+  // liste des valeurs associées aux emissions dans un même
+  // instant.
+  this.vals = this.makeNew();
   this.registeredInst = [];  // gestion des instructions intéressées par
                              // l'événement. file d'attente.
   this.m = null; // retient la machine d'exécution réactive utilisée par
@@ -502,9 +512,9 @@ SC_Event.prototype = {
  * des valeurs.
  */
   , generate : function(m, flag){
-      if(!this.isPresent(m)){
+      if(this.lein != m.instantNumber){
         this.lein = m.instantNumber;
-        this.vals = [];
+        this.vals = this.makeNew();
         this.wakeupAll(m, flag);
         }
       }
@@ -512,7 +522,7 @@ SC_Event.prototype = {
       //-- if(undefined != m.currrentStats.genVals){ m.currrentStats.genVals.nb++;}
       if(undefined !== val){
         if(undefined !== this.distribute){
-          this.distribute(this.vals,val);
+          this.distribute(this.vals, val);
           }
         else{
           this.vals.push(val);
@@ -529,15 +539,15 @@ SC_Event.prototype = {
       this.registeredInst.push(inst);
       }
   , getValues : function(m){
-      if(!this.isPresent(m)){
-        this.vals.splice(0, this.vals.length);
+      if(this.lein != m.instantNumber){
+        this.vals = this.makeNew();
         }
       return this.vals;
       }
   , getAllValues : function(m, vals){
       vals[this] = this.getValues(m);
       }
-  , iterateOnValues : function(combiner){
+/*  , iterateOnValues : function(combiner){
       if((undefined === combiner.iterateOn)
          ||("function" != typeof(combiner.iterateOn))){
         throw "invalid combiner";
@@ -546,7 +556,7 @@ SC_Event.prototype = {
       for(var i = 0; i < len; i++){
         combiner.iterateOn(this.vals[i]);
         }
-      }
+      }*/
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       if(null == this.m){
         this.m = engine;
@@ -572,22 +582,34 @@ SC_Event.prototype = {
 // *** SC_Sensor
 function SC_Sensor(params){
   this.lein = -1;
-  this.distribute = params.distribute;
+  if(
+    (undefined != params.makeNew)
+    && (undefined != params.distribute)
+    ){
+    this.makeNew = params.makeNew;
+    this.distribute = params.distribute;
+    }
+  else{
+    this.makeNew = function(){return [];};
+    }
+  this.dom_target = params.dom_target;
+  this.dom_evt = params.dom_evt;
   this.name = params.name;
-  this.vals = [];
+  this.dom_evt_listener = null;
+  this.vals = this.makeNew(); 
   this.registeredInst = [];
-}
+  }
 SC_Sensor.prototype = {
   constructor : SC_Sensor
   , isPresent : SC_Event.prototype.isPresent
   , wakeupAll : SC_Event.prototype.wakeupAll
   , generateValues : SC_Event.prototype.generateValues
   , systemGen : function(val, m, flag){
-     if(!this.isPresent(m)){
+      if(this.lein != m.instantNumber){
         this.lein = m.instantNumber;
-        this.vals = [];
+        this.vals = this.makeNew();
         this.wakeupAll(m, flag);
-      }
+        }
       if(undefined != val){
         this.vals[this.vals.length] = val;
         }
@@ -596,8 +618,24 @@ SC_Sensor.prototype = {
   , registerInst : SC_Event.prototype.registerInst
   , getValues : SC_Event.prototype.getValues
   , getAllValues : SC_Event.prototype.getAllValues
-  , bindTo : SC_Event.prototype.bindTo
-  , iterateOnValues : SC_Event.prototype.iterateOnValues
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+      if(null == this.m){
+        this.m = engine;
+        }
+      else if(this.m !== engine){
+        throw new Error('bound event ('+this.name+') problem');
+        }
+      if((undefined != this.dom_target)
+        &&(undefined != this.dom_evt)
+	&&(null == this.dom_evt_listener)){
+	this.dom_evt_listener = function(evt){
+              this.m.generateEvent(this, evt);
+              }.bind(this);
+        this.dom_target.addEventListener(this.dom_evt, this.dom_evt_listener);
+        }
+      return this;
+      }
+  //, iterateOnValues : SC_Event.prototype.iterateOnValues
   , toString : function(){
       return "&_"+this.name+" ";
       }
@@ -827,6 +865,9 @@ SC_Instruction.prototype = {
             return res;
             }
           return true;
+          }
+        case 140:{
+          return this.path.awake(m, flag, toEOI);
           }
         case 85:{
           if(this.c.isPresent(m)){
@@ -1095,33 +1136,24 @@ SC_Instruction.prototype = {
         }
       }
   , registerForProduction : function(b, perma){
-      switch(this.oc){
-        case 126:
-        case 124:
-        case 131:
-        case 129:{
-          //this.hasProduction = true;
-          break;
-          }
-        case 147:{
+      /*switch(this.oc){
+        case 147:{*/
           if(perma){
-            this.permanentEmitters.push(b);
+            if(this.permanentEmitters.indexOf(b) < 0){
+              this.permanentEmitters.push(b);
+              }
             }
-          //else{
+          if(this.emitters.indexOf(b) < 0){
             this.emitters.push(b);
-            //}
-          //this.hasProduction = true;
+            }
           if(null != this.itsParent){
             this.itsParent.registerForProduction(this.itsPar, perma);
             }
-          else{
-            this.itsPar.registerForProduction(this, perma);
-            }
-          break;
+      /*    break;
           }
         default: throw "registerForProduction undefined for opcode "
                          +SC_Opcodes.toString(this.oc);
-        }
+        }*/
       }
   , removeBranch : function(elt){
       switch(this.oc){
@@ -2162,13 +2194,11 @@ SC_FilterNoSens.prototype = {
                                                 , bound_noSens_evt)
            .bindTo(engine, parbranch, seq, masterSeq, path, cube);
         }
-      else{
-        copy = new SC_Instruction(118);
-        copy.sensor = bound_sensor
-        copy.evt = bound_evt
-        copy.filterFun = bound_fun
-        copy.times = bound_times
-        }
+      copy = new SC_Instruction(118);
+      copy.sensor = bound_sensor
+      copy.evt = bound_evt
+      copy.filterFun = bound_fun
+      copy.times = bound_times
       copy._sensor = this.sensor;
       copy._filterFun = this.filterFun;
       copy._evt = this.evt;
@@ -2202,10 +2232,10 @@ function SC_Filter(sensor, evt, filterFun, times, no_sens){
   this.sensor = sensor;
   this.evt = evt;
   this.filterFun = filterFun;
-  this.itsParent = null;
-  this.path = null;
-  this.val = null;
-  this.count = this.times = times;
+  //this.itsParent = null;
+  //this.path = null;
+  //this.val = null;
+  /*this.count = */this.times = times;
   this.noSens_evt = no_sens;
   }
 SC_Filter.prototype = {
@@ -2219,35 +2249,30 @@ SC_Filter.prototype = {
       var bound_times = binder(this.times);
       var bound_noSens_evt = binder(this.noSens_evt);
       var copy = null;
-      /*if((undefined !== this.filterFun.t)
-          && (undefined !== this.filterFun.f)){
-        //console.log("quick resolve", this.filterFun, this.filterFun.t[this.filterFun.f]);
-        bound_fun = this.filterFun.t[this.filterFun.f].bind(this.filterFun.t);
-        }*/
       bound_fun = _SC.bindIt(bound_fun);
       if(0 == bound_times){
         return SC_Nothing;
         }
       if((undefined === bound_times) || (1 == bound_times)){
-        copy = SC_FilterOne(bound_sensor, bound_fun, bound_evt, bound_noSens_evt);
+        return SC_FilterOne(bound_sensor, bound_fun, bound_evt, bound_noSens_evt)
+	       .bindTo(engine, parbranch, seq, masterSeq, path, cube);
         }
       else if(bound_times < 0){
-        copy = SC_FilterForever(bound_sensor, bound_fun, bound_evt, bound_noSens_evt);
+        return SC_FilterForever(bound_sensor
+	                      , bound_fun, bound_evt, bound_noSens_evt)
+	       .bindTo(engine, parbranch, seq, masterSeq, path, cube);
         }
-      else{
-        copy = new SC_Filter(
-                        bound_sensor
-                      , bound_evt
-                      , bound_fun
-                      , bound_times
-                      , bound_noSens_evt
-                      );
-        }
+      copy = new SC_Instruction(117);
+      copy.sensor = bound_sensor;
+      copy.evt = bound_evt;
+      copy.filterFun = bound_fun;
+      copy.times = bound_times;
+      copy.noSens_evt = bound_noSens_evt;
       copy._sensor = this.sensor;
       copy._filterFun = this.filterFun;
       copy._evt = this.evt;
-      copy._noSens_evt = this.noSens_evt;
       copy._times = this.times;
+      copy._noSens_evt = this.noSens_evt;
       copy.itsParent = parbranch;
       copy.path = path;
       parbranch.declarePotential();
@@ -3330,14 +3355,15 @@ SC_CubeCell.prototype = {
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
       var tgt = cube[this.cellName];
+      var copy = new SC_Instruction(144);
       if(tgt instanceof SC_Instruction
         &&((tgt.oc == 142)||((tgt.oc == 143)))){
-        return tgt.bindTo(engine, parbranch, seq, masterSeq, path, cube);
+        return tgt.bindTo(engine, parbranch, seq, masterSeq, copy, cube);
         }
-      var copy = new SC_Instruction(144);
       copy.cellName = this.cellName;
       copy.cell=null;
       copy.cube = cube;
+      copy.path = path;
       return copy;
       }
   , toString : function(){
@@ -3348,11 +3374,14 @@ SC_CubeCell.prototype = {
 /*********
  * SC_Machine Class
  *********/
-function SC_Machine(delay, params){
+function SC_Machine(params){
   this.prg = new SC_Par([]).bindTo(this, null, null, null, null, null);
   this.instantNumber = 1;
-  this.delay = delay;
-    this.whenGettingThread = (((undefined !== params)&&(undefined !== params.whenGettingThread))
+  this.ended = false;
+  this.delay = ((undefined != params)
+              &&(undefined != params.delay))?params.delay:undefined;
+  this.whenGettingThread = (((undefined !== params)
+                             &&(undefined !== params.whenGettingThread))
                       ?params.whenGettingThread
                       :function(){this.react();}).bind(this)
                       ;
@@ -3499,7 +3528,7 @@ function SC_Machine(delay, params){
   };
   this.systemEvent = function(target, name, sync){
     if(this.handlers.hasOwnProperty(name)){
-      var SC_event = new SC_Sensor(""+target+"."+name, true);
+      var SC_event = new SC_Sensor(""+target+"."+name, {});
       var handler = this.handlers[name];
       var me = this;
       target.addEventListener(name, function(evt){
@@ -3516,32 +3545,55 @@ function SC_Machine(delay, params){
   //--this.currrentStats = null;
   //--this.measure_data = false;
 }
-SC_Machine.prototype = 
-{
+SC_Machine.prototype = {
   constructor : SC_Machine
-  , setStdOut : function(stdout){
-      this.stdOut = NO_FUN;
-      if((undefined != stdout)&&("function" == typeof(stdout))){
-        this.stdOut = stdout;
-        }
+, collapse : function(){
+    this.prg = null;
+    this.whenGettingThread = undefined;
+    this.permanentActions = undefined;
+    this.permanentGenerate = undefined;
+    this.permanentActionsOn = undefined;
+    this.actions = undefined;
+    this.actionsOnEvents = undefined;
+    this.cells = undefined;
+    this.pending = undefined;
+    this.pendingPrograms = undefined;
+    this.parActions = undefined;
+    this.stdOut = NO_FUN;
+    this.traceEvt = undefined;
+    if(this.timer != 0){
+      clearInterval(this.timer);
+      this.timer = 0;
       }
+    this.delay = undefined;
+    }
+, setStdOut : function(stdout){
+    this.stdOut = NO_FUN;
+    if((undefined != stdout)&&("function" == typeof(stdout))){
+      this.stdOut = stdout;
+      }
+    }
+, generateEvent : function(evt, val){
+    if(this.ended){ return; }
+    if((undefined == evt)
+     &&((!(evt instanceof SC_Event))
+      ||(!(evt instanceof SC_Sensor)))){
+      throw "invelid event "+evt;
+      }
+    this.pending.push({e:evt, v:val});
+    }
+, addProgram : function(p){
+    if(this.ended){ return; }
+    if(undefined == p){ /* more checks to do */
+      throw "program to add not defined";
+      }
+    if(p.isAnSCProgram){
+      this.pendingPrograms.push(p);
+      }
+    }
   /* internal */
   , addCellFun : function(aCell){
       this.cells.push(aCell);
-      }
-  , generateEvent : function(evt, val){
-      if(undefined == evt){
-        throw "undefined event !";
-        }
-      this.pending.push({e:evt, v:val});
-      }
-  , addProgram : function(p){
-      if(undefined == p){ /* more checks to do */
-        throw "program to add not defined";
-        }
-      if(p.isAnSCProgram){
-        this.pendingPrograms.push(p);
-        }
       }
   , addEvtFun : function(f){
       this.actionsOnEvents.push(f);
@@ -3586,6 +3638,7 @@ SC_Machine.prototype =
       this.parActions.push(p);
       }
   , setRunningDelay : function(d){
+      if(this.ended){ return; }
       if(isNaN(d) || d <= 0){
         console.log("negative delay");
         return;
@@ -3598,6 +3651,7 @@ SC_Machine.prototype =
       this.timer = setInterval(this.whenGettingThread, this.delay);
       }
   , setKeepRunningTo : function(b){
+      if(this.ended){ return; }
       if(this.timer != 0){
         if(b){
           return;
@@ -3615,6 +3669,7 @@ SC_Machine.prototype =
      //--this.currrentStats = {
      //--   startTime:performance.now()
      //--   };
+      if(this.ended){ return !this.ended; }
       var res = 4;
       var tmp = this.pending;
       //--this.currrentStats.entries = {
@@ -3712,16 +3767,26 @@ SC_Machine.prototype =
           t[a.f].call(t,vals, this);
           }
         else{
+          //--try{
           a(vals, this);
+          //--  }
+          //--catch(m){
+          //--  console.log(m, a);
+          //--  }
           }
         }
+      //--this.currrentStats.actions.acton.stop=performance.now();
+      //--this.currrentStats.actions.pacton = {
+      //--    start : performance.now()
+      //--    , nb : 0
+      //--    };
       for(var i = 0; i < this.permanentActionsOn.length; i++){
         var inst = this.permanentActionsOn[i];
         const pres = inst.evtFun.config.isPresent(this);
         if(pres){
           var a = inst.evtFun.action;
           var vals = {};
-          //--this.currrentStats.actions.acton.nb++;
+          //--this.currrentStats.actions.pacton.nb++;
           inst.evtFun.config.getAllValues(this, vals);
           if(null != a.f){
             var t = a.t;
@@ -3734,7 +3799,7 @@ SC_Machine.prototype =
           }
         else if(94 == inst.oc){
           var act = inst.defaultAct;
-          //--this.currrentStats.actions.act.nb++;
+          //--this.currrentStats.actions.pacton.nb++;
           if(null != act.f){
             var t = act.t;
             if(null == t) continue;
@@ -3745,7 +3810,7 @@ SC_Machine.prototype =
             }
           }
         }
-      //--this.currrentStats.actions.acton.stop=performance.now();
+      //--this.currrentStats.actions.pacton.stop=performance.now();
       //--this.currrentStats.actions.act = {
       //--    start : performance.now()
       //--    , nb : 0
@@ -3847,7 +3912,11 @@ SC_Machine.prototype =
       //--  this.perf_stats.push(this.currrentStats);
       //--  }
       //this.stdOut(SC_Instruction_State.toString(res));
-      return res != 7;
+      this.ended = (res == 7);
+      if(this.ended){
+	this.collapse();
+        }
+      return !this.ended;
       }
   //--, setPerfDataTo: function(f){
   //--    this.measure_data = f;
@@ -6135,9 +6204,10 @@ SC_Cube.prototype = {
         }
       var copy = new SC_Instruction(139);
       copy.o = this.o;
+      copy.path = path;
       copy.lastWill = binder(this.lastWill);
       copy.p = tmp_beh.bindTo(engine, parbranch, null
-                        , masterSeq, path, this.o);
+                        , masterSeq, copy, this.o);
       copy.dynamic = tmp_par_dyn;
       copy.m = engine;
       copy.pb = parbranch;
@@ -6192,14 +6262,44 @@ SC = {
    * The parameter (optional) act as a name for the event allowing one to
    * identify the event while debugging.
    */
-  evt: function(name, distributeFun){
-    return new SC_Event({name:name, distribute : distributeFun});
+  evt: function(name, params){
+    if(undefined != params){
+      params.name = name;
+      }
+    else{
+      params = {name:name};
+      }
+    return new SC_Event(params);
+    }
+, sensorize: function(params){
+    if(undefined == params){
+      throw new Error("SC.sensorize(): undefined params"+params);
+      }
+    if(undefined == params.dom_target){
+      throw new Error("SC.sensorize(): undefined dom_target"+params);
+      }
+    if(undefined == params.dom_evt){
+      throw new Error("SC.sensorize(): undefined dom_evt"+params);
+      }
+    return new SC_Sensor(params);
     },
-  sensor: function(name, distributeFun){
-    return new SC_Sensor({name:name, distribute : distributeFun});
+  sensor: function(name, params){
+    if(undefined != params){
+      params.name = name;
+      }
+    else{
+      params = {name:name};
+      }
+    return new SC_Sensor(params);
     },
   machine: function(delay, initParams){
-    return new SC_Machine(delay, initParams);
+    if(undefined == initParams){
+      initParams = (undefined != delay)?{ delay : delay }:undefined;
+      }
+    else if(undefined == initParams.delay){
+      initParams.delay = delay;
+      }
+    return new SC_Machine(initParams);
     },
   pauseForever: function(){
     return SC_PauseForever;
