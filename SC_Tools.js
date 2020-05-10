@@ -4,8 +4,8 @@
  * Created : 20/12/2014 18:46
  * Part of the SugarCubes Project
  * version : 5.0 alpha
- * implantation : 0.4
- * Copyright 2014-2019.
+ * implantation : 0.5
+ * Copyright 2014-2020.
  */
 
 SC.tools = (function(){

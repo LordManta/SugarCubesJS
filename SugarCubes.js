@@ -3,20 +3,17 @@
  * Author : Jean-Ferdy Susini
  * Created : 2/12/2014 9:23 PM
  * version : 5.0 alpha
- * implantation : 0.9.5
+ * implantation : 0.9.6
  * Copyright 2014-2020.
  */
-
 ;
 var SC = (function(){
-
 /*
  * SugarCubes internals.
  * Many comments are made in french, as they are personal working notes.
  * English comments should be more officials, but it is still a work in
  * progress...
  */
-
 /*
  * Implementation notice: SugarCubes v5 allows one to build reactive systems.
  * Reactive systems are programs executed in a dedicated environment. They are
@@ -41,7 +38,6 @@ var SC = (function(){
  *   4. a phase where the memory state of the system is swapped with the newly
  *      computed one and becomes available for the next instant.
  */
-
 /*
  * Here we manly focus on the reactive phase (phase 1) of an instant of
  * execution, which is itself decomposed into 2 consecutive steps:
@@ -101,7 +97,6 @@ const SC_Instruction_state_str = [
   , "TERM"
   ];
 Object.freeze(SC_Instruction_state_str);
-
 const SC_Instruction_State = {
   SUSP:1
   , WEOI:2
@@ -115,13 +110,11 @@ const SC_Instruction_State = {
       }
   };
 Object.freeze(SC_Instruction_State);
-
 /*
  * fonction ne faisant rien permettant de ne pas définir un paramètre non
  * utilisé.
  */
 function NO_FUN(){}
-
 /*
  * le binding présente différents cas de figure :
  * - la constante à la construction (cas le plus simple)
@@ -132,7 +125,6 @@ function NO_FUN(){}
  *   ex : SC.repeat(fun(), ...)
  *                  ^^^^^
  */
-
 /*
  * SC_CubeBinding : permet de gérer l'accès aux ressources non définit à
  * l'écriture d'un programme.
@@ -143,7 +135,7 @@ function NO_FUN(){}
  *  - dynamic : à chaque activation
  */
 function SC_CubeBinding(name){
-  if((undefined == name)||(typeof name != "string")||(name == "")){
+  if((undefined == name)||(typeof(name)!= "string")||(name == "")){
     throw "invalid binding name "+name;
     }
   this.name = name; // nom de la ressource à récupérer
@@ -195,7 +187,19 @@ Object.defineProperty(SC_CubeBinding.prototype, "isBinding"
                              , writable: false
                              }
                           );
-
+function SC_CubeExposedState(cube){
+  this.cube = cube;
+  };
+SC_CubeExposedState.prototype = {
+  constructor : SC_CubeExposedState
+, exposedState : function(m){
+    return this.cube.getExposeReader(m);
+    }
+, setCube: function(cube){
+    //console.log("binding cube = ");
+    this.cube = cube;
+    }
+  };
 /*
  * Méthodes utilitaires utilisées dans l'implantation des SugarCubes.
  */
@@ -326,11 +330,14 @@ var _SC = {
       }
   }
 /*
- * Fonstion qui étend un cube pour implanter quelques fonctions de base :
+ * Fonction qui étend un cube pour implanter quelques fonctions de base :
  *  - ajout d'un comportemnet en parallèle (les programmes sont émis sur
  *    l'événements SC_cubeAddBehaviorEvt)
  *  - ajout de cellules au cube grâce à l'émission de 2 type d'événements
  *    (SC_cubeAddCellEvt et SC_cubeCellifyEvt)
+ * Une cellule dans une cube est référencée par un champ préfixé par $
+ * L'affectateur de la cellule est référencé par un champ préfixé par _
+ * Cela n'est utile qu'à l'enregistrement...
  */
 function SC_cubify(params){
   if(undefined == params){
@@ -449,7 +456,6 @@ function SC_cubify(params){
                                }
                              );
 }
-
 /*******************************************************************************
  * Events
  * Les événements sont des valeurs globales partagées entre tous les
@@ -464,7 +470,9 @@ function SC_cubify(params){
  * (c'est à dire quand plus personne ne peut l'émettre et que personne ne l'a
  * émis).
  ******************************************************************************/
-
+const VOID_VALUES=[];
+Object.freeze(VOID_VALUES);
+var nextEventID = 0;
 // *** SC_Event
 function SC_Event(params){
   this.lein = -1; // numéro de la l'instant de la dernière émission
@@ -473,25 +481,24 @@ function SC_Event(params){
     (undefined != params.makeNew)
     && (undefined != params.distribute)
     ){
-    this.makeNew = params.makeNew;
-    this.distribute = params.distribute;
-    }
-  else{
-    this.makeNew = function(){return [];};
+    return new SC_EventDistributed(params);
     }
   // liste des valeurs associées aux emissions dans un même
   // instant.
-  this.vals = this.makeNew();
+  this.vals = [];
+  this.permanentGenerators = [];
+  this.permanentValuatedGenerator = 0;
   this.registeredInst = [];  // gestion des instructions intéressées par
                              // l'événement. file d'attente.
   this.m = null; // retient la machine d'exécution réactive utilisée par
                  // l'événement.
-}
+  this.internalID = nextEventID++;
+  };
 SC_Event.prototype = {
   constructor : SC_Event
-  , isPresent : function(m){
-      return this.lein == m.instantNumber;
-      }
+, isPresent : function(m){
+    return this.lein == m.instantNumber;
+    }
 /*
  * Réveil des instructions sur liste d'attente pour l'événement. Si cela ne
  * suffit pas à débloquer l'instruction (qui reste bloquée sur d'autres
@@ -500,76 +507,133 @@ SC_Event.prototype = {
  * flag est propagé jusqu'au awake() d'un Par pour décider si la réexécution du
  * code est immédiate ou non.
  */
-  , wakeupAll : function(m, flag){
-      for(var idx in this.registeredInst){
-        this.registeredInst[idx].wakeup(m, flag);
-        }
+, wakeupAll : function(m, flag){
+    //this.registeredInst.forEach(function(inst){
+    //  inst.wakeup(m, flag);
+    //  });
+    for(var inst of this.registeredInst){
+      inst.wakeup(m, flag);
       }
+    }
 /*
  * Génération de l'événement. Si l'événement n'a pas déjà été généré dans
  * l'instant, On mémorise l'instant le numéro de l'instant courrant comme
  * numéro de la dernière émission. On profite de l'occasion pour vider la liste
  * des valeurs.
  */
-  , generate : function(m, flag){
-      if(this.lein != m.instantNumber){
-        this.lein = m.instantNumber;
-        this.vals = this.makeNew();
-        this.wakeupAll(m, flag);
+, generateInput : function(m, val){
+    if(this.lein != m.instantNumber){
+      this.lein = m.instantNumber;
+      this.vals = [];
+      this.wakeupAll(m, true);
+      if(undefined != val){
+        Object.defineProperty(m.generated_values
+             , this.toString()
+             , {get : function(){return this.vals; }.bind(this)});
         }
       }
-  , generateValues : function(m, val){
-      //-- if(undefined != m.currrentStats.genVals){ m.currrentStats.genVals.nb++;}
-      if(undefined !== val){
-        if(undefined !== this.distribute){
-          this.distribute(this.vals, val);
-          }
-        else{
-          this.vals.push(val);
-          }
+    this.vals.push(val);
+    }
+, generate : function(m, flag){
+    // flag indique désormais un generate valué.
+    if(this.lein != m.instantNumber){
+      this.lein = m.instantNumber;
+      this.vals = [];
+      this.wakeupAll(m, false);
+      if(flag){
+        Object.defineProperty(m.generated_values
+             , this.toString()
+             , {get : function(){return this.vals; }.bind(this)});
         }
       }
-  , unregister : function(i){
-      var t = this.registeredInst.indexOf(i);
-      if(t > -1){
-        this.registeredInst.splice(t,1);
+    }
+, generateValues : function(m, val){
+    this.vals.push(val);
+    }
+, unregister : function(i){
+    var t = this.registeredInst.indexOf(i);
+    if(t > -1){
+      this.registeredInst.splice(t,1);
+      }
+    }
+, registerInst : function(m, inst){
+    this.registeredInst.push(inst);
+    }
+, getValues : function(m){
+    if(this.lein != m.instantNumber){
+      this.vals = [];
+      }
+    return this.vals;
+    }
+, getAllValues : function(m, vals){
+    vals[this] = (this.lein == m.instantNumber)?this.vals:VOID_VALUES;
+    }
+, bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+    if(null == this.m){
+      this.m = engine;
+      }
+    else if(this.m !== engine){
+      throw 'bound event ('+this.name+') problem';
+      }
+    return this;
+    }
+, toString : function(){
+    return "&"+this.internalID+"_"+this.name;
+    }
+  };
+function SC_EventDistributed(params){
+  this.lein = -1; // numéro de la l'instant de la dernière émission
+  this.name = params.name; // nom donné à l'événement (sert au debug)
+  this.makeNew = params.makeNew;
+  this.distribute = params.distribute;
+  this.vals = this.makeNew();
+  this.permanentGenerators = [];
+  this.permanentValuatedGenerator = 0;
+  this.registeredInst = [];  // gestion des instructions intéressées par
+                             // l'événement. file d'attente.
+  this.m = null; // retient la machine d'exécution réactive utilisée par
+                 // l'événement.
+  this.internalID = nextEventID++;
+  };
+SC_EventDistributed.prototype = {
+  constructor: SC_EventDistributed
+, generateInput : function(m, val){
+    if(this.lein != m.instantNumber){
+      this.lein = m.instantNumber;
+      this.vals = this.makeNew();
+      this.wakeupAll(m, true);
+      if(undefined != val){
+        Object.defineProperty(m.generated_values
+             , this.toString()
+             , {get : function(){return this.vals; }.bind(this)});
         }
       }
-  , registerInst : function(m, inst){
-      this.registeredInst.push(inst);
-      }
-  , getValues : function(m){
-      if(this.lein != m.instantNumber){
-        this.vals = this.makeNew();
+    this.distribute(this.vals, val);
+    }
+, generate : function(m, flag){
+    // flag indique désormais un generate valué.
+    if(this.lein != m.instantNumber){
+      this.lein = m.instantNumber;
+      this.vals = this.makeNew();
+      this.wakeupAll(m, false);
+      if(flag){
+        Object.defineProperty(m.generated_values
+             , this.toString()
+             , {get : function(){return this.vals; }.bind(this)});
         }
-      return this.vals;
       }
-  , getAllValues : function(m, vals){
-      vals[this] = this.getValues(m);
+    }
+, generateValues : function(m, val){
+    this.distribute(this.vals, val);
+    }
+, getValues : function(m){
+    if(this.lein != m.instantNumber){
+      this.vals = this.makeNew();
       }
-/*  , iterateOnValues : function(combiner){
-      if((undefined === combiner.iterateOn)
-         ||("function" != typeof(combiner.iterateOn))){
-        throw "invalid combiner";
-        }
-      const len = this.vals.length;
-      for(var i = 0; i < len; i++){
-        combiner.iterateOn(this.vals[i]);
-        }
-      }*/
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      if(null == this.m){
-        this.m = engine;
-        }
-      else if(this.m !== engine){
-        throw 'bound event ('+this.name+') problem';
-        }
-      return this;
-      }
-  , toString : function(){
-      return "&"+this.name+" ";
-      }
-  }
+    return this.vals;
+    }
+, __proto__ : SC_Event.prototype
+  };
 /*
  * Le Sensor est une variante de l'événement. La présence ou l'absence d'un
  * sensor est connue au début de l'instant car il ne peut pas être généré en
@@ -586,61 +650,93 @@ function SC_Sensor(params){
     (undefined != params.makeNew)
     && (undefined != params.distribute)
     ){
-    this.makeNew = params.makeNew;
-    this.distribute = params.distribute;
-    }
-  else{
-    this.makeNew = function(){return [];};
+    return new SC_EntryDistributed(params);
     }
   this.dom_targets = params.dom_targets;
   this.name = params.name;
   this.dom_evt_listener = null;
-  this.vals = this.makeNew(); 
+  this.vals = []; 
   this.registeredInst = [];
-  }
+  this.internalID = nextEventID++;
+  };
 SC_Sensor.prototype = {
   constructor : SC_Sensor
-  , isPresent : SC_Event.prototype.isPresent
-  , wakeupAll : SC_Event.prototype.wakeupAll
-  , generateValues : SC_Event.prototype.generateValues
-  , systemGen : function(val, m, flag){
-      if(this.lein != m.instantNumber){
-        this.lein = m.instantNumber;
-        this.vals = this.makeNew();
-        this.wakeupAll(m, flag);
-        }
+, isPresent : SC_Event.prototype.isPresent
+, wakeupAll : SC_Event.prototype.wakeupAll
+, generateValues : SC_Event.prototype.generateValues
+, systemGen : function(val, m, flag){
+    if(this.lein != m.instantNumber){
+      this.lein = m.instantNumber;
+      this.vals = [];
+      this.wakeupAll(m, flag);
       if(undefined != val){
-        this.vals[this.vals.length] = val;
+        Object.defineProperty(m.generated_values
+             , this.toString()
+             , {get : function(){return this.vals; }.bind(this)});
         }
       }
-  , unregister : SC_Event.prototype.unregister
-  , registerInst : SC_Event.prototype.registerInst
-  , getValues : SC_Event.prototype.getValues
-  , getAllValues : SC_Event.prototype.getAllValues
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      if(null == this.m){
-        this.m = engine;
-        }
-      else if(this.m !== engine){
-        throw new Error('bound event ('+this.name+') problem');
-        }
-      if((undefined != this.dom_targets)
-        &&(null == this.dom_evt_listener)){
-        this.dom_evt_listener = function(evt){
-                this.m.generateEvent(this, evt);
-                }.bind(this);
-        for(var t of this.dom_targets){
-          t.target.addEventListener(t.evt, this.dom_evt_listener);
-          }
-        }
-      return this;
+    this.vals.push(val);
+    }
+, unregister : SC_Event.prototype.unregister
+, registerInst : SC_Event.prototype.registerInst
+, getValues : SC_Event.prototype.getValues
+, getAllValues : SC_Event.prototype.getAllValues
+, bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
+    if(null == this.m){
+      this.m = engine;
       }
-  //, iterateOnValues : SC_Event.prototype.iterateOnValues
-  , toString : function(){
-      return "&_"+this.name+" ";
+    else if(this.m !== engine){
+      throw new Error('bound event ('+this.name+') problem');
       }
-}
-
+    if((undefined != this.dom_targets)
+      &&(null == this.dom_evt_listener)){
+      this.dom_evt_listener = function(evt){
+              this.m.generateEvent(this, evt);
+              }.bind(this);
+      for(var t of this.dom_targets){
+        t.target.addEventListener(t.evt, this.dom_evt_listener);
+        }
+      }
+    return this;
+    }
+, toString : function(){
+    return "&_"+this.internalID+"_"+this.name;
+    }
+  };
+function SC_EntryDistributed(params){
+  this.lein = -1; // numéro de la l'instant de la dernière émission
+  this.name = params.name; // nom donné à l'événement (sert au debug)
+  this.makeNew = params.makeNew;
+  this.distribute = params.distribute;
+  this.vals = this.makeNew();
+  this.permanentGenerators = [];
+  this.permanentValuatedGenerator = 0;
+  this.registeredInst = [];  // gestion des instructions intéressées par
+                             // l'événement. file d'attente.
+  this.m = null; // retient la machine d'exécution réactive utilisée par
+                 // l'événement.
+  this.internalID = nextEventID++;
+  };
+SC_EntryDistributed.prototype = {
+  constructor: SC_EntryDistributed
+, systemGen : function(val, m, flag){
+    if(this.lein != m.instantNumber){
+      this.lein = m.instantNumber;
+      this.vals = this.makeNew();
+      this.wakeupAll(m, flag);
+      if(undefined != val){
+        Object.defineProperty(m.generated_values
+             , this.toString()
+             , {get : function(){return this.vals; }.bind(this)});
+        }
+      }
+    this.distribute(this.vals, val);
+    }
+, generate : SC_EventDistributed.prototype.generate
+, generateValues : SC_EventDistributed.prototype.generateValues
+, getValues : SC_EventDistributed.prototype.getValues
+, __proto__ : SC_Sensor.prototype
+  };
 /*
  * Définition d'une instruction générique afin de réduire la combinatoire de la
  * gestion des états d'instructions réactives.
@@ -694,18 +790,80 @@ const SC_OpcodesNames = [
   , "GENERATE_ONE_NO_VAL_INLINE"
   , "GENERATE_ONE_NO_VAL"
   , "GENERATE_ONE_INLINE"
+  , "GENERATE_ONE_FUN_INLINE"
+  , "GENERATE_ONE_CELL_INLINE"
+  , "GENERATE_ONE_EXPOSE_INLINE"
   , "GENERATE_ONE"
+  , "GENERATE_ONE_FUN"
+  , "GENERATE_ONE_CELL"
+  , "GENERATE_ONE_EXPOSE"
   , "GENERATE_FOREVER_NO_VAL_INIT"
   , "GENERATE_FOREVER_NO_VAL_CONTROLED"
   , "GENERATE_FOREVER_NO_VAL_HALTED"
   , "GENERATE_FOREVER_NO_VAL"
   , "GENERATE_FOREVER_INIT"
+  , "GENERATE_FOREVER_FUN_INIT"
+  , "GENERATE_FOREVER_CELL_INIT"
+  , "GENERATE_FOREVER_EXPOSE_INIT"
   , "GENERATE_FOREVER_CONTROLED"
+  , "GENERATE_FOREVER_FUN_CONTROLED"
+  , "GENERATE_FOREVER_CELL_CONTROLED"
+  , "GENERATE_FOREVER_EXPOSE_CONTROLED"
   , "GENERATE_FOREVER_HALTED"
+  , "GENERATE_FOREVER_FUN_HALTED"
+  , "GENERATE_FOREVER_CELL_HALTED"
+  , "GENERATE_FOREVER_EXPOSE_HALTED"
   , "GENERATE_FOREVER"
+  , "GENERATE_FOREVER_FUN"
+  , "GENERATE_FOREVER_CELL"
+  , "GENERATE_FOREVER_EXPOSE"
+  , "GENERATE_CELL_INLINE_BUT_FOREVER_INIT"
+  , "GENERATE_CELL_INLINE_BUT_FOREVER_CONTROLED"
+  , "GENERATE_CELL_INLINE_BUT_FOREVER_HALTED"
+  , "GENERATE_CELL_INLINE_BUT_FOREVER"
+  , "GENERATE_CELL_INIT_INLINE"
+  , "GENERATE_FUN_INLINE_BUT_FOREVER_INIT"
+  , "GENERATE_FUN_INLINE_BUT_FOREVER_CONTROLED"
+  , "GENERATE_FUN_INLINE_BUT_FOREVER_HALTED"
+  , "GENERATE_FUN_INLINE_BUT_FOREVER"
+  , "GENERATE_FUN_INIT_INLINE"
+  , "GENERATE_EXPOSE_INLINE_BUT_FOREVER_INIT"
+  , "GENERATE_EXPOSE_INLINE_BUT_FOREVER_CONTROLED"
+  , "GENERATE_EXPOSE_INLINE_BUT_FOREVER_HALTED"
+  , "GENERATE_EXPOSE_INLINE_BUT_FOREVER"
+  , "GENERATE_EXPOSE_INIT_INLINE"
+  , "GENERATE_INLINE_BUT_FOREVER_INIT"
+  , "GENERATE_INLINE_BUT_FOREVER_CONTROLED"
+  , "GENERATE_INLINE_BUT_FOREVER_HALTED"
+  , "GENERATE_INLINE_BUT_FOREVER"
   , "GENERATE_INIT_INLINE"
+  , "GENERATE_CELL_INIT_INLINE"
+  , "GENERATE_FUN_INLINE"
+  , "GENERATE_EXPOSE_INLINE"
   , "GENERATE_INLINE"
+  , "GENERATE_CELL_BUT_FOREVER_INIT"
+  , "GENERATE_CELL_BUT_FOREVER_CONTROLED"
+  , "GENERATE_CELL_BUT_FOREVER_HALTED"
+  , "GENERATE_CELL_BUT_FOREVER"
+  , "GENERATE_FUN_BUT_FOREVER_INIT"
+  , "GENERATE_FUN_BUT_FOREVER_CONTROLED"
+  , "GENERATE_FUN_BUT_FOREVER_HALTED"
+  , "GENERATE_FUN_BUT_FOREVER"
+  , "GENERATE_EXPOSE_BUT_FOREVER_INIT"
+  , "GENERATE_EXPOSE_BUT_FOREVER_CONTROLED"
+  , "GENERATE_EXPOSE_BUT_FOREVER_HALTED"
+  , "GENERATE_EXPOSE_BUT_FOREVER"
+  , "GENERATE_BUT_FOREVER_INIT"
+  , "GENERATE_BUT_FOREVER_CONTROLED"
+  , "GENERATE_BUT_FOREVER_HALTED"
+  , "GENERATE_BUT_FOREVER"
+  , "GENERATE_FUN_INIT"
+  , "GENERATE_CELL_INIT"
+  , "GENERATE_EXPOSE_INIT"
   , "GENERATE_INIT"
+  , "GENERATE_FUN"
+  , "GENERATE_CELL"
+  , "GENERATE_EXPOSE"
   , "GENERATE"
   , "GENERATE_NO_VAL_INIT"
   , "GENERATE_NO_VAL"
@@ -786,6 +944,7 @@ const SC_OpcodesNames = [
   , "MATCH"
   , "MATCH_CHOOSEN"
   , "MATCH_BACK"
+  , "CUBE_ZERO"
   , "CUBE_INIT"
   , "CUBE"
   , "CUBE_BACK"
@@ -794,12 +953,28 @@ const SC_OpcodesNames = [
   , "CUBE_CELL_INIT"
   , "CUBE_CELL"
   , "CUBE_CELL_BACK"
+  , "CUBE_ACTION_INLINE"
+  , "CUBE_ACTION"
+  , "CUBE_ACTION_N_TIMES_INIT_INLINE"
+  , "CUBE_ACTION_N_TIMES_INLINE_BUT_FOREVER_INIT"
+  , "CUBE_ACTION_N_TIMES_INLINE_BUT_FOREVER"
+  , "CUBE_ACTION_N_TIMES_INLINE_BUT_FOREVER_CONTROLED"
+  , "CUBE_ACTION_N_TIMES_INLINE_BUT_FOREVER_HALTED"
+  , "CUBE_ACTION_N_TIMES_INLINE"
+  , "CUBE_ACTION_N_TIMES_INIT"
+  , "CUBE_ACTION_N_TIMES_BUT_FOREVER_INIT"
+  , "CUBE_ACTION_N_TIMES_BUT_FOREVER_CONTROLED"
+  , "CUBE_ACTION_N_TIMES_BUT_FOREVER_HALTED"
+  , "CUBE_ACTION_N_TIMES_BUT_FOREVER"
+  , "CUBE_ACTION_N_TIMES"
+  , "CUBE_ACTION_FOREVER_INIT"
+  , "CUBE_ACTION_FOREVER"
+  , "CUBE_ACTION_FOREVER_HALTED"
+  , "CUBE_ACTION_FOREVER_CONTROLED"
   , "PAR_BRANCH"
   , "LOG"
   ];
 Object.freeze(SC_OpcodesNames);
-
-
 const SC_Opcodes = {
   toString: function(oc){
     return SC_OpcodesNames[oc]+":"+oc;
@@ -811,10 +986,8 @@ const SC_Opcodes = {
 for(var n = 0; n < SC_OpcodesNames.length; n++){
   SC_Opcodes[SC_OpcodesNames[n]] = n;
   }
-
 SC_Opcodes.nb_of_instructions = SC_OpcodesNames.length;
 Object.freeze(SC_Opcodes);
-
 function SC_Instruction(opcode){
   this.oc = SC_Opcodes.NOP;
   if(SC_Opcodes.isValid(opcode)){
@@ -824,9 +997,7 @@ function SC_Instruction(opcode){
   this.seq = null;
   this.resetCaller = null;
   }
-
 const act_exit = new SC_Instruction(SC_Opcodes._EXIT);
-
 SC_Instruction.prototype = {
   constructor : SC_Instruction
   , tr : function (m, meth, msg, msg2){
@@ -1035,10 +1206,9 @@ SC_Instruction.prototype = {
   , computeAndAdd : function(m){
       switch(this.oc){
         case SC_Opcodes.PAR_DYN:{
-          var vals = {};
-          this.channel.getAllValues(m, vals);
-          var prgs = vals[this.channel];
-          for(var i = 0 ; i < prgs.length; i++){
+          const prgs = this.channel.getValues(m);
+          const pl = prgs.length;
+          for(var i = 0 ; i < pl; i++){
             this.addBranch(prgs[i], this.itsParent, m);
             }
           break;
@@ -1047,8 +1217,7 @@ SC_Instruction.prototype = {
                          +SC_Opcodes.toString(this.oc);
         }
   }
-
-  , setPurgeable : function(flag){
+  /*, setPurgeable : function(flag){
       switch(this.oc){
         case SC_Opcodes.PAR_INIT:
         case SC_Opcodes.PAR_DYN_TO_REGISTER:
@@ -1060,7 +1229,7 @@ SC_Instruction.prototype = {
         default: throw "setPurgeable undefined for opcode "
                          +SC_Opcodes.toString(this.oc);
         }
-      }
+      }*/
   , addBranch : function(p, pb, engine){
       switch(this.oc){
         case SC_Opcodes.PAR_DYN_TO_REGISTER:
@@ -1074,8 +1243,9 @@ SC_Instruction.prototype = {
           }
         else{
           var b = new SC_ParBranch(pb, this, SC_Nothing);
-          b.prg = p.bindTo(engine, b, null, this.mseq, b, this.cube);
+          b.prg = p.bindTo(engine, b, null, this.mseq, b, this.cube, this.cinst);
           b.path = this;
+          b.purgeable = true;
           this.branches.push(b);
           this.suspended.append(b);
           if(b.hasPotential){
@@ -1139,24 +1309,17 @@ SC_Instruction.prototype = {
         }
       }
   , registerForProduction : function(b, perma){
-      /*switch(this.oc){
-        case SC_Opcodes.PAR_BRANCH:{*/
-          if(perma){
-            if(this.permanentEmitters.indexOf(b) < 0){
-              this.permanentEmitters.push(b);
-              }
-            }
-          if(this.emitters.indexOf(b) < 0){
-            this.emitters.push(b);
-            }
-          if(null != this.itsParent){
-            this.itsParent.registerForProduction(this.itsPar, perma);
-            }
-      /*    break;
+      if(perma){
+        if(this.permanentEmitters.indexOf(b) < 0){
+          this.permanentEmitters.push(b);
           }
-        default: throw "registerForProduction undefined for opcode "
-                         +SC_Opcodes.toString(this.oc);
-        }*/
+        }
+      if(this.emitters.indexOf(b) < 0){
+        this.emitters.push(b);
+        }
+      if(null != this.itsParent){
+        this.itsParent.registerForProduction(this.itsPar, perma);
+        }
       }
   , removeBranch : function(elt){
       switch(this.oc){
@@ -1172,79 +1335,82 @@ SC_Instruction.prototype = {
                          +SC_Opcodes.toString(this.oc);
         }
       }
-  , getAllValues: function(m, vals){
-      switch(this.oc){
-        case SC_Opcodes.CELL:
-        case SC_Opcodes.RE_CELL:{
-          var vals = {};
-          for(var i in this.eventList){
-            if(this.eventList[i].isPresent(m)){
-              this.eventList[i].getAllValues(m, vals);
-              }
-            }
-          return vals;
-          }
-        default: throw "getAllValues undefined for opcode "
-                         +SC_Opcodes.toString(this.oc);
-        }
-      }
   , val : function(){
-      switch(this.oc){
-        case SC_Opcodes.CELL:{
-          return this.state;
-          }
-        case SC_Opcodes.RE_CELL:{
-          return this.target[this.field];
-          }
-        default: throw "getAllValues undefined for opcode "
-                         +SC_Opcodes.toString(this.oc);
-        }
+      return this.state;
       }
   , prepare : function(m){
-      switch(this.oc){
-        case SC_Opcodes.CELL:
-        case SC_Opcodes.RE_CELL:{
-          this.futur = this.sideEffect(this.state, this.getAllValues(m), m);
-          break;
+      var vals = {};
+      for(var i in this.eventList){
+        if(this.eventList[i].isPresent(m)){
+          this.eventList[i].getAllValues(m, vals);
           }
-        default: throw "prepare undefined for opcode "
-                         +SC_Opcodes.toString(this.oc);
         }
+      this.futur = this.sideEffect(this.state, vals, m);
       }
   , swap : function(){
-      switch(this.oc){
-        case SC_Opcodes.CELL:
-        case SC_Opcodes.RE_CELL:{
-          this.state = this.futur;
-          break;
-          }
-        default: throw "swap undefined for opcode "
-                         +SC_Opcodes.toString(this.oc);
-        }
+      this.state = this.futur;
       }
   , generateValues : function(m){
       switch(this.oc){
-        case SC_Opcodes.GENERATE_ONE_INIT_INLINE:
-        case SC_Opcodes.GENERATE_ONE_INIT:
+        case SC_Opcodes.GENERATE_INIT:
+        case SC_Opcodes.GENERATE:
+        case SC_Opcodes.GENERATE_BUT_FOREVER_HALTED:
+        case SC_Opcodes.GENERATE_BUT_FOREVER_CONTROLED:
+        case SC_Opcodes.GENERATE_INIT_INLINE:
+        case SC_Opcodes.GENERATE_INLINE:
+        case SC_Opcodes.GENERATE_INLINE_BUT_FOREVER_HALTED:
+        case SC_Opcodes.GENERATE_INLINE_BUT_FOREVER_CONTROLED:
         case SC_Opcodes.GENERATE_ONE_INLINE:
         case SC_Opcodes.GENERATE_ONE:
-        case SC_Opcodes.GENERATE_INIT_INLINE:
-        case SC_Opcodes.GENERATE_INIT:
-        case SC_Opcodes.GENERATE_INLINE:
-        case SC_Opcodes.GENERATE:
-        case SC_Opcodes.GENERATE_FOREVER_HALTED:
         case SC_Opcodes.GENERATE_FOREVER_INIT:
-        case SC_Opcodes.GENERATE_FOREVER:{
-          if(this.val instanceof SC_Instruction
-              && this.val.oc == SC_Opcodes.CELL){
-            this.evt.generateValues(m, this.val.val());
-            }
-          else if("function" == typeof(this.val)){
-            this.evt.generateValues(m, this.val(m));
-            }
-          else{
-            this.evt.generateValues(m, this.val);
-            }
+        case SC_Opcodes.GENERATE_FOREVER_HALTED:
+        case SC_Opcodes.GENERATE_FOREVER_CONTROLED:{
+          this.evt.generateValues(m, this.val);
+          break;
+          }
+        case SC_Opcodes.GENERATE_CELL_INIT:
+        case SC_Opcodes.GENERATE_CELL:
+        case SC_Opcodes.GENERATE_CELL_BUT_FOREVER_HALTED:
+        case SC_Opcodes.GENERATE_CELL_BUT_FOREVER_CONTROLED:
+        case SC_Opcodes.GENERATE_CELL_INIT_INLINE:
+        case SC_Opcodes.GENERATE_CELL_INLINE:
+        case SC_Opcodes.GENERATE_CELL_INLINE_BUT_FOREVER_HALTED:
+        case SC_Opcodes.GENERATE_CELL_INLINE_BUT_FOREVER_CONTROLED:
+        case SC_Opcodes.GENERATE_ONE_CELL_INLINE:
+        case SC_Opcodes.GENERATE_ONE_CELL:
+        case SC_Opcodes.GENERATE_FOREVER_CELL_HALTED:
+        case SC_Opcodes.GENERATE_FOREVER_CELL_CONTROLED:{
+          this.evt.generateValues(m, this.val.val());
+          break;
+          }
+        case SC_Opcodes.GENERATE_FUN_INIT:
+        case SC_Opcodes.GENERATE_FUN:
+        case SC_Opcodes.GENERATE_FUN_BUT_FOREVER_HALTED:
+        case SC_Opcodes.GENERATE_FUN_BUT_FOREVER_CONTROLED:
+        case SC_Opcodes.GENERATE_FUN_INIT_INLINE:
+        case SC_Opcodes.GENERATE_FUN_INLINE:
+        case SC_Opcodes.GENERATE_FUN_INLINE_BUT_FOREVER_HALTED:
+        case SC_Opcodes.GENERATE_FUN_INLINE_BUT_FOREVER_CONTROLED:
+        case SC_Opcodes.GENERATE_ONE_FUN_INLINE:
+        case SC_Opcodes.GENERATE_ONE_FUN:
+        case SC_Opcodes.GENERATE_FOREVER_FUN_HALTED:
+        case SC_Opcodes.GENERATE_FOREVER_FUN_CONTROLED:{
+          this.evt.generateValues(m, this.val(m));
+          break;
+          }
+        case SC_Opcodes.GENERATE_EXPOSE_INIT:
+        case SC_Opcodes.GENERATE_EXPOSE:
+        case SC_Opcodes.GENERATE_EXPOSE_BUT_FOREVER_HALTED:
+        case SC_Opcodes.GENERATE_EXPOSE_BUT_FOREVER_CONTROLED:
+        case SC_Opcodes.GENERATE_EXPOSE_INIT_INLINE:
+        case SC_Opcodes.GENERATE_EXPOSE_INLINE:
+        case SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER_HALTED:
+        case SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER_CONTROLED:
+        case SC_Opcodes.GENERATE_ONE_EXPOSE_INLINE:
+        case SC_Opcodes.GENERATE_ONE_EXPOSE:
+        case SC_Opcodes.GENERATE_FOREVER_EXPOSE_HALTED:
+        case SC_Opcodes.GENERATE_FOREVER_EXPOSE_CONTROLED:{
+          this.evt.generateValues(m, this.val.exposedState(m));
           break;
           }
         case SC_Opcodes.GENERATE_FOREVER_LATE_VAL:{
@@ -1257,6 +1423,9 @@ SC_Instruction.prototype = {
             }
           else if("function" == typeof(this.val)){
             this.evt.generateValues(m, this.val(m));
+            }
+          else if(this.val instanceof SC_CubeExposedState){
+            this.evt.generateValues(m, this.val.exposedState(m));
             }
           else{
             this.evt.generateValues(m, this.val);
@@ -1291,44 +1460,37 @@ SC_Instruction.prototype = {
         case SC_Opcodes.PAR_DYN_TO_REGISTER:
         case SC_Opcodes.PAR_DYN:
         case SC_Opcodes.PAR:{
-          for(var nb = 0; nb < this.prodBranches.length; nb++){
-            //const b = this.prodBranches[nb];
-            //if(b.hasProduction){
-            //  b.generateValues(m);
-            //  }
+          const pbl = this.prodBranches.length;
+          for(var nb = 0; nb < pbl; nb++){
             this.prodBranches[nb].generateValues(m);
             }
-          //this.hasProduction = false;
           break;
           }
         case SC_Opcodes.PAR_BRANCH:{
-          if(0 == this.emitters.length){
-            for(var i = 0; i < this.permanentEmitters.length; i++){
-              //console.log(this.permanentEmitters[i]);
+          const el = this.emitters.length;
+          if(0 == el){
+            const pel = this.permanentEmitters.length;
+            for(var i = 0; i < pel; i++){
               this.permanentEmitters[i].generateValues(m);
               }
             break;
             }
-          for(var i = 0; i < this.emitters.length; i++){
-            //console.log(this.emitters[i]);
-            this.emitters[i].generateValues(m);
+          else{
+            for(var i = 0; i < el; i++){
+              this.emitters[i].generateValues(m);
+              }
+            this.emitters = [];
             }
-          this.emitters = [];
-          //this.hasProduction = false;
           break;
           }
-        default: throw "generateValues : undefined opcode "
-                       +SC_Opcodes.toString(this.oc);
+        default:{
+          throw new Error("generateValues : undefined opcode "
+                       +SC_Opcodes.toString(this.oc));
+          }
         }
       }
   , its : function(nom){
-      switch(this.oc){
-        case SC_Opcodes.CUBE:{
-          return this.o["$"+nom];
-          }
-        default: throw "its : undefined opcode "
-                       +SC_Opcodes.toString(this.oc);
-        }
+      return this.o["$"+nom];
       }
   , addCell : function(nom, init, el, fun){
       switch(this.oc){
@@ -1360,7 +1522,7 @@ SC_Instruction.prototype = {
                        +SC_Opcodes.toString(this.oc);
         }
       }
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       switch(this.oc){
         case SC_Opcodes.CELL:
         case SC_Opcodes.RE_CELL:{
@@ -1376,6 +1538,12 @@ SC_Instruction.prototype = {
                        +SC_Opcodes.toString(this.oc);
         }
       }
+, getExposeReader: function(m){
+    if(this.exposedState.exposeInstant != m.instantNumber){
+      this.swap(m);
+      }
+    return this.exposeReader;
+    }
   , toString(tab){
       if(undefined == tab){
         tab = "";
@@ -1496,7 +1664,6 @@ SC_Instruction.prototype = {
         }
       }
   }
-
 /*******************************************************************************
  * Repeat Instruction
  ******************************************************************************/
@@ -1512,7 +1679,7 @@ function SC_RelativeJump(jump){
 SC_RelativeJump.prototype = {
   constructor : SC_RelativeJump
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var copy = new SC_Instruction(SC_Opcodes.REL_JUMP);
       copy.relativeJump = parseInt(this.relativeJump);
       copy.seq = seq;
@@ -1522,7 +1689,6 @@ SC_RelativeJump.prototype = {
       return "end repeat ";
       }
 }
-
 // *** If Cond Repeat sinon quitte la boucle un peu à la manière du while...
 function SC_IfRepeatPoint(cond){
   this.condition = cond; // fonction retournant une valeur booleenne
@@ -1539,7 +1705,7 @@ SC_IfRepeatPoint.prototype = {
    * masterSeq doit être une pile de labels, permettant de définir la portée
    * d'un exit
    */
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var copy = new SC_Instruction(SC_Opcodes.IF_REPEAT_INIT);
       copy.condition = this.condition;
       copy.end = parseInt(this.end);
@@ -1548,7 +1714,6 @@ SC_IfRepeatPoint.prototype = {
       return copy;
       }
   }
-
 // *** Repeats
 function SC_RepeatPointForever(){
   this.label="";
@@ -1559,14 +1724,13 @@ SC_RepeatPointForever.prototype = {
   , toString : function(){
       return "repeat forever ";
       }
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var copy = new SC_Instruction(SC_Opcodes.REPEAT_FOREVER);
       copy.seq = seq;
       copy.label = this.label;
       return copy;
       }
   }
-
 function SC_RepeatPoint(times){
   if(times < 0){
     return new SC_RepeatPointForever();
@@ -1584,12 +1748,12 @@ SC_RepeatPoint.prototype = {
       return "repeat "
                   +((this.it<0)?"forever ":this.count+"/"+this.it+" times ");
       }
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var bound_it = binder(this.it);      
       if(bound_it < 0){
         return new SC_RepeatPointForever()
-             .bindTo(engine, parbranch, seq, masterSeq, path, cube);
+             .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
         }
       var copy = new SC_Instruction(SC_Opcodes.REPEAT_N_TIMES_INIT);
       copy.end = parseInt(this.end);
@@ -1611,7 +1775,6 @@ SC_RepeatPoint.prototype = {
       return copy;
       }
   }
-
 /*******************************************************************************
  * SC_Await Instruction
  ******************************************************************************/
@@ -1622,11 +1785,11 @@ function SC_Await(aConfig){
 SC_Await.prototype = {
   constructor : SC_Await
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var bound_config = binder(this.config);
       var zeConf = bound_config
-                  .bindTo(engine, parbranch, seq, masterSeq, path, cube);
+                  .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
       var copy = new SC_Instruction(SC_Opcodes.AWAIT);
       copy.config = zeConf;
       copy._config = this.config;
@@ -1637,7 +1800,6 @@ SC_Await.prototype = {
       return "await "+this.config.toString()+" ";
       }
 }
-
 /*******************************************************************************
  * Event Generation
  ******************************************************************************/
@@ -1651,7 +1813,7 @@ function SC_GenerateForeverLateEvtNoVal(evt){
 SC_GenerateForeverLateEvtNoVal.prototype = {
   constructor : SC_GenerateForeverLateEvtNoVal
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var copy = new SC_Instruction(SC_Opcodes.GENERATE_FOREVER_LATE_EVT_NO_VAL);
       copy.evt = this.evt;
       copy._evt = this._evt;
@@ -1674,7 +1836,7 @@ SC_GenerateForeverLateVal.prototype =
 {
   constructor : SC_GenerateForeverLateVal
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var bound_evt = binder(this.evt);
       var bound_value = binder(this.val);
@@ -1682,12 +1844,15 @@ SC_GenerateForeverLateVal.prototype =
       if(bound_evt.isBinding){
         if(bound_value.isBinding){
           copy = new SC_GenerateForeverLateEvtLateVal(bound_evt, bound_value)
-                   .bindTo(engine, parbranch, seq, masterSeq, path, cube);
+                   .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
           }
         else{
           copy = new SC_Instruction(SC_Opcodes.GENERATE_FOREVER_LATE_VAL);
           copy.evt = bound_evt;
           copy.val = bound_value;
+          if(copy.val instanceof SC_CubeExposedState){
+            copy.val.setCube(cinst);
+            }
           }
         }
       else{
@@ -1695,9 +1860,13 @@ SC_GenerateForeverLateVal.prototype =
           copy = new SC_Instruction(SC_Opcodes.GENERATE_FOREVER_LATE_VAL);
           copy.evt = bound_evt;
           copy.val = bound_value;
+          if(copy.val instanceof SC_CubeExposedState){
+            copy.val.setCube(cinst);
+            }
           }
         else{
-          copy = new SC_GenerateForever(bound_evt, bound_value);
+          copy = new SC_GenerateForever(bound_evt, bound_value)
+                  .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
           }
         }
       copy.itsParent = parbranch;
@@ -1712,7 +1881,6 @@ SC_GenerateForeverLateVal.prototype =
              +" forever ";
       }
 }
-
 // -----
 function SC_GenerateForeverNoVal(evt){
   if((undefined == evt)
@@ -1726,7 +1894,7 @@ function SC_GenerateForeverNoVal(evt){
 SC_GenerateForeverNoVal.prototype = {
   constructor : SC_GenerateForeverNoVal
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var copy = new SC_Instruction(SC_Opcodes.GENERATE_FOREVER_NO_VAL_INIT);
       copy.evt = this.evt;
       copy._evt = this.evt;
@@ -1734,7 +1902,6 @@ SC_GenerateForeverNoVal.prototype = {
       }
   , toString : SC_GenerateForeverLateEvtNoVal.prototype.toString
 };
-
 // --- Forever
 function SC_GenerateForever(evt, val){
   if(undefined === val){
@@ -1747,7 +1914,7 @@ function SC_GenerateForever(evt, val){
 SC_GenerateForever.prototype = {
   constructor : SC_GenerateForever
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var bound_evt = binder(this.evt);
       var bound_value = binder(this.val);
@@ -1755,20 +1922,31 @@ SC_GenerateForever.prototype = {
       if(bound_evt instanceof SC_CubeBinding){
         if(bound_value instanceof SC_CubeBinding){
           return new SC_GenerateForeverLateEvtLateVal(bound_evt, bound_value)
-                 .bindTo(engine, parbranch, seq, masterSeq, path, cube);
+                 .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
           }
         else{
           return new SC_GenerateForeverLateEvt(bound_evt, bound_value)
-                 .bindTo(engine, parbranch, seq, masterSeq, path, cube);
+                 .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
           }
         }
       else if(bound_value instanceof SC_CubeBinding){
         return new SC_GenerateForeverLateVal(bound_evt, bound_value)
-                 .bindTo(engine, parbranch, seq, masterSeq, path, cube);
+                 .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
         }
       copy = new SC_Instruction(SC_Opcodes.GENERATE_FOREVER_INIT);
       copy.evt = bound_evt;
       copy.val = bound_value;
+      if(copy.val instanceof SC_CubeExposedState){
+        copy.val.setCube(cinst);
+        copy.oc = SC_Opcodes.GENERATE_FOREVER_EXPOSE_INIT;
+        }
+      else if("function" == typeof(copy.val)){
+        copy.oc = SC_Opcodes.GENERATE_FOREVER_FUN_INIT;
+        }
+      else if(copy.val instanceof SC_Instruction
+              && copy.val.oc == SC_Opcodes.CELL){
+        copy.oc = SC_Opcodes.GENERATE_FOREVER_CELL_INIT;
+        }
       copy.itsParent = parbranch;
       copy._evt = this.evt;
       copy._val = this.val;
@@ -1780,7 +1958,6 @@ SC_GenerateForever.prototype = {
              +this.val+" forever ";
       }
   }
-
 // *** SC_GenerateOneNoVal
 function SC_GenerateOneNoVal(evt){
   this.evt = evt;
@@ -1788,7 +1965,7 @@ function SC_GenerateOneNoVal(evt){
 SC_GenerateOneNoVal.prototype = {
   constructor : SC_GenerateOneNoVal
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var copy = new SC_Instruction(SC_Opcodes.GENERATE_ONE_NO_VAL);
       copy.evt = binder(this.evt);
@@ -1798,7 +1975,6 @@ SC_GenerateOneNoVal.prototype = {
       return "generate "+this.evt.toString();
       }
   }
-
 // *** SC_GenerateOne
 function SC_GenerateOne(evt, val){
   if(undefined === val){
@@ -1811,7 +1987,7 @@ function SC_GenerateOne(evt, val){
 SC_GenerateOne.prototype = {
   constructor : SC_GenerateOne
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var copy = null;
       if(null === this.evt){
@@ -1821,11 +1997,22 @@ SC_GenerateOne.prototype = {
       var tmp_val = binder(this.val);
       if(undefined === tmp_val){
         return new SC_GenerateOneNoVal(tmp_evt)
-                .bindTo(engine, parbranch, seq, masterSeq, path, cube);
+                .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
         }
       copy = new SC_Instruction(SC_Opcodes.GENERATE_ONE);
       copy.evt = tmp_evt;
       copy.val = tmp_val;
+      if(copy.val instanceof SC_CubeExposedState){
+        copy.val.setCube(cinst);
+        copy.oc = SC_Opcodes.GENERATE_ONE_EXPOSE;
+        }
+      else if("function" == typeof(copy.val)){
+        copy.oc = SC_Opcodes.GENERATE_ONE_FUN;
+        }
+      else if(copy.val instanceof SC_Instruction
+              && copy.val.oc == SC_Opcodes.CELL){
+        copy.oc = SC_Opcodes.GENERATE_ONE_CELL;
+        }
       copy.itsParent = parbranch;
       copy._evt = this.evt;
       copy._val = this.val;
@@ -1840,7 +2027,6 @@ SC_GenerateOne.prototype = {
              +((null != this.val)?"("+this.val.toString()+") ":"");
       }
   }
-
 // *** SC_Generate
 function SC_Generate(evt, val, times){
   if((undefined === times)||(1 === times)){
@@ -1863,7 +2049,7 @@ function SC_Generate(evt, val, times){
 SC_Generate.prototype = {
   constructor : SC_Generate
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var copy = null;
       var binder = _SC._b(cube);
       var tmp_times = binder(this.times);
@@ -1871,18 +2057,29 @@ SC_Generate.prototype = {
       var tmp_val = binder(this.val);
       if(tmp_times < 0){
         return new SC_GenerateForever(tmp_evt, tmp_val)
-                   .bindTo(engine, parbranch, seq, masterSeq, path, cube);
+                   .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
         }
       else if(0 === tmp_times){
         return SC_Nothing;
         }
       else if((undefined === tmp_times)||(1 == tmp_times)){
         return new SC_GenerateOne(tmp_evt, tmp_val)
-                   .bindTo(engine, parbranch, seq, masterSeq, path, cube);
+                   .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
         }
       copy = new SC_Instruction(SC_Opcodes.GENERATE_INIT);
       copy.evt = tmp_evt;
       copy.val = tmp_val;
+      if(copy.val instanceof SC_CubeExposedState){
+        copy.val.setCube(cinst);
+        copy.oc = SC_Opcodes.GENERATE_EXPOSE_INIT;
+        }
+      else if("function" == typeof(copy.val)){
+        copy.oc = SC_Opcodes.GENERATE_FUN_INIT;
+        }
+      else if(copy.val instanceof SC_Instruction
+              && copy.val.oc == SC_Opcodes.CELL){
+        copy.oc = SC_Opcodes.GENERATE_CELL_INIT;
+        }
       copy.times = tmp_times;
       copy.itsParent = parbranch;
       copy._times = this.times;
@@ -1896,7 +2093,6 @@ SC_Generate.prototype = {
              +this.val+") for "+this.count+"/"+this.times+" times ";
       }
   }
-
 function SC_GenerateNoVal(evt, times){
   this.evt = evt;
   this.itsParent = null;
@@ -1905,14 +2101,14 @@ function SC_GenerateNoVal(evt, times){
 SC_GenerateNoVal.prototype = {
   constructor : SC_GenerateNoVal
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var copy = null;
       var binder = _SC._b(cube);
       var tmp_times = binder(this.times);
       var tmp_evt = binder(this.evt);
       if(tmp_times < 0){
         return new SC_GenerateForeverNoVal(tmp_evt)
-               .bindTo(engine, parbranch, seq, masterSeq, path, cube);
+               .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
         }
       else if(0 === tmp_times){
         return SC_Nothing;
@@ -1955,7 +2151,7 @@ function SC_FilterForeverNoSens(sensor, filterFun, evt){
 SC_FilterForeverNoSens.prototype = {
   constructor : SC_FilterForeverNoSens
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var bound_sensor = binder(this.sensor);
       var bound_fun = binder(this.filterFun);
@@ -1979,7 +2175,6 @@ SC_FilterForeverNoSens.prototype = {
                +" forever ";
       }
   }
-
 function SC_FilterForever(sensor, filterFun, evt, no_sens){
   if(!(sensor instanceof SC_Sensor)
     &&!(sensor instanceof SC_CubeBinding)){
@@ -2008,7 +2203,7 @@ function SC_FilterForever(sensor, filterFun, evt, no_sens){
 SC_FilterForever.prototype = {
   constructor : SC_FilterForever
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var bound_sensor = binder(this.sensor);
       var bound_fun = binder(this.filterFun);
@@ -2021,7 +2216,7 @@ SC_FilterForever.prototype = {
                        , bound_fun
                        , bound_evt
                        )
-                .bindTo(engine, parbranch, seq, masterSeq, path, cube);
+                .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
         return copy;
         }
       var copy = new SC_Instruction(SC_Opcodes.FILTER_FOREVER);
@@ -2066,7 +2261,7 @@ function SC_FilterOneNoSens(sensor, filterFun, evt){
 SC_FilterOneNoSens.prototype = {
   constructor : SC_FilterOneNoSens
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var bound_sensor = binder(this.sensor);
       var bound_fun = binder(this.filterFun);
@@ -2094,7 +2289,6 @@ SC_FilterOneNoSens.prototype = {
                       ((-1 == this.times )?" forever ":(" for "+this.count+"/"+this.times+" times ")):"");
       }
   }
-
 function SC_FilterOne(sensor, filterFun, evt, no_sens){
   if(!(sensor instanceof SC_Sensor)
     &&!(sensor instanceof SC_CubeBinding)){
@@ -2124,7 +2318,7 @@ function SC_FilterOne(sensor, filterFun, evt, no_sens){
 SC_FilterOne.prototype = {
   constructor : SC_FilterOne
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var bound_sensor = binder(this.sensor);
       var bound_fun = binder(this.filterFun);
@@ -2152,7 +2346,6 @@ SC_FilterOne.prototype = {
                       ((-1 == this.times )?" forever ":(" for "+this.count+"/"+this.times+" times ")):"");
       }
   }
-
 // *** SC_Filter
 function SC_FilterNoSens(sensor, evt, filterFun, times){
   if(0 == times){
@@ -2178,7 +2371,7 @@ function SC_FilterNoSens(sensor, evt, filterFun, times){
 SC_FilterNoSens.prototype = {
   constructor : SC_FilterNoSens
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var bound_sensor = binder(this.sensor);
       var bound_fun = binder(this.filterFun);
@@ -2192,12 +2385,12 @@ SC_FilterNoSens.prototype = {
       if((undefined === bound_times) || (1 == bound_times)){
         return new SC_FilterOneNoSens(bound_sensor, bound_fun, bound_evt
                                             , bound_noSens_evt)
-           .bindTo(engine, parbranch, seq, masterSeq, path, cube);
+           .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
         }
       else if(bound_times < 0){
         return new SC_FilterForeverNoSens(bound_sensor, bound_fun, bound_evt
                                                 , bound_noSens_evt)
-           .bindTo(engine, parbranch, seq, masterSeq, path, cube);
+           .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
         }
       copy = new SC_Instruction(SC_Opcodes.FILTER_NO_ABS_INIT);
       copy.sensor = bound_sensor
@@ -2220,7 +2413,6 @@ SC_FilterNoSens.prototype = {
                       (" for "+this.count+"/"+this.times+" times "):"");
       }
   }
-
 function SC_Filter(sensor, evt, filterFun, times, no_sens){
   if(0 == times){
     return SC_Nothing;
@@ -2246,7 +2438,7 @@ function SC_Filter(sensor, evt, filterFun, times, no_sens){
 SC_Filter.prototype = {
   constructor : SC_Filter
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var bound_sensor = binder(this.sensor);
       var bound_fun = binder(this.filterFun);
@@ -2260,12 +2452,12 @@ SC_Filter.prototype = {
         }
       if((undefined === bound_times) || (1 == bound_times)){
         return SC_FilterOne(bound_sensor, bound_fun, bound_evt, bound_noSens_evt)
-               .bindTo(engine, parbranch, seq, masterSeq, path, cube);
+               .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
         }
       else if(bound_times < 0){
         return SC_FilterForever(bound_sensor
                               , bound_fun, bound_evt, bound_noSens_evt)
-               .bindTo(engine, parbranch, seq, masterSeq, path, cube);
+               .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
         }
       copy = new SC_Instruction(SC_Opcodes.FILTER);
       copy.sensor = bound_sensor;
@@ -2308,7 +2500,7 @@ function SC_Send(evt, value, times){
 SC_Send.prototype = {
   constructor : SC_Send
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var bound_evt = binder(this.evt);
       var bound_times = binder(this.times);
@@ -2319,11 +2511,11 @@ SC_Send.prototype = {
         }
       if((undefined === bound_times) || (1 == bound_times)){
         return SC_SendOne(bound_evt, bound_val)
-               .bindTo(engine, parbranch, seq, masterSeq, path, cube);
+               .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
         }
       else if(bound_times < 0){
         return SC_SendForever(bound_evt, bound_val)
-               .bindTo(engine, parbranch, seq, masterSeq, path, cube);
+               .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
         }
       copy = new SC_Instruction(SC_Opcodes.SEND);
       copy.evt = bound_evt;
@@ -2349,7 +2541,7 @@ function SC_SendOne(evt, value){
 SC_SendOne.prototype = {
   constructor : SC_SendOne
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var copy = new SC_Instruction(SC_Opcodes.SEND_ONE);
       copy.evt = binder(this.evt)
@@ -2371,7 +2563,7 @@ function SC_SendForever(evt, value){
 SC_SendForever.prototype = {
   constructor : SC_SendForever
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var copy = SC_SendForever(binder(this.evt), binder(this.value));
       copy._evt = this.evt;
@@ -2388,48 +2580,43 @@ SC_SendForever.prototype = {
  ******************************************************************************/
 const SC_Nothing = new SC_Instruction(SC_Opcodes.NOTHING);
 const SC_Nothing_inlined = new SC_Instruction(SC_Opcodes.NOTHING_INLINED);
-
 SC_Nothing.isAnSCProgram = true;
 SC_Nothing_inlined.isAnSCProgram = true;
 SC_Nothing_inlined.bindTo = function(engine, parbranch, seq, masterSeq, path
-                                   , cube){
+                                   , cube, cinst){
     return this;
   }
-SC_Nothing.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
+SC_Nothing.bindTo = function(engine, parbranch, seq, masterSeq, path, cube, cinst){
     return this;
   }
-
 /*******************************************************************************
  * SC_Pause Instructions
  ******************************************************************************/
 // *** SC_PauseForever
 const SC_PauseForever = new SC_Instruction(SC_Opcodes.HALT);
 SC_PauseForever.isAnSCProgram = true;
-SC_PauseForever.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
+SC_PauseForever.bindTo = function(engine, parbranch, seq, masterSeq, path, cube, cinst){
   return this;
   }
-
 // *** SC_Pause
 const SC_PauseInline = new SC_Instruction(SC_Opcodes.PAUSE_INLINE);
 SC_PauseInline.isAnSCProgram = true;
-SC_PauseInline.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
+SC_PauseInline.bindTo = function(engine, parbranch, seq, masterSeq, path, cube, cinst){
   return this;
   }
-
 function SC_PauseOne(){
   this.res = false;
   }
 SC_PauseOne.prototype = {
   constructor : SC_PauseOne
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       return new SC_Instruction(SC_Opcodes.PAUSE);
       }
   , toString : function(){
       return "pause ";
       }
   }
-
 // *** SC_Pause
 function SC_Pause(times){
   if(times < 0){
@@ -2447,7 +2634,7 @@ function SC_Pause(times){
 SC_Pause.prototype = {
   constructor : SC_Pause
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var bound_times = binder(this.times);
       var copy = null;
@@ -2458,7 +2645,7 @@ SC_Pause.prototype = {
         return SC_Nothing;
         }
       else if(1 === bound_times){
-        return new SC_PauseOne().bindTo(engine, parbranch, seq, masterSeq, path, cube);
+        return new SC_PauseOne().bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
         }
       copy = new SC_Instruction(SC_Opcodes.PAUSE_N_TIMES_INIT);
       //copy.times = bound_times;
@@ -2471,7 +2658,6 @@ SC_Pause.prototype = {
       return "pause "+this.count+"/"+this.times+" times ";
       }
   }
-
 // *** SC_PauseRT
 function SC_PauseRT(duration){
   this.duration = duration;
@@ -2479,7 +2665,7 @@ function SC_PauseRT(duration){
 SC_PauseRT.prototype = {
   constructor : SC_PauseRT
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var copy = new SC_Instruction(SC_Opcodes.PAUSE_RT_INIT);
       copy.duration = this.duration*1000;
@@ -2490,7 +2676,6 @@ SC_PauseRT.prototype = {
       return "pause for "+this.duration+" ms ";
       }
   }
-
 /*******************************************************************************
  * SC_Seq Instruction
  ******************************************************************************/
@@ -2512,7 +2697,7 @@ function SC_Seq(seqElements){
 SC_Seq.prototype = {
   constructor : SC_Seq
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var copy = new SC_Instruction(SC_Opcodes.SEQ_INIT);
       copy.seqElements = [];
       var targetIDx = 0;
@@ -2538,7 +2723,7 @@ SC_Seq.prototype = {
         }
       for(var i = 0; i < copy.seqElements.length; i++){
         copy.seqElements[i] = copy.seqElements[i].bindTo(engine, parbranch, copy
-                                                         , masterSeq, copy, cube);
+                                                         , masterSeq, copy, cube, cinst);
         switch(copy.seqElements[i].oc){
           case SC_Opcodes.PAUSE:{
             copy.seqElements[i].oc = SC_Opcodes.PAUSE_INLINE;
@@ -2554,6 +2739,14 @@ SC_Seq.prototype = {
             }
           case SC_Opcodes.ACTION_N_TIMES_INIT:{
             copy.seqElements[i].oc = SC_Opcodes.ACTION_N_TIMES_INIT_INLINE;
+            break;
+            }
+          case SC_Opcodes.CUBE_ACTION:{
+            copy.seqElements[i].oc = SC_Opcodes.CUBE_ACTION_INLINE;
+            break;
+            }
+          case SC_Opcodes.CUBE_ACTION_N_TIMES_INIT:{
+            copy.seqElements[i].oc = SC_Opcodes.CUBE_ACTION_N_TIMES_INIT_INLINE;
             break;
             }
           case SC_Opcodes.GENERATE_ONE_NO_VAL:{
@@ -2595,7 +2788,6 @@ SC_Seq.prototype = {
       return res+"] ";
       }
 }
-
 /*******************************************************************************
  * SC_Action Instruction
  ******************************************************************************/
@@ -2606,7 +2798,7 @@ function SC_ActionForever(f){
 SC_ActionForever.prototype = {
   constructor : SC_ActionForever
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var copy = new SC_Instruction(SC_Opcodes.ACTION_FOREVER_INIT);
       copy.action = binder(this.action);
@@ -2637,7 +2829,7 @@ function SC_Action(f, times){
 SC_Action.prototype = {
   constructor : SC_Action
   , isAnSCProgram : true
-, bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+, bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
     var binder = _SC._b(cube);
     var times = binder(this.times);
     if(0 == times){
@@ -2645,11 +2837,11 @@ SC_Action.prototype = {
       }
     if((undefined === times)||(1 == times)){
       return new SC_SimpleAction(this.action)
-             .bindTo(engine, parbranch, seq, masterSeq, path, cube);
+             .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
       }
     if(times < 0){
       return new SC_ActionForever(this.action)
-             .bindTo(engine, parbranch, seq, masterSeq, path, cube);
+             .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
       }
     var copy = new SC_Instruction(SC_Opcodes.ACTION_N_TIMES_INIT);
     copy.action = binder(this.action);
@@ -2685,7 +2877,7 @@ function SC_SimpleAction(f){
 SC_SimpleAction.prototype={
   constructor : SC_SimpleAction
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var copy = new SC_Instruction(SC_Opcodes.ACTION);
       copy.action = binder(this.action);
@@ -2703,7 +2895,6 @@ SC_SimpleAction.prototype={
                    :this.action.t+"."+this.action.f+"() ");
       }
 }
-
 // *** SC_Log
 function SC_Log(msg){
   if(undefined === msg){
@@ -2714,7 +2905,7 @@ function SC_Log(msg){
 SC_Log.prototype={
   constructor : SC_Log
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var copy = new SC_Instruction(SC_Opcodes.LOG);
       copy.msg = binder(this.msg);
@@ -2733,7 +2924,6 @@ SC_Log.prototype={
                            :this.msg.t+"."+this.msg.f+"() ");
       }
 }
-
 /*********
  * ActionOnEvent Class
  *********/
@@ -2743,13 +2933,13 @@ function SC_ActionOnEventForeverNoDef(c, act){
 SC_ActionOnEventForeverNoDef.prototype = {
   constructor : SC_ActionOnEventForeverNoDef
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var copy = new SC_Instruction(SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT);
       copy.evtFun = {
         action:binder(this.evtFun.action)
         , config:binder(this.evtFun.config)
-                 .bindTo(engine, parbranch, seq, masterSeq, path, cube)
+                 .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst)
         };
       copy.path = path;
       return copy;
@@ -2760,7 +2950,6 @@ SC_ActionOnEventForeverNoDef.prototype = {
              +" forever ";
       }
 };
-
 function SC_ActionOnEventForever(c, act, defaultAct){
   if(undefined === defaultAct){
     return new SC_ActionOnEventForeverNoDef(c, act);
@@ -2771,13 +2960,13 @@ function SC_ActionOnEventForever(c, act, defaultAct){
 SC_ActionOnEventForever.prototype = {
   constructor : SC_ActionOnEventForever
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var copy = new SC_Instruction(SC_Opcodes.ACTION_ON_EVENT_FOREVER);
       copy.evtFun = {
         action:binder(this.evtFun.action)
         , config:binder(this.evtFun.config)
-                   .bindTo(engine, parbranch, seq, masterSeq, path, cube)
+                   .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst)
         };
       copy.defaultAct = binder(this.defaultAct);
       copy.path = path;
@@ -2798,13 +2987,13 @@ function SC_ActionOnEventNoDef(c, act, times){
 SC_ActionOnEventNoDef.prototype = {
   constructor : SC_ActionOnEventNoDef
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var copy = new SC_Instruction(SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT);
       copy.evtFun = {
         action:binder(this.evtFun.action)
         , config:binder(this.evtFun.config)
-             .bindTo(engine, parbranch, seq, masterSeq, path, cube)
+             .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst)
         };
       copy.times = binder(this.times);
       copy.path = path;
@@ -2816,7 +3005,6 @@ SC_ActionOnEventNoDef.prototype = {
              +" for "+this.count+"/"+this.times+" times ";
     }
 };
-
 // --- 
 function SC_ActionOnEvent(c, act, defaultAct, times){
   if(undefined === act){ throw "action is not defined"; }
@@ -2835,13 +3023,13 @@ function SC_ActionOnEvent(c, act, defaultAct, times){
 SC_ActionOnEvent.prototype = {
   constructor : SC_ActionOnEvent
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
     var binder = _SC._b(cube);
     var copy = new SC_Instruction(SC_Opcodes.ACTION_ON_EVENT);
     copy.evtFun = {
       action:binder(this.evtFun.action)
       , config:binder(this.evtFun.config)
-                .bindTo(engine, parbranch, seq, masterSeq, path, cube)
+                .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst)
       };
     copy.defaultAct = binder(this.defaultAct);
     copy.count = copy.times = binder(this.times);
@@ -2865,13 +3053,13 @@ function SC_SimpleActionOnEventNoDef(c, act){
 SC_SimpleActionOnEventNoDef.prototype = {
   cosntructor : SC_SimpleActionOnEventNoDef
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var copy = new SC_Instruction(SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT);
       copy.evtFun = {
         action:binder(this.evtFun.action)
         , config:binder(this.evtFun.config)
-                 .bindTo(engine, parbranch, seq, masterSeq, path, cube)
+                 .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst)
         };
       copy.path = path;
       return copy;
@@ -2881,7 +3069,6 @@ SC_SimpleActionOnEventNoDef.prototype = {
       return res+"call("+this.evtFun.action.toString()+") ";
       }
   };
-
 function SC_SimpleActionOnEvent(c, act, defaultAct){
   if(undefined === defaultAct){
     return new SC_SimpleActionOnEventNoDef(c, act);
@@ -2895,13 +3082,13 @@ function SC_SimpleActionOnEvent(c, act, defaultAct){
 SC_SimpleActionOnEvent.prototype = {
   constructor : SC_SimpleActionOnEvent
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var copy = new SC_Instruction(SC_Opcodes.SIMPLE_ACTION_ON_EVENT);
       copy.evtFun = {
         action:binder(this.evtFun.action)
         , config:binder(this.evtFun.config)
-                   .bindTo(engine, parbranch, seq, masterSeq, path, cube)
+                   .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst)
         };
       copy.defaultAct = binder(this.defaultAct);
       copy.path = path;
@@ -2913,7 +3100,6 @@ SC_SimpleActionOnEvent.prototype = {
           +"else call("+this.defaultAct.toString()+") ";
       }
   }
-
 /*********
  * SC_ParBranch Class
  *********/
@@ -2930,13 +3116,13 @@ function SC_ParBranch(aParent, aPar, prg){
   this.permanentEmitters = [];
   this.subBranches = [];
   this.hasPotential = false;
+  this.purgeable = false;
   this.path = null;
   this.idxInProd = -1;
   if(null != aParent){
     aParent.subBranches.push(this);
     }
 }
-
 SC_ParBranch.prototype = {
   constructor : SC_ParBranch
   , declarePotential : function(){
@@ -2956,7 +3142,6 @@ SC_ParBranch.prototype = {
   , awake : SC_Instruction.prototype.awake
   , generateValues : SC_Instruction.prototype.generateValues
   };
-
 /*********
  * Queues
  *********/
@@ -3001,7 +3186,6 @@ SC_Queues.prototype = {
         }
       }
   };
-
 /*********
  * SC_Par Class
  *********/
@@ -3017,7 +3201,7 @@ function SC_Par(args, channel){
 SC_Par.prototype = {
   constructor : SC_Par
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var copy = new SC_Instruction(SC_Opcodes.PAR_INIT);
       copy.suspended = new SC_Queues();
       copy.waittingEOI = new SC_Queues();
@@ -3026,15 +3210,16 @@ SC_Par.prototype = {
       copy.halted = new SC_Queues();
       copy.terminated = new SC_Queues();
       copy.branches = [];
+      copy.cinst = cinst;
       copy.prodBranches = [];
-      copy.purgeable = false;
+      //copy.purgeable = false;
       //copy.hasProduction = false;
       copy.itsParent = null;
       copy.mseq = masterSeq;
       copy.cube = cube;
       for(var tmp of this.branches){
         var b = new SC_ParBranch(parbranch, copy, SC_Nothing);
-        b.prg = tmp.prg.bindTo(engine, b, null, masterSeq, b, cube);
+        b.prg = tmp.prg.bindTo(engine, b, null, masterSeq, b, cube, cinst);
         b.path = copy;
         copy.branches.push(b);
         copy.suspended.append(b);
@@ -3076,7 +3261,6 @@ SC_Par.prototype = {
         }
       }
   };
-
 /**
   * Opérateur Parallele a extension dynamique...
   * SC_ParDyn
@@ -3094,7 +3278,7 @@ function SC_ParDyn(channel, args){
 SC_ParDyn.prototype = {
   constructor : SC_ParDyn
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var copy = new SC_Instruction(SC_Opcodes.PAR_DYN_INIT);
       copy.suspended = new SC_Queues();
       copy.waittingEOI = new SC_Queues();
@@ -3103,13 +3287,14 @@ SC_ParDyn.prototype = {
       copy.halted = new SC_Queues();
       copy.terminated = new SC_Queues();
       copy.branches = [];
+      copy.cinst = cinst;
       copy.prodBranches = [];
-      copy.purgeable = false;
+      //copy.purgeable = false;
       //copy.hasProduction = false;
       copy.originalBranches = [];
       for(var i of this.branches){
         var b = new SC_ParBranch(parbranch, copy, SC_Nothing);
-        b.prg = i.prg.bindTo(engine, b, null, masterSeq, b, cube);
+        b.prg = i.prg.bindTo(engine, b, null, masterSeq, b, cube, cinst);
         b.path = copy;
         copy.branches.push(b);
         copy.originalBranches.push(b);
@@ -3133,7 +3318,6 @@ SC_ParDyn.prototype = {
   , add: SC_Par.prototype.add
   , toString : SC_Par.prototype.toString
   };
-
 /*********
  * And Class
  *********/
@@ -3148,11 +3332,11 @@ SC_AndBin.prototype.getAllValues = function(m,vals){
   this.c1.getAllValues(m,vals);
   this.c2.getAllValues(m,vals);
   }
-SC_AndBin.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube){
+SC_AndBin.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube, cinst){
   var binder = _SC._b(cube);
   var copy = new SC_AndBin();
-  copy.c1 = binder(this.c1).bindTo(engine, parbranch, seq, masterSeq, path, cube)
-  copy.c2 = binder(this.c2).bindTo(engine, parbranch, seq, masterSeq, path, cube)
+  copy.c1 = binder(this.c1).bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst)
+  copy.c2 = binder(this.c2).bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst)
   return copy;
   }
 SC_AndBin.prototype.toString = function(){
@@ -3169,7 +3353,6 @@ SC_AndBin.prototype.registerInst = function(m,i){
   this.c1.registerInst(m,i);
   this.c2.registerInst(m,i);
   }
-
 function SC_And(configsArray){
   if((undefined == configsArray)||!(configsArray instanceof Array)){
     throw "no valid configuration for And combinator";
@@ -3200,7 +3383,7 @@ SC_And.prototype.bindTo = function(engine, parbranch, seq, masterSeq, path, cube
   var binder = _SC._b(cube);
   var tmp_configs = [];
   for(var i in this.c){
-    tmp_configs.push(binder(this.c[i]).bindTo(engine, parbranch, seq, masterSeq, path, cube));
+    tmp_configs.push(binder(this.c[i]).bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst));
     }
   var copy = new SC_And(tmp_configs);
   return copy;
@@ -3222,7 +3405,6 @@ SC_And.prototype.registerInst = function(m,i){
     this.c[j].registerInst(m,i);
     }
   }
-
 /*********
  * Or Class
  *********/
@@ -3235,11 +3417,11 @@ SC_OrBin.prototype ={
   return this.c1.isPresent(m) || this.c2.isPresent(m);
   }
   , getAllValues : SC_AndBin.prototype.getAllValues
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
     var binder = _SC._b(cube);
     var copy = new SC_OrBin();
-    copy.c1 = binder(this.c1).bindTo(engine, parbranch, seq, masterSeq, path, cube)
-    copy.c2 = binder(this.c2).bindTo(engine, parbranch, seq, masterSeq, path, cube)
+    copy.c1 = binder(this.c1).bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst)
+    copy.c2 = binder(this.c2).bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst)
     return copy;
     }
   , toString : function(){
@@ -3251,7 +3433,6 @@ SC_OrBin.prototype ={
   , unregister : SC_AndBin.prototype.unregister
   , registerInst : SC_AndBin.prototype.registerInst
   }
-
 function SC_Or(configsArray){
   if((undefined == configsArray)||!(configsArray instanceof Array)){
     throw "no valid configuration for And combinator";
@@ -3274,12 +3455,12 @@ SC_Or.prototype = {
     return false;
     }
   , getAllValues : SC_And.prototype.getAllValues
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var tmp_configs = [];
       //console.log("binding n-ary or", this.c);
       for(var i in this.c){
-        tmp_configs.push(binder(this.c[i]).bindTo(engine, parbranch, seq, masterSeq, path, cube));
+        tmp_configs.push(binder(this.c[i]).bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst));
         }
       var copy = new SC_Or(tmp_configs);
       return copy;
@@ -3294,13 +3475,13 @@ SC_Or.prototype = {
   , unregister : SC_And.prototype.unregister
   , registerInst : SC_And.prototype.registerInst
   }
-
 /*
  * Cells
+ * contient son propre état...
  */
 function SC_Cell(params){
   if(undefined == params){
-    throw "undefined params for Cell";
+    throw new Error("undefined params for SC_Cell");
     }
   if(undefined !== params.target){
     return new SC_ReCell(params);
@@ -3308,7 +3489,7 @@ function SC_Cell(params){
   var cell = new SC_Instruction(SC_Opcodes.CELL);
   cell.state = (undefined == params.init)?null:params.init;
   if(undefined == params.sideEffect){
-    throw "undefined sideEffect !";
+    throw new Error("undefined sideEffect !");
     }
   else{
     if(undefined != params.sideEffect.t){
@@ -3317,25 +3498,33 @@ function SC_Cell(params){
     else{
       cell.sideEffect = params.sideEffect;
       }
-    cell.eventList = (undefined == params.eventList)?null:params.eventList;
+    cell.eventList = (undefined == params.eventList)?[]:params.eventList;
     }
-    cell.TODO =  -1;
-    cell.futur = null;
-    cell.clock = null;
-    return cell;
+  cell.TODO =  -1;
+  cell.futur = null;
+  cell.clock = null;
+  return cell;
   }
-
+/*
+ * Cell pour un champ préexistant.
+ */
 function SC_ReCell(params){
-  if(undefined == params.field || undefined == params.target[params.field]){
-     throw "field not specified on target ("+params.field+")";
+  if(undefined == params){
+    throw new Error("undefined params for SC_ReCell");
+    }
+  if((undefined == params.field)
+    || (undefined == params.target)
+    || (undefined == params.target[params.field])
+    ){
+     throw new Error("field not specified on target ("+params.field+")");
     }
   var cell = new SC_Instruction(SC_Opcodes.RE_CELL);
   if(undefined == params.sideEffect){
-    throw "undefined sideEffect !";
+    throw new Error("undefined sideEffect !");
     }
   else{
     cell.sideEffect = params.sideEffect;
-    cell.eventList = (undefined == params.eventList)?null:params.eventList;
+    cell.eventList = (undefined == params.eventList)?[]:params.eventList;
     }
   cell.target = params.target;
   cell.field = params.field;
@@ -3351,19 +3540,18 @@ function SC_ReCell(params){
   cell.clock = null;
   return cell;
   }
-
 function SC_CubeCell(c){
   this.cellName = c;
   }
 SC_CubeCell.prototype = {
   constructor : SC_CubeCell
   , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var tgt = cube[this.cellName];
       var copy = new SC_Instruction(SC_Opcodes.CUBE_CELL_INIT);
       if(tgt instanceof SC_Instruction
         &&((tgt.oc == SC_Opcodes.CELL)||((tgt.oc == SC_Opcodes.RE_CELL)))){
-        return tgt.bindTo(engine, parbranch, seq, masterSeq, copy, cube);
+        return tgt.bindTo(engine, parbranch, seq, masterSeq, copy, cube, cinst);
         }
       copy.cellName = this.cellName;
       copy.cell=null;
@@ -3375,14 +3563,425 @@ SC_CubeCell.prototype = {
       return "activ cell "+this.cellName;
       }
 }
-
+/*********
+ * SC_Kill Class
+ *********/
+function SC_Kill(c, p, end){
+  this.c = c;
+  this.p = p;
+  this.end = end;
+}
+SC_Kill.prototype = {
+  constructor : SC_Kill
+  , isAnSCProgram : true
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
+      var binder = _SC._b(cube);  
+      var copy = new SC_Instruction(SC_Opcodes.KILL_SUSP_INIT);
+      copy.c = binder(this.c)
+                  .bindTo(engine, parbranch, null, masterSeq, copy, cube, cinst);
+      copy.p = this.p.bindTo(engine, parbranch, null, masterSeq, copy, cube, cinst);
+      copy.end = parseInt(this.end);
+      copy.path = path;
+      copy.seq = seq;
+      return copy;
+      }
+  , toString : function(){
+      return "kill "+this.p.toString()
+              +" on "+this.c.toString()
+              +((null != this.h)?"handle "+this.h:"")
+              +" end kill ";
+    }
+  };
+/*********
+ * SC_Control Class
+ *********/
+function SC_Control(c, p){
+  this.c = c;
+  this.p = p;
+  }
+SC_Control.prototype = {
+  constructor:SC_Control
+  , isAnSCProgram : true
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
+      var copy = new SC_Instruction(SC_Opcodes.CONTROL_INIT);
+      copy.c = this.c.bindTo(engine, parbranch, null, masterSeq, copy, cube, cinst);
+      copy.p = this.p.bindTo(engine, parbranch, null, masterSeq, copy, cube, cinst);
+      copy.path = path;
+      return copy;
+      }
+  , toString : function(){
+      return "control "+this.p.toString()
+              +" by "+this.c.toString()
+              +" end control ";
+      }
+  };
+/*********
+ * When Class
+ *********/
+function SC_When(c){
+  this.c = c;
+  this.elsB = 0;
+  }
+SC_When.prototype = {
+  constructor: SC_When
+  , isAnSCProgram : true
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
+      var copy = new SC_Instruction(SC_Opcodes.WHEN);
+      copy.c = this.c.bindTo(engine, parbranch, null, masterSeq, copy, cube, cinst)
+      copy.elsB = parseInt(this.elsB);
+      copy.path = path;
+      copy.seq = seq;
+      return copy;
+      }
+  , toString : function(){
+    return "when "+this.c.toString()+" then ";
+  }
+}
+/*********
+ * SC_Test Class
+ *********/
+function SC_Test(b){
+  this.b = b;
+  }
+SC_Test.prototype = {
+  constructor : SC_Test
+  , isAnSCProgram : true
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
+      var binder = _SC._b(cube);
+      var copy = new SC_Instruction(SC_Opcodes.TEST);
+      copy.b = binder(this.b);
+      copy.test = function(m){
+        if("function" == typeof(this.b)){
+          return this.b(m);
+          }
+        return (((null == this.b.t)?this.b:this.b.t[this.b.f]));
+        }
+      copy._b = this.b;
+      copy.elsB = this.elsB;
+      copy.path = path;
+      copy.seq = seq;
+      return copy;
+      }
+  , toString : function(){
+      return "test "+this.b.toString()
+              +" then "+this.t.toString()
+              +"else "+this.e.toString()
+              +" end test ";
+      }
+};
+/*********
+ * SC_Match Class
+ *********/
+function SC_Match(val, cases){
+  this.v = val;
+  this.cases = cases;
+}
+SC_Match.prototype = {
+  constructor : SC_Match
+  , isAnSCProgram : true
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
+      var copy = new SC_Instruction(SC_Opcodes.MATCH_INIT);
+      copy.v = this.v;
+      copy.cases = new Array(this.cases.length);
+      for(var n in this.cases){
+        copy.cases[n] = this.cases[n]
+                         .bindTo(engine, parbranch, null, masterSeq, copy, cube, cinst);
+      }
+      copy.path = path;
+      return copy;
+      }
+  , toString : function(){
+      var choices = "";
+      for(var v in this.cases){
+          choices += "{ "+v+" : "+this.cases[v]+"}"
+        }
+      return "match "+this.v+" selsect "+choices
+              +" end match ";
+      }
+  };
+/*********
+ * SC_Cube Class
+ *********/
+function SC_Cube(o, p, extension){
+  this.o = o;
+  this.p = p;
+  this.init = NO_FUN;
+  this.lastWill = NO_FUN;
+  if(undefined != extension){
+    if(undefined != extension.init){
+      this.init = extension.init;
+      }
+    if(undefined != extension.lastWill){
+      this.lastWill =extension.lastWill;
+      }
+    if(undefined != extension.swapList){
+      this.swapList = extension.swapList;
+      //this.targetList = extension.targetList;
+      }
+    }
+  this.toAdd = [];
+  }
+SC_Cube.prototype = {
+  constructor : SC_Cube
+  , isAnSCProgram : true
+  , addProgram : function(p){
+      if((undefined == p)||!p.isAnSCProgram){
+        throw new Error("undefined program to add in cube: "+p);
+        }
+      this.toAdd.push(p);
+      }
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
+      var binder = _SC._b(this);
+      if(undefined !== this.o.SC_cubeAddBehaviorEvt){
+        throw "warning javascript object already configured !"
+                    +"Be sure that it is not used bound to another program"
+                    +", especially in a different reactive machine";
+        console.trace();        
+        return null;
+        }
+      SC_cubify.apply(this.o);
+      var copy = new SC_Instruction(SC_Opcodes.CUBE_ZERO);
+      copy.o = this.o;
+      copy.swapList = this.swapList;
+      copy.exposeReader = {};
+      copy.exposedState = {
+        exposeInstant:-1
+        };
+      const cells = copy.swapList;
+      if(cells){
+        for(var i of cells){
+          const idn = i.id;
+          if(i.target){
+            Object.defineProperty(copy.exposeReader
+                       , idn
+                       , {get:(function(name){
+                             return this[name];
+                             }).bind(copy.o, idn)
+                          }
+                          );
+            }
+          else{
+            Object.defineProperty(copy.exposeReader
+                       , idn
+                       , {get:(function(name){
+                             return this[name];
+                             }).bind(copy.exposedState, idn)
+                          }
+                          );
+            }
+          copy.exposedState[i.id] = null;
+          }
+        }
+      var tmp_par_dyn;
+      var tmp_beh = SC.kill(this.o.SC_cubeKillEvt
+           , SC.par(
+               SC.repeatForever(
+                 SC.await(
+                       SC.or(this.o.SC_cubeCellifyEvt
+                         , this.o.SC_cubeAddCellEvt))
+                 , this.o.$SC_cellMaker
+                 )
+               , SC.seq(
+                   tmp_par_dyn = SC.parex(this.o.SC_cubeAddBehaviorEvt
+                     , this.p
+                     )
+                   , SC.generate(this.o.SC_cubeKillEvt)
+                   )
+               )
+           );
+      for(var i = 0 ; i < this.toAdd.length; i++){
+        tmp_par_dyn.add(this.toAdd[i]);
+        }
+      copy.path = path;
+      var swap_text = "(function(state, m){";
+      if(cells){
+        const cl = cells.length;
+        for(var k = 0; k < cl; k++){
+          swap_text += "  this."+cells[k].id
+                      +" = state."+cells[k].id
+                      +";";
+          }
+        }
+      swap_text += "})";
+      copy.swap = (cells)?eval(swap_text).bind(copy.exposedState, copy.o):NO_FUN;
+      //copy.swap = (cells)?function(state, exposed, fields, m){
+      //  const tl = fields.length;
+      //  for(var i = 0; i < tl; i++){
+      //    exposed[fields[i.id]] = state[fields[i.id]];
+      //    }
+      //  exposed.exposeInstant = m.instantNumber;
+      //  }.bind(copy, copy.o, copy.exposedState, copy.swapList): NO_FUN;
+      copy.init = binder(this.init);
+      copy.lastWill = binder(this.lastWill);
+      copy.p = tmp_beh.bindTo(engine, parbranch, null
+                        , masterSeq, copy, copy.o, copy);
+      copy.dynamic = tmp_par_dyn;
+      copy.m = engine;
+      copy.pb = parbranch;
+      return copy;
+      }
+  , toString : function(){
+      return "cube "+this.o.toString()
+              +" with "+this.p.toString()
+              +" end cube ";
+      }
+  , its : function(nom){
+      return this.o["$"+nom];
+      }
+  , addCell : function(nom, init, el, fun){
+      var tgt = this.o;
+      if((undefined !== tgt["$"+nom])
+        ||(undefined !== tgt["_"+nom])
+        ){
+        throw new Error("naming conflict for cell "+nom
+               + "$"+nom+" is "+tgt["$"+nom]
+               + "_"+nom+" is "+tgt["_"+nom]
+               );
+      }
+      if(undefined !== fun){
+        tgt["_"+nom] = fun;
+        }
+      if(undefined === tgt["_"+nom]){
+        throw new Error("no affectator for "+nom+" cell is defined");
+        }
+      tgt["$"+nom] = new SC_Cell({init:init, sideEffect: (tgt["_"+nom]).bind(tgt), eventList: el});
+      Object.defineProperty(tgt, nom,{get : (function(nom){
+        return tgt["$"+nom].val();
+        }).bind(tgt, nom)});
+      }
+  };
+// *** SC_CubeActionForever
+function SC_CubeActionForever(params){
+  this.action = params.fun;
+  this.evtList = (params.evtList)?params.evtList:[];
+  }
+SC_CubeActionForever.prototype = {
+  constructor : SC_CubeActionForever
+  , isAnSCProgram : true
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
+      var binder = _SC._b(cube);
+      var copy = new SC_Instruction(SC_Opcodes.CUBE_ACTION_FOREVER_INIT);
+      copy.action = binder(this.action);
+      copy.evtList = [];
+      for(var i = 0; i < this.evtList.length; i++){
+        copy.evtList.push(binder(this.evtList[i]));
+        }
+      copy._action = this.action;
+      copy._evtList = this.evtList;
+      copy.closure = _SC.bindIt(copy.action);
+      return copy;
+      }
+  , toString : function(){
+      return "call "+((undefined == this.action.f)?" "+this.action+" "
+                   :this.action.t+"."+this.action.f+"()")+" forever";
+      }
+  };
+// *** SC_Action
+function SC_CubeAction(params){
+  if(0 == params.times){
+    return SC_Nothing;
+    }
+  if((undefined === params.times)||(1 == params.times)){
+    return new SC_CubeSimpleAction(params);
+    }
+  if(params.times < 0){
+    return new SC_CubeActionForever(params);
+    }
+  this.count = this.times = params.times;
+  this.action = params.fun;
+  this.evtList = (params.evtList)?params.evtList:[];
+  }
+SC_CubeAction.prototype = {
+  constructor : SC_CubeAction
+  , isAnSCProgram : true
+, bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
+    var binder = _SC._b(cube);
+    var times = binder(this.times);
+    if(0 == times){
+      return SC_Nothing;
+      }
+    if((undefined === times)||(1 == times)){
+      return new SC_CubeSimpleAction(this.action)
+             .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
+      }
+    if(times < 0){
+      return new SC_CubeActionForever(this.action)
+             .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
+      }
+    var copy = new SC_Instruction(SC_Opcodes.CUBE_ACTION_N_TIMES_INIT);
+    copy.action = binder(this.action);
+    copy._action = this.action;
+    copy._times = this.times;
+    if("function" == typeof times){
+      Object.defineProperty(copy, "times",{get : times});
+      }
+    else{
+      copy.times = times;
+      }
+    if(copy.action.f && copy.action.t){
+      copy.closure = copy.action.t[copy.action.f].bind(copy.action.t);
+      }
+    else{
+      copy.closure = copy.action;
+      }
+    copy.evtList = [];
+    for(var i = 0; i < this.evtList.length; i++){
+      copy.evtList.push(binder(this.evtList[i]));
+      }
+    copy._evtList = this.evtList;
+    return copy;
+    }
+  , toString : function(){
+      return "call "+((undefined == this.action.f)?"call("+this.action+") "
+                   :this.action.t+"."+this.action.f+"() ")
+                   +((this.times>1)?(this.count+"/"+this.times+" times "):" ");
+      }
+}
+// *** SC_SimpleAction
+function SC_CubeSimpleAction(params){
+  this.action = params.fun;
+  this.evtList = (params.evtList)?params.evtList:[];
+  }
+SC_CubeSimpleAction.prototype={
+  constructor : SC_CubeSimpleAction
+  , isAnSCProgram : true
+  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
+      var binder = _SC._b(cube);
+      var copy = new SC_Instruction(SC_Opcodes.CUBE_ACTION);
+      copy.action = binder(this.action);
+      copy._action = this.action;
+      if(copy.action.f && copy.action.t){
+        copy.closure = copy.action.t[copy.action.f].bind(copy.action.t);
+        }
+      else{
+        copy.closure = copy.action;
+        }
+      copy.evtList = [];
+      for(var i = 0; i < this.evtList.length; i++){
+        copy.evtList.push(binder(this.evtList[i]));
+        }
+      return copy;
+      }
+  , toString : function(){
+      return "call "+((undefined == this.action.f)?"call("+this.action+") "
+                   :this.action.t+"."+this.action.f+"() ");
+      }
+}
+function SC_ValueWrapper(tgt, n){
+  this.tgt = tgt;
+  this.n = n;
+  }
+SC_ValueWrapper.prototype.getVal = function(){
+  return this.tgt[this.n];
+  }
 /*********
  * SC_Machine Class
  *********/
 function SC_Machine(params){
-  this.prg = new SC_Par([]).bindTo(this, null, null, null, null, null);
+  this.prg = new SC_Par([]).bindTo(this, null, null, null, null, null,null);
   this.instantNumber = 1;
   this.ended = false;
+  this.eventID = 0;
   this.delay = ((undefined != params)
               &&(undefined != params.delay))?params.delay:undefined;
   this.whenGettingThread = (((undefined !== params)
@@ -3393,10 +3992,14 @@ function SC_Machine(params){
   this.permanentActions = [];
   this.permanentGenerate = [];
   this.permanentActionsOn = [];
+  this.permanentActionsOnOnly = [];
+  this.permanentCubeActions = [];
   this.actions = [];
+  this.cubeSwap = [];
   this.actionsOnEvents = [];
   this.cells = [];
-  this.prg.setPurgeable(true);
+  //this.evtWithOccurences = [];  
+  this.generated_values = {};
   this.pending = [];
   this.pendingPrograms = [];
   this.parActions = [];
@@ -3546,31 +4149,33 @@ function SC_Machine(params){
     }
     throw "no system event "+name+" defined for "+target;
   }
-  //--this.perf_stats = [];
-  //--this.currrentStats = null;
-  //--this.measure_data = false;
 }
 SC_Machine.prototype = {
   constructor : SC_Machine
 , collapse : function(){
     this.prg = null;
-    this.whenGettingThread = undefined;
-    this.permanentActions = undefined;
-    this.permanentGenerate = undefined;
-    this.permanentActionsOn = undefined;
-    this.actions = undefined;
-    this.actionsOnEvents = undefined;
-    this.cells = undefined;
-    this.pending = undefined;
-    this.pendingPrograms = undefined;
-    this.parActions = undefined;
+    this.whenGettingThread = null;
+    this.permanentActions = null;
+    this.permanentGenerate = null;
+    this.permanentActionsOn = null;
+    this.permanentActionsOnOnly = null;
+    this.cubeActions = null;
+    this.permanentCubeActions = null;
+    this.lastWills = null
+    this.actions = null;
+    this.actionsOnEvents = null;
+    this.cells = null;
+    this.pending = null;
+    this.pendingPrograms = null;
+    this.parActions = null;
     this.stdOut = NO_FUN;
-    this.traceEvt = undefined;
+    this.traceEvt = null;
+    this.cubeSwap = null;
     if(this.timer != 0){
       clearInterval(this.timer);
       this.timer = 0;
       }
-    this.delay = undefined;
+    this.delay = null;
     }
 , setStdOut : function(stdout){
     this.stdOut = NO_FUN;
@@ -3583,7 +4188,7 @@ SC_Machine.prototype = {
     if((undefined == evt)
      &&((!(evt instanceof SC_Event))
       ||(!(evt instanceof SC_Sensor)))){
-      throw "invelid event "+evt;
+      throw "invalid event "+evt;
       }
     this.pending.push({e:evt, v:val});
     }
@@ -3603,13 +4208,25 @@ SC_Machine.prototype = {
   , addEvtFun : function(f){
       this.actionsOnEvents.push(f);
       }
-  , addPermanentGenerate : function(evt){
-      this.permanentGenerate.push(evt);
+  , addPermanentGenerate : function(inst, genVal){
+      const evt = inst.evt;
+      evt.permanentGenerators.push(inst);
+      evt.permanentValuatedGenerator += genVal;
+      const t = this.permanentGenerate.indexOf(evt);
+      if(0 > t){
+        this.permanentGenerate.push(evt);
+        }
       }
-  , removeFromPermanentGenerate : function(evt){
-      var t = this.permanentGenerate.indexOf(evt);
+  , removeFromPermanentGenerate : function(inst, genVal){
+      const evt = inst.evt;
+      const t = evt.permanentGenerators.indexOf(inst);
       if(t > -1){
-        this.permanentGenerate.splice(t,1);
+        evt.permanentGenerators.splice(t, 1);
+        evt.permanentValuatedGenerator -= genVal;
+        }
+      if(0 == evt.permanentGenerators.length){
+        const te = this.permanentGenerate.indexOf(evt);
+        this.permanentGenerate.splice(te, 1);
         }
       }
   , addPermanentFun : function(fun){
@@ -3621,6 +4238,24 @@ SC_Machine.prototype = {
         this.permanentActions.splice(t,1);
         }
       }
+  , registerForCubeSwap : function(inst){
+      this.cubeSwap.push(inst);
+      }
+  , removeForCubeSwap : function(inst){
+      var t = this.cubeSwap.indexOf(inst);
+      if(t > -1){
+        this.cubeSwap.splice(t,1);
+        }
+      }
+  , addPermanentActionOnOnly : function(inst){
+      this.permanentActionsOnOnly.push(inst);
+      }
+  , removeFromPermanentActionsOnOnly : function(inst){
+      var t = this.permanentActionsOnOnly.indexOf(inst);
+      if(t > -1){
+        this.permanentActionsOnOnly.splice(t,1);
+        }
+      }
   , addPermanentActionOn : function(inst){
       this.permanentActionsOn.push(inst);
       }
@@ -3628,6 +4263,18 @@ SC_Machine.prototype = {
       var t = this.permanentActionsOn.indexOf(inst);
       if(t > -1){
         this.permanentActionsOn.splice(t,1);
+        }
+      }
+  , addCubeFun : function(inst){
+      this.cubeActions.push(inst);
+      }
+  , addPermanentCubeFun : function(inst){
+      this.permanentCubeActions.push(inst);
+      }
+  , removeFromPermanentCube : function(inst){
+      var t = this.permanentCubeActions.indexOf(inst);
+      if(t > -1){
+        this.permanentCubeActions.splice(t,1);
         }
       }
   , addFun : function(fun){
@@ -3671,62 +4318,40 @@ SC_Machine.prototype = {
         }
       }
   , react : function(){
-     //--this.currrentStats = {
-     //--   startTime:performance.now()
-     //--   };
       if(this.ended){ return !this.ended; }
+      //this.evtWithOccurences = [];
+      this.generated_values = {};
       var res = SC_Instruction_State.STOP;
       var tmp = this.pending;
-      //--this.currrentStats.entries = {
-      //--    start : performance.now()
-      //--    , sensors: 0
-      //--    , std: 0
-      //--    };
       this.pending=[];
       for(var n in tmp){
         if(tmp[n].e instanceof SC_Sensor){
           tmp[n].e.systemGen(tmp[n].v, this, true);
-          //--this.currrentStats.entries.sensors.nb++;
           }
         else{
-          tmp[n].e.generate(this, true);
-          tmp[n].e.generateValues(this, tmp[n].v);
-          //--this.currrentStats.entries.std.nb++;
+          tmp[n].e.generateInput(this, tmp[n].v);
           }
         }
       for(var n in this.permanentGenerate){
-        this.permanentGenerate[n].generate(this, true);
-        //--this.currrentStats.entries.std.nb++;
+        const evt = this.permanentGenerate[n];
+        evt.generate(this, evt.permanentValuatedGenerator > 0);
         }
-      //--this.currrentStats.entries.stop=performance.now();
       tmp = this.pendingPrograms;
-      //--this.currrentStats.newPrgs = {
-      //--    start : performance.now()
-      //--    , nb: 0
-      //--    };
       this.pendingPrograms = [];
       for(var i in tmp){
         this.prg.addBranch(tmp[i], null, this);
-        //--this.currrentStats.newPrgs.nb++;
         }
-      //--this.currrentStats.newPrgs.stop=performance.now();
       this.actions = [];
+      this.cubeActions = [];
       this.actionsOnEvents = [];
       this.cells = [];
+      this.lastWills = [];
       this.parActions = [];
       this.stdOut("\n"+this.instantNumber+" -: ");
-      //--this.currrentStats.topLevel = this.getTopLevelParallelBranchesNumber();
       // Phase 1 : pure reactive execution
       //console.log(this.instantNumber, "--- phase1 ---");
-      //--this.currrentStats.activate = {
-      //--    start : performance.now()
-      //--    , nb : 1
-      //--    , steps:[]
-      //--    };
       while(SC_Instruction_State.SUSP == (res = this.activate())){
-        //--this.currrentStats.activate.nb++;
         }
-      //--this.currrentStats.activate.stop=performance.now();
       //console.log("res = ",res);
       //this.moved = false;
       if((SC_Instruction_State.OEOI == res)||(SC_Instruction_State.WEOI == res)){
@@ -3736,77 +4361,68 @@ SC_Machine.prototype = {
         }
       // Phase 2 : collecting event values
       //if(this.prg.hasProduction){
-      //--this.currrentStats.genVals = {
-      //--  start : performance.now()
-      //--  , nb : 0
-      //--  };
       this.prg.generateValues(this);
-      //--this.currrentStats.genVals.stop=performance.now();
+      //const evtvel = this.evtWithOccurences.length;
+      //for(var ei = 0; ei < evtvel; ei++){
+      //  this.evtWithOccurences[ei].getAllValues(this, this.generated_values);
+      //  }
+      //Object.freeze(this.generated_values);
       //}
       // Phase 3 : atomic computations
-      //--this.currrentStats.actions = {
-      //--    start : performance.now()
-      //--    };
-      //--this.currrentStats.actions.cells = {
-      //--    start : performance.now()
-      //--    , nb : 0
-      //--    };
       for(var cell in this.cells){
         this.cells[cell].prepare(this);
-        //--this.currrentStats.actions.cells.nb++;
         }
-      //--this.currrentStats.actions.cells.stop=performance.now();
-      //--this.currrentStats.actions.acton = {
-      //--    start : performance.now()
-      //--    , nb : 0
-      //--    };
       for(var i = 0; i < this.actionsOnEvents.length; i++){
         var act = this.actionsOnEvents[i];
-        //--this.currrentStats.actions.acton.nb++;
         var a = act.action;
-        var vals = {};
-        act.config.getAllValues(this, vals);
+        //var vals = {};
+        //act.config.getAllValues(this, vals);
         if(null != a.f){
           var t = a.t;
           if(null == t) continue;
-          t[a.f].call(t,vals, this);
+          t[a.f].call(t, this.generated_values, this);
           }
         else{
-          //--try{
-          a(vals, this);
-          //--  }
-          //--catch(m){
-          //--  console.log(m, a);
-          //--  }
+          a(this.generated_values, this);
           }
         }
-      //--this.currrentStats.actions.acton.stop=performance.now();
-      //--this.currrentStats.actions.pacton = {
-      //--    start : performance.now()
-      //--    , nb : 0
-      //--    };
-      for(var i = 0; i < this.permanentActionsOn.length; i++){
-        var inst = this.permanentActionsOn[i];
+      for(var i = 0; i < this.permanentActionsOnOnly.length; i++){
+        const inst = this.permanentActionsOnOnly[i];
         const pres = inst.evtFun.config.isPresent(this);
         if(pres){
-          var a = inst.evtFun.action;
-          var vals = {};
-          //--this.currrentStats.actions.pacton.nb++;
-          inst.evtFun.config.getAllValues(this, vals);
+          const a = inst.evtFun.action;
+          //const vals = {};
+          //inst.evtFun.config.getAllValues(this, vals);
           if(null != a.f){
             var t = a.t;
             if(null == t) continue;
-            t[a.f].call(t,vals, this);
+            t[a.f].call(t, this.generated_values, this);
             }
           else{
-            a(vals, this);
+            a(this.generated_values, this);
+            }
+          }
+        }
+      for(var i = 0; i < this.permanentActionsOn.length; i++){
+        const inst = this.permanentActionsOn[i];
+        const pres = inst.evtFun.config.isPresent(this);
+        if(pres){
+          const a = inst.evtFun.action;
+          //const vals = {};
+          //inst.evtFun.config.getAllValues(this, vals);
+          if(null != a.f){
+            const t = a.t;
+            if(null == t) continue;
+            t[a.f].call(t, this.generated_values, this);
+            }
+          else{
+            a(this.generated_values, this);
             }
           }
         else if(SC_Opcodes.ACTION_ON_EVENT_FOREVER_HALTED == inst.oc){
-          var act = inst.defaultAct;
-          //--this.currrentStats.actions.pacton.nb++;
+          const act = inst.defaultAct;
           if(null != act.f){
-            var t = act.t;
+            const t = act.t;
             if(null == t) continue;
             t[act.f].call(t,this);
             }
@@ -3815,14 +4431,28 @@ SC_Machine.prototype = {
             }
           }
         }
-      //--this.currrentStats.actions.pacton.stop=performance.now();
-      //--this.currrentStats.actions.act = {
-      //--    start : performance.now()
-      //--    , nb : 0
-      //--    };
+      const cal = this.cubeActions.length;
+      for(var i = 0; i < cal; i++){
+        const inst = this.cubeActions[i];
+        //const vals = {};
+        //const ell = inst.evtList.length;
+        //for(var ei = 0; ei < ell; ei++){
+        //  inst.evtList[ei].getAllValues(this, vals);
+        //  }
+        inst.closure(this.generated_values, this);
+        }
+      const pcal = this.permanentCubeActions.length;
+      for(var i = 0; i < pcal; i++){
+        const inst = this.permanentCubeActions[i];
+        //const vals = {};
+        //const ell = inst.evtList.length;
+        //for(var ei = 0; ei < ell; ei++){
+        //  inst.evtList[ei].getAllValues(this, vals);
+        //  }
+        inst.closure(this.generated_values, this);
+        }
       for(var i = 0; i < this.actions.length; i++){
         var act = this.actions[i];
-        //--this.currrentStats.actions.act.nb++;
         if(null != act.f){
           var t = act.t;
           if(null == t) continue;
@@ -3834,7 +4464,6 @@ SC_Machine.prototype = {
         }
       for(var i = 0; i < this.permanentActions.length; i++){
         var act = this.permanentActions[i];
-        //--this.currrentStats.actions.act.nb++;
         if(null != act.f){
           var t = act.t;
           if(null == t) continue;
@@ -3844,37 +4473,23 @@ SC_Machine.prototype = {
           act(this);
           }
         }
-      //--this.currrentStats.actions.act.stop=performance.now();
-      //--this.currrentStats.actions.stop=performance.now();
       // Phase 4 : swap states
-      //--this.currrentStats.ph4 = {
-      //--    start : performance.now()
-      //--    };
-      //--this.currrentStats.ph4.cellSwap = {
-      //--    start : performance.now()
-      //--    , nb : 0
-      //--    };
       for(var cell in this.cells){
         this.cells[cell].swap();
-        //--this.currrentStats.ph4.cellSwap.nb++;
         //var zeCell = this.cells[cell];
         //zeCell.state = zeCell.futur;
         }
-      //--this.currrentStats.ph4.cellSwap.stop=performance.now();
-      //--this.currrentStats.ph4.computeAndAdd = {
-      //--    start : performance.now()
-      //--    , nb : 0
-      //--    };
+      //for(var csw of this.cubeSwap){
+      //  
+      //  csw.swap();
+      //  }
       for(var i = 0; i < this.parActions.length; i++){
         this.parActions[i].computeAndAdd(this);
-        //--this.currrentStats.ph4.computeAndAdd.nb++;
         }
-      //--this.currrentStats.ph4.computeAndAdd.stop=performance.now();
-      //--this.currrentStats.ph4.stop=performance.now();
       // Phase 5
-      //--this.currrentStats.traceEvent = {
-      //--    start : performance.now()
-      //--    };
+      for(var will of this.lastWills){
+        will(this);
+        }
       if(this.traceEvt.isPresent(this)){
         if(undefined != this.dumpTraceFun){
           this.dumpTraceFun(this.traceEvt.getValues(this));
@@ -3883,7 +4498,6 @@ SC_Machine.prototype = {
           console.log.call(console, this.traceEvt.getValues(this));
           }
         }
-      //--this.currrentStats.traceEvent.stop=performance.now();
       this.instantNumber++;
       if(this.delay > 0 && res == SC_Instruction_State.TERM && (null != this.timer)){
         clearInterval(this.timer)
@@ -3912,10 +4526,6 @@ SC_Machine.prototype = {
       /*if(SC_Instruction_State.TERM == res){
         this.stdOut("machine stops");
         }*/
-      //--if(this.measure_data){
-      //--  this.currrentStats.stopTime = 0.0+performance.now();
-      //--  this.perf_stats.push(this.currrentStats);
-      //--  }
       //this.stdOut(SC_Instruction_State.toString(res));
       this.ended = (res == SC_Instruction_State.TERM);
       if(this.ended){
@@ -3923,9 +4533,6 @@ SC_Machine.prototype = {
         }
       return !this.ended;
       }
-  //--, setPerfDataTo: function(f){
-  //--    this.measure_data = f;
-  //--    }
   , getIPS : function(){
       return this.ips;
       }
@@ -3939,25 +4546,9 @@ SC_Machine.prototype = {
       var control_body = false;
       var caller = act_exit;
       //var oldInstOC = null;
-      //--var activations = 0;
-      //--inst.activ_par = 0;
-      //--var suspendend_chain_permutations = 0;
-      //--var getActivPath = null;
-      //--var tracePath = [];
       while(true){
-        //--activations++;
-        //--if(null != getActivPath){
-        //--  getActivPath.push(SC_Opcodes.toString(inst.oc));
-        //--  }
-        //--oldInstOC = inst.oc
 ACT:    switch(inst.oc){
           case SC_Opcodes._EXIT:{
-            //--this.currrentStats.activate.steps.push({
-            //--        act: activations
-            //--      , par_act: this.prg.activ_par
-            //--      , s_c_p: suspendend_chain_permutations
-            //--      , activ_path : tracePath
-            //--      });
             return st;
             }
           case SC_Opcodes.REL_JUMP:{
@@ -4043,6 +4634,125 @@ ACT:    switch(inst.oc){
               break;
               }
             inst.oc = SC_Opcodes.IF_REPEAT;
+            st = SC_Instruction_State.STOP;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.CUBE_ACTION_INLINE:{
+            this.addCubeFun(inst);
+            inst = seq.seqElements[++seq.idx];
+            break;
+            }
+          case SC_Opcodes.CUBE_ACTION:{
+            this.addCubeFun(inst);
+            st = SC_Instruction_State.TERM;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.CUBE_ACTION_N_TIMES_INLINE_BUT_FOREVER_INIT:{
+            if(control_body){
+              inst.oc = SC_Opcodes.CUBE_ACTION_N_TIMES_INLINE_BUT_FOREVER_CONTROLED;
+              break;
+              }
+            }
+          case SC_Opcodes.CUBE_ACTION_N_TIMES_INLINE_BUT_FOREVER:{
+            this.addPermanentCubeFun(inst);
+            st = SC_Instruction_State.HALT;
+            inst.oc = SC_Opcodes.CUBE_ACTION_N_TIMES_INLINE_BUT_FOREVER_HALTED;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.CUBE_ACTION_N_TIMES_INLINE_BUT_FOREVER_CONTROLED:{
+            this.addPermanentCubeFun(inst);
+            st = SC_Instruction_State.STOP;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.CUBE_ACTION_N_TIMES_INIT_INLINE:{
+            inst.count = inst.times;
+            if(inst.count == 0){
+              inst = seq.seqElements[++seq.idx];
+              break;
+              }
+            if(inst.count < 0){
+              inst.oc = SC_Opcodes.CUBE_ACTION_N_TIMES_INLINE_BUT_FOREVER_INIT;
+              break;
+              }
+            inst.oc = SC_Opcodes.CUBE_ACTION_N_TIMES_INLINE;
+            }
+          case SC_Opcodes.CUBE_ACTION_N_TIMES_INLINE:{
+            this.addCubeFun(inst);
+            inst.count--;
+            if(0 == inst.count){
+              inst.oc = SC_Opcodes.CUBE_ACTION_N_TIMES_INIT_INLINE;
+              inst = seq.seqElements[++seq.idx];
+              }
+            else{
+              st = SC_Instruction_State.STOP;
+              inst = caller;
+              }
+            break;
+            }
+          case SC_Opcodes.CUBE_ACTION_N_TIMES_BUT_FOREVER_INIT:{
+            if(control_body){
+              inst.oc = SC_Opcodes.CUBE_ACTION_N_TIMES_BUT_FOREVER_CONTROLED;
+              break;
+              }
+            }
+          case SC_Opcodes.CUBE_ACTION_N_TIMES_BUT_FOREVER:{
+            this.addPermanentCubeFun(inst);
+            st = SC_Instruction_State.HALT;
+            inst.oc = SC_Opcodes.CUBE_ACTION_N_TIMES_BUT_FOREVER_HALTED;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.CUBE_ACTION_N_TIMES_BUT_FOREVER_CONTROLED:{
+            this.addCubeFun(inst);
+            st = SC_Instruction_State.STOP;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.CUBE_ACTION_N_TIMES_INIT:{
+            inst.count = inst.times;
+            if(inst.count == 0){
+              st = SC_Instruction_State.TERM;
+              inst = caller;
+              break;
+              }
+            if(inst.count < 0){
+              inst.oc = SC_Opcodes.CUBE_ACTION_N_TIMES_BUT_FOREVER_INIT;
+              break;
+              }
+            inst.oc = SC_Opcodes.CUBE_ACTION_N_TIMES;
+            }
+          case SC_Opcodes.CUBE_ACTION_N_TIMES:{
+            this.addCubeFun(inst);
+            inst.count--;
+            if(0 == inst.count){
+              inst.oc = SC_Opcodes.CUBE_ACTION_N_TIMES_INIT;
+              st = SC_Instruction_State.TERM;
+              }
+            else{
+              st = SC_Instruction_State.STOP;
+              }
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.CUBE_ACTION_FOREVER_INIT:{
+            if(control_body){
+              inst.oc = SC_Opcodes.CUBE_ACTION_FOREVER_CONTROLED;
+              break;
+              }
+            }
+          case SC_Opcodes.CUBE_ACTION_FOREVER:{
+            this.addPermanentCubeFun(inst);
+            st = SC_Instruction_State.HALT;
+            inst.oc = SC_Opcodes.CUBE_ACTION_FOREVER_HALTED;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.CUBE_ACTION_FOREVER_CONTROLED:{
+            this.addCubeFun(inst);
             st = SC_Instruction_State.STOP;
             inst = caller;
             break;
@@ -4272,15 +4982,21 @@ ACT:    switch(inst.oc){
             inst = caller;
             break;
             }
+          case SC_Opcodes.GENERATE_ONE_EXPOSE_INLINE:
+          case SC_Opcodes.GENERATE_ONE_CELL_INLINE:
+          case SC_Opcodes.GENERATE_ONE_FUN_INLINE:
           case SC_Opcodes.GENERATE_ONE_INLINE:{
             inst.itsParent.registerForProduction(inst);
-            inst.evt.generate(this);
+            inst.evt.generate(this, true);
             inst = seq.seqElements[++seq.idx];
             break;
             }
+          case SC_Opcodes.GENERATE_ONE_EXPOSE:
+          case SC_Opcodes.GENERATE_ONE_CELL:
+          case SC_Opcodes.GENERATE_ONE_FUN:
           case SC_Opcodes.GENERATE_ONE:{
             inst.itsParent.registerForProduction(inst);
-            inst.evt.generate(this);
+            inst.evt.generate(this, true);
             st = SC_Instruction_State.TERM;
             inst = caller;
             break;
@@ -4293,7 +5009,7 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.GENERATE_FOREVER_NO_VAL:{
             inst.evt.generate(this);
-            this.addPermanentGenerate(inst.evt);
+            this.addPermanentGenerate(inst, 0);
             inst.oc = SC_Opcodes.GENERATE_FOREVER_NO_VAL_HALTED;
             st = SC_Instruction_State.HALT;
             inst = caller;
@@ -4313,8 +5029,8 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.GENERATE_FOREVER:{
             inst.itsParent.registerForProduction(inst,true);
-            inst.evt.generate(this);
-            this.addPermanentGenerate(inst.evt);
+            inst.evt.generate(this, true);
+            this.addPermanentGenerate(inst, 1);
             inst.oc = SC_Opcodes.GENERATE_FOREVER_HALTED;
             st = SC_Instruction_State.HALT;
             inst = caller;
@@ -4322,18 +5038,255 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.GENERATE_FOREVER_CONTROLED:{
             inst.itsParent.registerForProduction(inst);
-            inst.evt.generate(this);
+            inst.evt.generate(this, true);
+            st = SC_Instruction_State.STOP;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_FOREVER_EXPOSE_INIT:{
+            if(control_body){
+              inst.oc = SC_Opcodes.GENERATE_FOREVER_EXPOSE_CONTROLED;
+              break;
+              }
+            }
+          case SC_Opcodes.GENERATE_FOREVER_EXPOSE:{
+            inst.itsParent.registerForProduction(inst,true);
+            inst.evt.generate(this, true);
+            this.addPermanentGenerate(inst, 1);
+            inst.oc = SC_Opcodes.GENERATE_FOREVER_EXPOSE_HALTED;
+            st = SC_Instruction_State.HALT;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_FOREVER_EXPOSE_CONTROLED:{
+            inst.itsParent.registerForProduction(inst);
+            inst.evt.generate(this, true);
+            st = SC_Instruction_State.STOP;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_FOREVER_FUN_INIT:{
+            if(control_body){
+              inst.oc = SC_Opcodes.GENERATE_FOREVER_FUN_CONTROLED;
+              break;
+              }
+            }
+          case SC_Opcodes.GENERATE_FOREVER_FUN:{
+            inst.itsParent.registerForProduction(inst,true);
+            inst.evt.generate(this, true);
+            this.addPermanentGenerate(inst, 1);
+            inst.oc = SC_Opcodes.GENERATE_FOREVER_FUN_HALTED;
+            st = SC_Instruction_State.HALT;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_FOREVER_FUN_CONTROLED:{
+            inst.itsParent.registerForProduction(inst);
+            inst.evt.generate(this, true);
+            st = SC_Instruction_State.STOP;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_FOREVER_CELL_INIT:{
+            if(control_body){
+              inst.oc = SC_Opcodes.GENERATE_FOREVER_CELL_CONTROLED;
+              break;
+              }
+            }
+          case SC_Opcodes.GENERATE_FOREVER_CELL:{
+            inst.itsParent.registerForProduction(inst, true);
+            inst.evt.generate(this, true);
+            this.addPermanentGenerate(inst, 1);
+            inst.oc = SC_Opcodes.GENERATE_FOREVER_CELL_HALTED;
+            st = SC_Instruction_State.HALT;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_FOREVER_CELL_CONTROLED:{
+            inst.itsParent.registerForProduction(inst);
+            inst.evt.generate(this, true);
+            st = SC_Instruction_State.STOP;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER_INIT:{
+            if(control_body){
+              inst.oc = SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER_CONTROLED;
+              break;
+              }
+            }
+          case SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER:{
+            inst.itsParent.registerForProduction(inst, true);
+            inst.evt.generate(this, true);
+            this.addPermanentGenerate(inst, 1);
+            inst.oc = SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER_HALTED;
+            st = SC_Instruction_State.HALT;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER_CONTROLED:{
+            inst.itsParent.registerForProduction(inst);
+            inst.evt.generate(this, true);
+            st = SC_Instruction_State.STOP;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_EXPOSE_INIT_INLINE:{
+            inst.count = inst.times;
+            if(0 == inst.count){
+              inst = seq.seqElements[++seq.idx];
+              break;
+              }
+            if(inst.count < 0){
+              inst.oc = SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER_INIT;
+              break;
+              }
+            inst.oc = SC_Opcodes.GENERATE_EXPOSE_INLINE;
+            }
+          case SC_Opcodes.GENERATE_EXPOSE_INLINE:{
+            inst.itsParent.registerForProduction(inst);
+            inst.evt.generate(this, true);
+            inst.count--;
+            if(0 == inst.count){
+              inst.oc = SC_Opcodes.GENERATE_EXPOSE_INIT_INLINE;
+              inst = seq.seqElements[++seq.idx];
+              break;
+              }
+            st = SC_Instruction_State.STOP;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_FUN_INLINE_BUT_FOREVER_INIT:{
+            if(control_body){
+              inst.oc = SC_Opcodes.GENERATE_FUN_INLINE_BUT_FOREVER_CONTROLED;
+              break;
+              }
+            }
+          case SC_Opcodes.GENERATE_FUN_INLINE_BUT_FOREVER:{
+            inst.itsParent.registerForProduction(inst, true);
+            inst.evt.generate(this, true);
+            this.addPermanentGenerate(inst, 1);
+            inst.oc = SC_Opcodes.GENERATE_FUN_INLINE_BUT_FOREVER_HALTED;
+            st = SC_Instruction_State.HALT;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_FUN_INLINE_BUT_FOREVER_CONTROLED:{
+            inst.itsParent.registerForProduction(inst);
+            inst.evt.generate(this, true);
+            st = SC_Instruction_State.STOP;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_FUN_INIT_INLINE:{
+            inst.count = inst.times;
+            if(0 == inst.count){
+              inst = seq.seqElements[++seq.idx];
+              break;
+              }
+            if(inst.count < 0){
+              inst.oc = SC_Opcodes.GENERATE_FUN_INLINE_BUT_FOREVER_INIT;
+              break;
+              }
+            inst.oc = SC_Opcodes.GENERATE_FUN_INLINE;
+            }
+          case SC_Opcodes.GENERATE_FUN_INLINE:{
+            inst.itsParent.registerForProduction(inst);
+            inst.evt.generate(this, true);
+            inst.count--;
+            if(0 == inst.count){
+              inst.oc = SC_Opcodes.GENERATE_FUN_INIT_INLINE;
+              inst = seq.seqElements[++seq.idx];
+              break;
+              }
+            st = SC_Instruction_State.STOP;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_CELL_INLINE_BUT_FOREVER_INIT:{
+            if(control_body){
+              inst.oc = SC_Opcodes.GENERATE_CELL_INLINE_BUT_FOREVER_CONTROLED;
+              break;
+              }
+            }
+          case SC_Opcodes.GENERATE_CELL_INLINE_BUT_FOREVER:{
+            inst.itsParent.registerForProduction(inst, true);
+            inst.evt.generate(this, true);
+            this.addPermanentGenerate(inst, 1);
+            inst.oc = SC_Opcodes.GENERATE_CELL_INLINE_BUT_FOREVER_HALTED;
+            st = SC_Instruction_State.HALT;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_CELL_INLINE_BUT_FOREVER_CONTROLED:{
+            inst.itsParent.registerForProduction(inst);
+            inst.evt.generate(this, true);
+            st = SC_Instruction_State.STOP;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_CELL_INIT_INLINE:{
+            inst.count = inst.times;
+            if(0 == inst.count){
+              inst = seq.seqElements[++seq.idx];
+              break;
+              }
+            if(inst.count < 0){
+              inst.oc = SC_Opcodes.GENERATE_CELL_INLINE_BUT_FOREVER_INIT;
+              break;
+              }
+            inst.oc = SC_Opcodes.GENERATE_CELL_INLINE;
+            }
+          case SC_Opcodes.GENERATE_CELL_INLINE:{
+            inst.itsParent.registerForProduction(inst);
+            inst.evt.generate(this, true);
+            inst.count--;
+            if(0 == inst.count){
+              inst.oc = SC_Opcodes.GENERATE_CELL_INIT_INLINE;
+              inst = seq.seqElements[++seq.idx];
+              break;
+              }
+            st = SC_Instruction_State.STOP;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_INLINE_BUT_FOREVER_INIT:{
+            if(control_body){
+              inst.oc = SC_Opcodes.GENERATE_INLINE_BUT_FOREVER_CONTROLED;
+              break;
+              }
+            }
+          case SC_Opcodes.GENERATE_INLINE_BUT_FOREVER:{
+            inst.itsParent.registerForProduction(inst, true);
+            inst.evt.generate(this, true);
+            this.addPermanentGenerate(inst, 1);
+            inst.oc = SC_Opcodes.GENERATE_INLINE_BUT_FOREVER_HALTED;
+            st = SC_Instruction_State.HALT;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_INLINE_BUT_FOREVER_CONTROLED:{
+            inst.itsParent.registerForProduction(inst);
+            inst.evt.generate(this, true);
             st = SC_Instruction_State.STOP;
             inst = caller;
             break;
             }
           case SC_Opcodes.GENERATE_INIT_INLINE:{
             inst.count = inst.times;
+            if(0 == inst.count){
+              inst = seq.seqElements[++seq.idx];
+              break;
+              }
+            if(inst.count < 0){
+              inst.oc = SC_Opcodes.GENERATE_INLINE_BUT_FOREVER_INIT;
+              break;
+              }
             inst.oc = SC_Opcodes.GENERATE_INLINE;
             }
           case SC_Opcodes.GENERATE_INLINE:{
             inst.itsParent.registerForProduction(inst);
-            inst.evt.generate(this);
+            inst.evt.generate(this, true);
             inst.count--;
             if(0 == inst.count){
               inst.oc = SC_Opcodes.GENERATE_INIT_INLINE;
@@ -4344,16 +5297,189 @@ ACT:    switch(inst.oc){
             inst = caller;
             break;
             }
+          case SC_Opcodes.GENERATE_EXPOSE_BUT_FOREVER_INIT:{
+            if(control_body){
+              inst.oc = SC_Opcodes.GENERATE_EXPOSE_BUT_FOREVER_CONTROLED;
+              break;
+              }
+            }
+          case SC_Opcodes.GENERATE_EXPOSE_BUT_FOREVER:{
+            inst.itsParent.registerForProduction(inst, true);
+            inst.evt.generate(this, true);
+            this.addPermanentGenerate(inst, 1);
+            inst.oc = SC_Opcodes.GENERATE_EXPOSE_BUT_FOREVER_HALTED;
+            st = SC_Instruction_State.HALT;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_EXPOSE_BUT_FOREVER_CONTROLED:{
+            inst.itsParent.registerForProduction(inst);
+            inst.evt.generate(this, true);
+            st = SC_Instruction_State.STOP;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_EXPOSE_INIT:{
+            inst.count = inst.times;
+            if(0 == inst.count){
+              inst = seq.seqElements[++seq.idx];
+              break;
+              }
+            if(inst.count < 0){
+              inst.oc = SC_Opcodes.GENERATE_EXPOSE_BUT_FOREVER_INIT;
+              break;
+              }
+            inst.oc = SC_Opcodes.GENERATE_EXPOSE;
+            }
+          case SC_Opcodes.GENERATE_EXPOSE:{
+            inst.itsParent.registerForProduction(inst);
+            inst.evt.generate(this, true);
+            inst.count--;
+            if(0 == inst.count){
+              inst.oc = SC_Opcodes.GENERATE_EXPOSE_INIT;
+              st = SC_Instruction_State.TERM;
+              inst = caller;
+              break;
+              }
+            st = SC_Instruction_State.STOP;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_FUN_BUT_FOREVER_INIT:{
+            if(control_body){
+              inst.oc = SC_Opcodes.GENERATE_FUN_BUT_FOREVER_CONTROLED;
+              break;
+              }
+            }
+          case SC_Opcodes.GENERATE_FUN_BUT_FOREVER:{
+            inst.itsParent.registerForProduction(inst, true);
+            inst.evt.generate(this, true);
+            this.addPermanentGenerate(inst, 1);
+            inst.oc = SC_Opcodes.GENERATE_FUN_BUT_FOREVER_HALTED;
+            st = SC_Instruction_State.HALT;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_FUN_BUT_FOREVER_CONTROLED:{
+            inst.itsParent.registerForProduction(inst);
+            inst.evt.generate(this, true);
+            st = SC_Instruction_State.STOP;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_FUN_INIT:{
+            inst.count = inst.times;
+            if(0 == inst.count){
+              inst = seq.seqElements[++seq.idx];
+              break;
+              }
+            if(inst.count < 0){
+              inst.oc = SC_Opcodes.GENERATE_FUN_BUT_FOREVER_INIT;
+              break;
+              }
+            inst.oc = SC_Opcodes.GENERATE_FUN;
+            }
+          case SC_Opcodes.GENERATE_FUN:{
+            inst.itsParent.registerForProduction(inst);
+            inst.evt.generate(this, true);
+            inst.count--;
+            if(0 == inst.count){
+              inst.oc = SC_Opcodes.GENERATE_FUN_INIT;
+              st = SC_Instruction_State.TERM;
+              inst = caller;
+              break;
+              }
+            st = SC_Instruction_State.STOP;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_CELL_BUT_FOREVER_INIT:{
+            if(control_body){
+              inst.oc = SC_Opcodes.GENERATE_CELL_BUT_FOREVER_CONTROLED;
+              break;
+              }
+            }
+          case SC_Opcodes.GENERATE_CELL_BUT_FOREVER:{
+            inst.itsParent.registerForProduction(inst, true);
+            inst.evt.generate(this, true);
+            this.addPermanentGenerate(inst, 1);
+            inst.oc = SC_Opcodes.GENERATE_CELL_BUT_FOREVER_HALTED;
+            st = SC_Instruction_State.HALT;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_CELL_BUT_FOREVER_CONTROLED:{
+            inst.itsParent.registerForProduction(inst);
+            inst.evt.generate(this, true);
+            st = SC_Instruction_State.STOP;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_CELL_INIT:{
+            inst.count = inst.times;
+            if(0 == inst.count){
+              inst = seq.seqElements[++seq.idx];
+              break;
+              }
+            if(inst.count < 0){
+              inst.oc = SC_Opcodes.GENERATE_CELL_BUT_FOREVER_INIT;
+              break;
+              }
+            inst.oc = SC_Opcodes.GENERATE_CELL;
+            }
+          case SC_Opcodes.GENERATE_CELL:{
+            inst.itsParent.registerForProduction(inst);
+            inst.evt.generate(this, true);
+            inst.count--;
+            if(0 == inst.count){
+              inst.oc = SC_Opcodes.GENERATE_CELL_INIT;
+              st = SC_Instruction_State.TERM;
+              inst = caller;
+              break;
+              }
+            st = SC_Instruction_State.STOP;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_BUT_FOREVER_INIT:{
+            if(control_body){
+              inst.oc = SC_Opcodes.GENERATE_BUT_FOREVER_CONTROLED;
+              break;
+              }
+            }
+          case SC_Opcodes.GENERATE_BUT_FOREVER:{
+            inst.itsParent.registerForProduction(inst, true);
+            inst.evt.generate(this, true);
+            this.addPermanentGenerate(inst, 1);
+            inst.oc = SC_Opcodes.GENERATE_BUT_FOREVER_HALTED;
+            st = SC_Instruction_State.HALT;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_BUT_FOREVER_CONTROLED:{
+            inst.itsParent.registerForProduction(inst);
+            inst.evt.generate(this, true);
+            st = SC_Instruction_State.STOP;
+            inst = caller;
+            break;
+            }
           case SC_Opcodes.GENERATE_INIT:{
             inst.count = inst.times;
+            if(0 == inst.count){
+              inst = seq.seqElements[++seq.idx];
+              break;
+              }
+            if(inst.count < 0){
+              inst.oc = SC_Opcodes.GENERATE_BUT_FOREVER_INIT;
+              break;
+              }
             inst.oc = SC_Opcodes.GENERATE;
             }
           case SC_Opcodes.GENERATE:{
             inst.itsParent.registerForProduction(inst);
-            inst.evt.generate(this);
+            inst.evt.generate(this, true);
             inst.count--;
             if(0 == inst.count){
-              //this.reset(inst);
               inst.oc = SC_Opcodes.GENERATE_INIT;
               st = SC_Instruction_State.TERM;
               inst = caller;
@@ -4365,6 +5491,10 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.GENERATE_NO_VAL_INIT_INLINE:{
             inst.count = inst.times;
+            if(0 == inst.count){
+              inst = seq.seqElements[++seq.idx];
+              break;
+              }
             inst.oc = SC_Opcodes.GENERATE_NO_VAL_INLINE;
             }
           case SC_Opcodes.GENERATE_NO_VAL_INLINE:{
@@ -4382,6 +5512,10 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.GENERATE_NO_VAL_INIT:{
             inst.count = inst.times;
+            if(0 == inst.count){
+              inst = seq.seqElements[++seq.idx];
+              break;
+              }
             inst.oc = SC_Opcodes.GENERATE_NO_VAL;
             }
           case SC_Opcodes.GENERATE_NO_VAL:{
@@ -4639,7 +5773,7 @@ ACT:    switch(inst.oc){
           case SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT:{
             if(!control_body){
               inst.oc = SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT_HALTED;
-              this.addPermanentActionOn(inst);
+              this.addPermanentActionOnOnly(inst);
               st = SC_Instruction_State.HALT;
               inst = caller;
               break;
@@ -4920,7 +6054,7 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.GENERATE_FOREVER_LATE_VAL:{
             inst.itsParent.registerForProduction(inst);
-            inst.evt.generate(this);
+            inst.evt.generate(this, true);
             st = SC_Instruction_State.STOP;
             inst = caller;
             break;
@@ -4934,7 +6068,7 @@ ACT:    switch(inst.oc){
               inst.val = inst.filterFun(inst.sensor.getValues(this), this);
               if(undefined !== inst.val){
                 inst.itsParent.registerForProduction(inst);
-                inst.evt.generate(this);
+                inst.evt.generate(this, true);
                 }
               }
             st = SC_Instruction_State.WAIT;
@@ -4946,7 +6080,7 @@ ACT:    switch(inst.oc){
               inst.val = inst.filterFun(inst.sensor.getValues(this), this);
               if(undefined !== inst.val){
                 inst.itsParent.registerForProduction(inst);
-                inst.evt.generate(this);
+                inst.evt.generate(this, true);
                 }
               else{
                 inst.noSens_evt.generate(this);
@@ -4961,7 +6095,7 @@ ACT:    switch(inst.oc){
               inst.val = inst.filterFun(inst.sensor.getValues(this), this);
               if(null != inst.val){
                 inst.itsParent.registerForProduction(inst);
-                inst.evt.generate(this);
+                inst.evt.generate(this, true);
                 }
               }
             else{
@@ -4976,7 +6110,7 @@ ACT:    switch(inst.oc){
               inst.val = inst.filterFun(inst.sensor.getValues(this), this);
               if(null != inst.val){
                 inst.itsParent.registerForProduction(inst);
-                inst.evt.generate(this);
+                inst.evt.generate(this, true);
                 }
               }
             st = SC_Instruction_State.TERM;
@@ -4988,7 +6122,7 @@ ACT:    switch(inst.oc){
               inst.val = inst.filterFun(inst.sensor.getValues(this), this);
               if(null != inst.val){
                 inst.itsParent.registerForProduction(inst);
-                inst.evt.generate(this);
+                inst.evt.generate(this, true);
                 }
               }
             else{
@@ -5007,7 +6141,7 @@ ACT:    switch(inst.oc){
               inst.val = inst.filterFun(inst.sensor.getValues(this), this);
               if(null != inst.val){
                 inst.itsParent.registerForProduction(inst);
-                inst.evt.generate(this);
+                inst.evt.generate(this, true);
                 }
               }
             inst.count--;
@@ -5064,7 +6198,6 @@ ACT:    switch(inst.oc){
               //inst.toActivate = inst.suspended.pop();
               inst.toActivate = inst.suspended.start;
               inst.suspended.start = inst.suspended.start.next;
-              //--inst.activ_par ++;
               inst = inst.toActivate.prg;
               break;
               }
@@ -5090,7 +6223,6 @@ ACT:    switch(inst.oc){
           case SC_Opcodes.PAR_DYN_BACK:{
             switch(inst.toActivate.flag = st){
               case SC_Instruction_State.SUSP:{
-                   //--inst.activ_par ++;
                    inst = inst.toActivate.prg
                    break;
                    }
@@ -5117,7 +6249,7 @@ ACT:    switch(inst.oc){
                    }
               case SC_Instruction_State.TERM:{
                    inst.oc = SC_Opcodes.PAR_DYN_FIRE;
-                   if(inst.purgeable){
+                   if(inst.toActivate.purgeable){
                      inst.removeBranch(inst.toActivate);
                      }
                    else{
@@ -5146,11 +6278,7 @@ ACT:    switch(inst.oc){
             if(null != inst.suspended.start){
               inst.oc = SC_Opcodes.PAR_BACK;
               //inst.toActivate = inst.suspended.pop();
-              //--inst.activ_par++;
               inst.toActivate = inst.suspended.start;
-              //--if(inst.toActivate === this.prg.branches[100]){
-              //--  getActivPath = tracePath;
-              //--  }
               inst.suspended.start = inst.suspended.start.next;
               inst = inst.toActivate.prg;
               break;
@@ -5192,12 +6320,8 @@ ACT:    switch(inst.oc){
             break;
             }
           case SC_Opcodes.PAR_BACK:{
-            //--if(this.prg == inst){
-            //--  getActivPath = null;
-            //--  }
             switch(inst.toActivate.flag = st){
               case SC_Instruction_State.SUSP:{
-                //--inst.activ_par++;
                 inst = inst.toActivate.prg;
                 break;
                 }
@@ -5224,7 +6348,7 @@ ACT:    switch(inst.oc){
                 }
               case SC_Instruction_State.TERM:{
                 inst.oc = SC_Opcodes.PAR_FIRE;
-                if(inst.purgeable){
+                if(inst.toActivate.purgeable){
                   inst.removeBranch(inst.toActivate);
                   }
                 else{
@@ -5281,8 +6405,13 @@ ACT:    switch(inst.oc){
             caller = inst = inst.caller;
             break;
             }
-          case SC_Opcodes.CUBE_INIT:{
+          case SC_Opcodes.CUBE_ZERO:{
             inst.caller = caller;
+            }
+          case SC_Opcodes.CUBE_INIT:{
+            inst.init.call(inst.o, this);
+            inst.swap(this);
+            this.registerForCubeSwap(inst);
             }
           case SC_Opcodes.CUBE:{
             caller = inst;
@@ -5292,9 +6421,10 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.CUBE_BACK:{
             inst.oc = SC_Opcodes.CUBE;
-            /*if(SC_Instruction_State.TERM == st){
-              this.reset(inst);
-              }*/
+            if(SC_Instruction_State.TERM == st){
+              this.lastWills.push(inst.lastWill);
+              this.removeForCubeSwap(inst);
+              }
             caller = inst = inst.caller;
             break;
             }
@@ -5339,7 +6469,6 @@ ACT:    switch(inst.oc){
             }
           default:{ throw "activate: undefined opcode "
                          +SC_Opcodes.toString(inst.oc)
-                         //--+" old : "+SC_Opcodes.toString(oldInstOC)
                          ;
             console.trace();
             }
@@ -5350,19 +6479,9 @@ ACT:    switch(inst.oc){
       var inst = this.prg;
       var seq = null;
       var caller = act_exit;
-      //--var oldInstOC = null;
-      //--var activations = 0;
-      //--const start_time = 0.0+performance.now();
       while(true){
-        //--activations++;
-        //--oldInstOC = inst.oc
 EOI:    switch(inst.oc){
           case SC_Opcodes._EXIT:{
-            //--this.currrentStats.eoi = {
-            //--               act: activations
-            //--               , start: start_time
-            //--               , stop: 0.0+performance.now()
-            //--               };
             return;
             }
           case SC_Opcodes.SEQ:{
@@ -5527,7 +6646,6 @@ EOI:    switch(inst.oc){
             }
           default:{ throw "eoi: undefined opcode "
                          +SC_Opcodes.toString(inst.oc)
-                         //--+" old : "+SC_Opcodes.toString(oldInstOC)
                          ;
             console.trace();
             }
@@ -5606,6 +6724,36 @@ RST:    switch(oldInstOC = inst.oc){
             inst = caller;
             break;
             }
+          case SC_Opcodes.CUBE_ACTION_INLINE:
+          case SC_Opcodes.CUBE_ACTION:{
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.CUBE_ACTION_N_TIMES_INLINE_BUT_FOREVER_CONTROLED:
+          case SC_Opcodes.CUBE_ACTION_N_TIMES_INLINE_BUT_FOREVER_HALTED:
+          case SC_Opcodes.CUBE_ACTION_N_TIMES_INIT_INLINE:
+          case SC_Opcodes.CUBE_ACTION_N_TIMES_INLINE:{
+            inst.oc = SC_Opcodes.CUBE_ACTION_N_TIMES_INIT_INLINE;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.CUBE_ACTION_N_TIMES_INIT:
+          case SC_Opcodes.CUBE_ACTION_N_TIMES_BUT_FOREVER_CONTROLED:
+          case SC_Opcodes.CUBE_ACTION_N_TIMES_BUT_FOREVER_HALTED:
+          case SC_Opcodes.CUBE_ACTION_N_TIMES:{
+            inst.oc = SC_Opcodes.CUBE_ACTION_N_TIMES_INIT;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.CUBE_ACTION_FOREVER_HALTED:{
+            inst.oc = SC_Opcodes.CUBE_ACTION_FOREVER;
+            this.removeFromPermanentCube(inst)
+            }
+          case SC_Opcodes.CUBE_ACTION_FOREVER_CONTROLED:
+          case SC_Opcodes.CUBE_ACTION_FOREVER:{
+            inst = caller;
+            break;
+            }
           case SC_Opcodes.SEQ:{
             inst.resetCaller = caller;
             caller = inst;
@@ -5651,10 +6799,18 @@ RST:    switch(oldInstOC = inst.oc){
           case SC_Opcodes.NOTHING_INLINED:
           case SC_Opcodes.GENERATE_ONE_NO_VAL_INLINE:
           case SC_Opcodes.GENERATE_ONE_NO_VAL:
-          case SC_Opcodes.GENERATE_ONE_INLINE:
-          case SC_Opcodes.GENERATE_ONE:
+          case SC_Opcodes.GENERATE_ONE_FUN_INLINE:
+          case SC_Opcodes.GENERATE_ONE_CELL_INLINE:
+          case SC_Opcodes.GENERATE_ONE_EXPOSE_INLINE:
+          case SC_Opcodes.GENERATE_ONE_FUN:
+          case SC_Opcodes.GENERATE_ONE_CELL:
+          case SC_Opcodes.GENERATE_ONE_EXPOSE:
+          case SC_Opcodes.GENERATE_ONE:{
+            inst = caller;
+            break;
+            }
           case SC_Opcodes.GENERATE_FOREVER_NO_VAL_HALTED:{
-            this.removeFromPermanentGenerate(inst.evt);
+            this.removeFromPermanentGenerate(inst, 0);
             }
           case SC_Opcodes.GENERATE_FOREVER_NO_VAL_CONTROLED:{
             inst.oc = SC_Opcodes.GENERATE_FOREVER_NO_VAL_INIT;
@@ -5664,8 +6820,9 @@ RST:    switch(oldInstOC = inst.oc){
             break;
             }
           case SC_Opcodes.GENERATE_FOREVER_HALTED:{
-            this.removeFromPermanentGenerate(inst.evt);
-            inst.itsParent.unregisterFromProduction(this);
+            this.removeFromPermanentGenerate(inst, 1);
+            inst.itsParent.unregisterFromProduction(inst);
+	    inst.itsParent.registerForProduction(inst);
             }
           case SC_Opcodes.GENERATE_FOREVER_CONTROLED:{
             inst.oc = SC_Opcodes.GENERATE_FOREVER_INIT;
@@ -5674,15 +6831,103 @@ RST:    switch(oldInstOC = inst.oc){
             inst = caller;
             break;
             }
+          case SC_Opcodes.GENERATE_FOREVER_EXPOSE_HALTED:{
+            this.removeFromPermanentGenerate(inst, 1);
+            inst.itsParent.unregisterFromProduction(inst);
+	    inst.itsParent.registerForProduction(inst);
+            }
+          case SC_Opcodes.GENERATE_FOREVER_EXPOSE_CONTROLED:{
+            inst.oc = SC_Opcodes.GENERATE_FOREVER_EXPOSE_INIT;
+            }
+          case SC_Opcodes.GENERATE_FOREVER_EXPOSE_INIT:{
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_FOREVER_FUN_HALTED:{
+            this.removeFromPermanentGenerate(inst, 1);
+            inst.itsParent.unregisterFromProduction(inst);
+	    inst.itsParent.registerForProduction(inst);
+            }
+          case SC_Opcodes.GENERATE_FOREVER_FUN_CONTROLED:{
+            inst.oc = SC_Opcodes.GENERATE_FOREVER_FUN_INIT;
+            }
+          case SC_Opcodes.GENERATE_FOREVER_FUN_INIT:{
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_FOREVER_CELL_HALTED:{
+            this.removeFromPermanentGenerate(inst, 1);
+            inst.itsParent.unregisterFromProduction(inst);
+	    inst.itsParent.registerForProduction(inst);
+            }
+          case SC_Opcodes.GENERATE_FOREVER_CELL_CONTROLED:{
+            inst.oc = SC_Opcodes.GENERATE_FOREVER_CELL_INIT;
+            }
+          case SC_Opcodes.GENERATE_FOREVER_CELL_INIT:{
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_INLINE_BUT_FOREVER_HALTED:
+          case SC_Opcodes.GENERATE_INLINE_BUT_FOREVER_CONTROLED:
           case SC_Opcodes.GENERATE_INIT_INLINE:
           case SC_Opcodes.GENERATE_INLINE:{
             inst.oc = SC_Opcodes.GENERATE_INIT_INLINE;
             inst = caller;
             break;
             }
+          case SC_Opcodes.GENERATE_BUT_FOREVER_HALTED:
+          case SC_Opcodes.GENERATE_BUT_FOREVER_CONTROLED:
           case SC_Opcodes.GENERATE_INIT:
           case SC_Opcodes.GENERATE:{
             inst.oc = SC_Opcodes.GENERATE_INIT;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER_HALTED:
+          case SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER_CONTROLED:
+          case SC_Opcodes.GENERATE_EXPOSE_INIT_INLINE:
+          case SC_Opcodes.GENERATE_EXPOSE_INLINE:{
+            inst.oc = SC_Opcodes.GENERATE_EXPOSE_INIT_INLINE;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_EXPOSE_BUT_FOREVER_HALTED:
+          case SC_Opcodes.GENERATE_EXPOSE_BUT_FOREVER_CONTROLED:
+          case SC_Opcodes.GENERATE_EXPOSE_INIT:
+          case SC_Opcodes.GENERATE_EXPOSE:{
+            inst.oc = SC_Opcodes.GENERATE_EXPOSE_INIT;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_CELL_INLINE_BUT_FOREVER_HALTED:
+          case SC_Opcodes.GENERATE_CELL_INLINE_BUT_FOREVER_CONTROLED:
+          case SC_Opcodes.GENERATE_CELL_INIT_INLINE:
+          case SC_Opcodes.GENERATE_CELL_INLINE:{
+            inst.oc = SC_Opcodes.GENERATE_CELL_INIT_INLINE;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_CELL_BUT_FOREVER_HALTED:
+          case SC_Opcodes.GENERATE_CELL_BUT_FOREVER_CONTROLED:
+          case SC_Opcodes.GENERATE_CELL_INIT:
+          case SC_Opcodes.GENERATE_CELL:{
+            inst.oc = SC_Opcodes.GENERATE_CELL_INIT;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_FUN_INLINE_BUT_FOREVER_HALTED:
+          case SC_Opcodes.GENERATE_FUN_INLINE_BUT_FOREVER_CONTROLED:
+          case SC_Opcodes.GENERATE_FUN_INIT_INLINE:
+          case SC_Opcodes.GENERATE_FUN_INLINE:{
+            inst.oc = SC_Opcodes.GENERATE_FUN_INIT_INLINE;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_FUN_BUT_FOREVER_HALTED:
+          case SC_Opcodes.GENERATE_FUN_BUT_FOREVER_CONTROLED:
+          case SC_Opcodes.GENERATE_FUN_INIT:
+          case SC_Opcodes.GENERATE_FUN:{
+            inst.oc = SC_Opcodes.GENERATE_FUN_INIT;
             inst = caller;
             break;
             }
@@ -5764,7 +7009,7 @@ RST:    switch(oldInstOC = inst.oc){
             }
           case SC_Opcodes.TEST:
           case SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT_HALTED:{
-            this.removeFromPermanentActionsOn(inst);
+            this.removeFromPermanentActionsOnOnly(inst);
             inst.oc = SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT;
             }
           case SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT:{
@@ -5993,19 +7238,17 @@ RST:    switch(oldInstOC = inst.oc){
             inst.resetCaller = caller;
             caller = inst;
             inst.oc = SC_Opcodes.CUBE_BACK;
-            this.addFun(inst.lastWill);
+            this.lastWills.push(inst.lastWill);
+            this.removeForCubeSwap(inst);
             inst = inst.p;
             break;
             }
           case SC_Opcodes.CUBE_BACK:{
-            inst.oc = SC_Opcodes.CUBE;
+            inst.oc = SC_Opcodes.CUBE_INIT;
             inst = caller = inst.resetCaller;
             break;
             }
-          case SC_Opcodes.CELL:{
-            inst = caller;
-            break;
-            }
+          case SC_Opcodes.CELL:
           case SC_Opcodes.RE_CELL:{
             inst = caller;
             break;
@@ -6030,244 +7273,6 @@ RST:    switch(oldInstOC = inst.oc){
         }
       }
   };
-
-/*********
- * SC_Kill Class
- *********/
-function SC_Kill(c, p, end){
-  this.c = c;
-  this.p = p;
-  this.end = end;
-}
-SC_Kill.prototype = {
-  constructor : SC_Kill
-  , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      var binder = _SC._b(cube);  
-      var copy = new SC_Instruction(SC_Opcodes.KILL_SUSP_INIT);
-      copy.c = binder(this.c)
-                  .bindTo(engine, parbranch, null, masterSeq, copy, cube);
-      copy.p = this.p.bindTo(engine, parbranch, null, masterSeq, copy, cube);
-      copy.end = parseInt(this.end);
-      copy.path = path;
-      copy.seq = seq;
-      return copy;
-      }
-  , toString : function(){
-      return "kill "+this.p.toString()
-              +" on "+this.c.toString()
-              +((null != this.h)?"handle "+this.h:"")
-              +" end kill ";
-    }
-  };
-
-/*********
- * SC_Control Class
- *********/
-function SC_Control(c, p){
-  this.c = c;
-  this.p = p;
-  }
-SC_Control.prototype = {
-  constructor:SC_Control
-  , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      var copy = new SC_Instruction(SC_Opcodes.CONTROL_INIT);
-      copy.c = this.c.bindTo(engine, parbranch, null, masterSeq, copy, cube);
-      copy.p = this.p.bindTo(engine, parbranch, null, masterSeq, copy, cube);
-      copy.path = path;
-      return copy;
-      }
-  , toString : function(){
-      return "control "+this.p.toString()
-              +" by "+this.c.toString()
-              +" end control ";
-      }
-  };
-
-/*********
- * When Class
- *********/
-function SC_When(c){
-  this.c = c;
-  this.elsB = 0;
-  }
-SC_When.prototype = {
-  constructor: SC_When
-  , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      var copy = new SC_Instruction(SC_Opcodes.WHEN);
-      copy.c = this.c.bindTo(engine, parbranch, null, masterSeq, copy, cube)
-      copy.elsB = parseInt(this.elsB);
-      copy.path = path;
-      copy.seq = seq;
-      return copy;
-      }
-  , toString : function(){
-    return "when "+this.c.toString()+" then ";
-  }
-}
-
-/*********
- * SC_Test Class
- *********/
-function SC_Test(b){
-  this.b = b;
-  }
-SC_Test.prototype = {
-  constructor : SC_Test
-  , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      var binder = _SC._b(cube);
-      var copy = new SC_Instruction(SC_Opcodes.TEST);
-      copy.b = binder(this.b);
-      copy.test = function(m){
-        if("function" == typeof(this.b)){
-          return this.b(m);
-          }
-        return (((null == this.b.t)?this.b:this.b.t[this.b.f]));
-        }
-      copy._b = this.b;
-      copy.elsB = this.elsB;
-      copy.path = path;
-      copy.seq = seq;
-      return copy;
-      }
-  , toString : function(){
-      return "test "+this.b.toString()
-              +" then "+this.t.toString()
-              +"else "+this.e.toString()
-              +" end test ";
-      }
-};
-
-/*********
- * SC_Match Class
- *********/
-function SC_Match(val, cases){
-  this.v = val;
-  this.cases = cases;
-}
-SC_Match.prototype = {
-  constructor : SC_Match
-  , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      var copy = new SC_Instruction(SC_Opcodes.MATCH_INIT);
-      copy.v = this.v;
-      copy.cases = new Array(this.cases.length);
-      for(var n in this.cases){
-        copy.cases[n] = this.cases[n]
-                         .bindTo(engine, parbranch, null, masterSeq, copy, cube);
-      }
-      copy.path = path;
-      return copy;
-      }
-  , toString : function(){
-      var choices = "";
-      for(var v in this.cases){
-          choices += "{ "+v+" : "+this.cases[v]+"}"
-        }
-      return "match "+this.v+" selsect "+choices
-              +" end match ";
-      }
-  };
-
-/*********
- * SC_Cube Class
- *********/
-function SC_Cube(o, p, lastWill){
-  this.o = o;
-  this.p = p;
-  this.lastWill = (undefined != lastWill)?lastWill:NO_FUN;
-  this.toAdd = [];
-}
-SC_Cube.prototype = {
-  constructor : SC_Cube
-  , isAnSCProgram : true
-  , addProgram : function(p){
-    this.toAdd.push(p);
-    }
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
-      var binder = _SC._b(this);
-      if(undefined !== this.o.SC_cubeAddBehaviorEvt){
-        throw "warning javascript object already configured !"
-                    +"Be sure that it is not used bound to another program"
-                    +", especially in a different reactive machine";
-        console.trace();        
-        return null;
-        }
-      SC_cubify.apply(this.o);
-      var tmp_par_dyn;
-      var tmp_beh = SC.kill(this.o.SC_cubeKillEvt
-           , SC.par(
-               SC.repeatForever(
-                 SC.await(
-                       SC.or(this.o.SC_cubeCellifyEvt
-                         , this.o.SC_cubeAddCellEvt))
-                 , this.o.$SC_cellMaker
-                 )
-               , SC.seq(
-                   tmp_par_dyn = SC.parex(this.o.SC_cubeAddBehaviorEvt
-                     , this.p
-                     )
-                   , SC.generate(this.o.SC_cubeKillEvt)
-                   )
-               )
-           );
-      for(var i = 0 ; i < this.toAdd.length; i++){
-        tmp_par_dyn.add(this.toAdd[i]);
-        }
-      var copy = new SC_Instruction(SC_Opcodes.CUBE_INIT);
-      copy.o = this.o;
-      copy.path = path;
-      copy.lastWill = binder(this.lastWill);
-      copy.p = tmp_beh.bindTo(engine, parbranch, null
-                        , masterSeq, copy, this.o);
-      copy.dynamic = tmp_par_dyn;
-      copy.m = engine;
-      copy.pb = parbranch;
-      return copy;
-      }
-  , toString : function(){
-      return "cube "+this.o.toString()
-              +" with "+this.p.toString()
-              +" end cube ";
-      }
-  , its : function(nom){
-      return this.o["$"+nom];
-      }
-  , addCell : function(nom, init, el, fun){
-      var tgt = this.o;
-      if((undefined !== tgt["$"+nom])
-        ||(undefined !== tgt["_"+nom])
-        ){
-        throw "naming conflict for cell "+nom
-               + "$"+nom+" is "+tgt["$"+nom]
-               + "_"+nom+" is "+tgt["_"+nom]
-               ;
-      }
-      if(undefined !== fun){
-        tgt["_"+nom] = fun;
-        }
-      if(undefined === tgt["_"+nom]){
-        throw "no affectator for "+nom+" cell is defined";
-        }
-      tgt["$"+nom] = new SC_Cell({init:init, sideEffect: (tgt["_"+nom]).bind(tgt), eventList: el});
-      Object.defineProperty(tgt, nom,{get : (function(nom){
-        return tgt["$"+nom].val();
-        }).bind(tgt, nom)});
-      }
-  };
-
-function SC_ValueWrapper(tgt, n){
-  this.tgt = tgt;
-  this.n = n;
-  }
-
-SC_ValueWrapper.prototype.getVal = function(){
-  return this.tgt[this.n];
-  }
-
 /*
  * Public API
  */
@@ -6286,6 +7291,15 @@ SC = {
       }
     return new SC_Event(params);
     }
+, sensor: function(name, params){
+    if(undefined != params){
+      params.name = name;
+      }
+    else{
+      params = {name:name};
+      }
+    return new SC_Sensor(params);
+    }
 , sensorize: function(params){
     if(undefined == params){
       throw new Error("SC.sensorize(): undefined params"+params);
@@ -6297,17 +7311,8 @@ SC = {
       throw new Error("SC.sensorize(): undefined dom_targets"+params);
       }
     return new SC_Sensor(params);
-    },
-  sensor: function(name, params){
-    if(undefined != params){
-      params.name = name;
-      }
-    else{
-      params = {name:name};
-      }
-    return new SC_Sensor(params);
-    },
-  machine: function(delay, initParams){
+    }
+, machine: function(delay, initParams){
     if(undefined == initParams){
       initParams = (undefined != delay)?{ delay : delay }:undefined;
       }
@@ -6543,11 +7548,58 @@ SC = {
                        , _SC.b_(f)
                        , _SC.b_(t)
                        , _SC.b_(n));
-  },
-  cube: function(o, p, lastWill){
-    return new SC_Cube(o, p, lastWill);
-  },
-  cubeCell: function(c){
+  }
+, me : new SC_CubeExposedState(null)
+, cubify: function(params){
+  if(undefined == params){
+    throw new Error("cubify no params provided");
+    }
+  if(undefined == params.prg){
+    throw new Error("cubify no program provided");
+    }
+  if(undefined == params.root){
+    params.root = {};
+    }
+  const funs = params.methods;
+  for(var i of funs){
+    if(typeof(i.name) != "string"){
+      throw new Error("cubify fun name "+i.name+" not valid");
+      }
+    if(typeof(i.fun) != "function"){
+      throw new Error("cubify fun "+i.fun+" not valid");
+      }
+    params.root[i.name] = i.fun;
+    }
+  const cells = params.state;
+  params.life.swapList = (params.state)?[]:undefined;
+  for(var i of cells){
+    if(typeof(i.id) != "string"){
+      throw new Error("cubify state name "+i.id+" not valid in "+cells);
+      }
+    params.life.swapList.push(i);
+    }
+  return new SC_Cube(params.root, params.prg, params.life);
+  }
+, cubeAction: function(params){
+    if(undefined == params){
+      throw new Error("no params for cubeAction");
+      }
+    if(undefined == params.fun){
+      throw new Error("no fun for cubeAction: "+params.fun
+                    +" fun type "+typeof(params.fun));
+      }
+    return new SC_CubeAction(params);
+    }
+, cube: function(o, p, extensions){
+    if(undefined == o){
+      throw new Error("undefined object for cube");
+      }
+    if((undefined == p)||!p.isAnSCProgram){
+      throw new Error("undefined program for cube: "+p);
+      }
+    return new SC_Cube(o, p, extensions);
+    }
+, cubeCell: function(c){
     return new SC_CubeCell(c);
   },
   cell: function(params){
@@ -6659,14 +7711,12 @@ SC = {
   _const_statevals_names : SC_Instruction_state_str,
   forever: -1
 };
-
 /*******************************************************************************
 * Language extension (prototype)                                               *
 *******************************************************************************/
 SC.lang ={
   grammar : ""
   };
-
 function SC_Def_crowlHTML(anArray){
   var res = "";
   for(var i in anArray){
@@ -6682,7 +7732,6 @@ function SC_Def_crowlHTML(anArray){
     }
   return res;
   }
-
 // -- ReactiveWorld
 function SC_ReactiveWorld(){
   this.events = {};
@@ -6695,7 +7744,6 @@ SC_ReactiveWorld.prototype.react = function(){
   //console.log("react");
   return this.machine.react();
   }
-
 // -- Definition
 function SC_Definition(content){
   this.content = content;
@@ -6717,7 +7765,6 @@ SC_Definition.prototype.process = function(env){
     }
   return res;
   }
-
 // -- GlobalDef
 function SC_GlobalDef(content){
   this.content = content;
@@ -6770,7 +7817,6 @@ SC_GlobalDef.prototype.process = function(env){
   env.addGlobalEventDefinition(this.id)
   return res;
   }
-
 // -- SC_ParDef
 function SC_ParDef(p1, p2){
   this.content = Array.prototype.concat([p1], p2);
@@ -6801,7 +7847,6 @@ SC_ParDef.prototype.process = function(env){
   //console.log("par prg = "+this.result);
   return res;
   }
-
 // -- SC_ParOpDef
 function SC_ParOpDef(p1, p2){
   this.skip1 = p1;
@@ -6818,7 +7863,6 @@ SC_ParOpDef.prototype.process = function(env){
   var res = "";
   return res;
   }
-
 // -- SC_SeqDef
 function SC_SeqDef(p1, p2){
   this.content = Array.prototype.concat([p1], p2);
@@ -6848,7 +7892,6 @@ SC_SeqDef.prototype.process = function(env){
   //console.log("seq res = ", this.result)
   return res;
   }
-
 // -- SC_SeqOpDef
 function SC_SeqOpDef(p1, p2){
   this.skip1 = p1;
@@ -6881,7 +7924,6 @@ SC_BoolANDOPDef.prototype.process = function(env){
   var res = "";
   return res;
   }
-
 // -- SC_PauseDef
 function SC_PauseDef(times){
   if(undefined == times){
@@ -6927,7 +7969,6 @@ SC_PauseDef.prototype.process = function(env){
   }
   return res;
   }
-
 // -- SC_ParenDef
 function SC_ParenDef(skp1, prg, skp2){
   this.skp1 = skp1;
@@ -6949,7 +7990,6 @@ SC_ParenDef.prototype.process = function(env){
   this.result=this.prg.result;
   return res;
   }
-
 // -- SC_RepeatDef
 function SC_RepeatDef(body){
   this.body = body;
@@ -6972,7 +8012,6 @@ SC_RepeatDef.prototype.process = function(env){
     }
   return res;
   }
-
 // -- SC_KillDef
 function SC_KillDef(body){
   this.body = body;
@@ -6992,7 +8031,6 @@ SC_KillDef.prototype.process = function(env){
   this.result = SC.kill(evt, this.body[8].result);
   return res;
   }
-
 // -- SC_LogDef
 function SC_LogDef(skip, msg){
   this.skip = skip;
@@ -7010,7 +8048,6 @@ SC_LogDef.prototype.process = function(env){
   this.result=SC.log(this.msg);
   return res;
   }
-
 // -- SC_AwaitDef
 function SC_AwaitDef(skip, id){
   this.skip = skip;
@@ -7032,7 +8069,6 @@ SC_AwaitDef.prototype.process = function(env){
   this.result=SC.await(evt);
   return res;
   }
-
 // -- SC_GenerateDef
 function SC_GenerateDef(skip, id){
   this.skip = skip;
@@ -7054,7 +8090,6 @@ SC_GenerateDef.prototype.process = function(env){
   this.result=SC.generate(evt);
   return res;
   }
-
 // -- SkipDef
 function SC_SkipDef(data){
   if(data instanceof Array){
@@ -7074,7 +8109,6 @@ SC_SkipDef.prototype.html = function(){
 SC_SkipDef.prototype.process = function(env){
   return "";
   }
-
 // -- Spaces
 function SC_Spaces(str){
   this.text = str;
@@ -7085,7 +8119,6 @@ SC_Spaces.prototype.html = function(){
 SC_Spaces.prototype.process = function(env){
   return "";
   }
-
 // -- Comments
 function SC_Comment(str){
   this.text = str;
@@ -7096,7 +8129,6 @@ SC_Comment.prototype.html = function(){
 SC_Comment.prototype.process = function(env){
   return "";
   }
-
 // -- SC_Keyword
 function SC_Keyword(str){
   this.text = str;
@@ -7107,7 +8139,6 @@ SC_Keyword.prototype.html = function(){
 SC_Keyword.prototype.process = function(env){
   return "";
   }
-
 // -- SC_KeywordVal
 function SC_KeywordVal(str){
   this.text = str;
@@ -7118,7 +8149,6 @@ SC_KeywordVal.prototype.html = function(){
 SC_KeywordVal.prototype.process = function(env){
   return "";
   }
-
 // -- SC_Ponctuation
 function SC_Ponctuation(str){
   this.text = str;
@@ -7129,7 +8159,6 @@ SC_Ponctuation.prototype.html = function(){
 SC_Ponctuation.prototype.process = function(env){
   return "";
   }
-
 // -- SC_FieldIDDef
 function SC_FieldIDDef(str){
   this.text = str;
@@ -7140,7 +8169,6 @@ SC_FieldIDDef.prototype.html = function(){
 SC_FieldIDDef.prototype.process = function(env){
   return "";
   }
-
 // -- SC_EventIDDef
 function SC_EventIDDef(str){
   this.text = str;
@@ -7154,7 +8182,6 @@ SC_EventIDDef.prototype.getID = function(){
 SC_EventIDDef.prototype.process = function(env){
   return "";
   }
-
 // -- SC_SensorIDDef
 function SC_SensorIDDef(str){
   this.text = str;
@@ -7168,7 +8195,6 @@ SC_SensorIDDef.prototype.getID = function(){
 SC_SensorIDDef.prototype.process = function(env){
   return "";
   }
-
 // -- SC_NumberDef
 function SC_NumberDef(str){
   this.val = parseInt(str);
@@ -7180,7 +8206,6 @@ SC_NumberDef.prototype.html = function(){
 SC_NumberDef.prototype.process = function(env){
   return "";
   }
-
 // -- Module
 function SC_Module(args){
   var a = Array.prototype.slice.call(args);
@@ -7251,7 +8276,6 @@ SC_Module.prototype.addLocalEventDefinition = function(id){
 SC_Module.prototype.getGlobalEvent = function(id){
   return this.myRW.events[id];
   }
-
 SC.lang.module= function(){
     return new SC_Module(arguments);
     }
@@ -7381,12 +8405,9 @@ SC.lang.parse = function(aSource, aReactiveWorld){
   }
   return SC;
 })();
-
 var isNode=new Function("try {return this===global;}catch(e){return false;}");
-
 if(isNode()){
   console.log("loading js");
   performance = require('perf_hooks').performance;
   exports.SC = SC;
   }
-
