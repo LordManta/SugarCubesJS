@@ -155,7 +155,6 @@ SC_CubeBinding.prototype = {
         }
       else if("function" == typeof(tgt)){
         if(null != this.args){
-          //console.log("SC_CubeBinding.resolve(): args added", this.args);
           tgt = tgt.bind(this.cube, this.args);
           }
         else{
@@ -196,7 +195,6 @@ SC_CubeExposedState.prototype = {
     return this.cube.getExposeReader(m);
     }
 , setCube: function(cube){
-    //console.log("binding cube = ");
     this.cube = cube;
     }
   };
@@ -1217,54 +1215,41 @@ SC_Instruction.prototype = {
                          +SC_Opcodes.toString(this.oc);
         }
   }
-  /*, setPurgeable : function(flag){
-      switch(this.oc){
-        case SC_Opcodes.PAR_INIT:
-        case SC_Opcodes.PAR_DYN_TO_REGISTER:
-        case SC_Opcodes.PAR_DYN:
-        case SC_Opcodes.PAR:{
-          this.purgeable = flag;
-          break;
-          }
-        default: throw "setPurgeable undefined for opcode "
-                         +SC_Opcodes.toString(this.oc);
+, addBranch : function(p, pb, engine){
+    switch(this.oc){
+      case SC_Opcodes.PAR_DYN_TO_REGISTER:
+      case SC_Opcodes.PAR_INIT:
+      case SC_Opcodes.PAR_DYN:
+      case SC_Opcodes.PAR:{
+        if(p instanceof SC_Par){
+          for(var n = 0 ; n < p.branches.length; n ++){
+            this.addBranch(p.branches[n].prg, pb, engine);
+            }
         }
-      }*/
-  , addBranch : function(p, pb, engine){
-      switch(this.oc){
-        case SC_Opcodes.PAR_DYN_TO_REGISTER:
-        case SC_Opcodes.PAR_INIT:
-        case SC_Opcodes.PAR_DYN:
-        case SC_Opcodes.PAR:{
-          if(p instanceof SC_Par){
-            for(var n = 0 ; n < p.branches.length; n ++){
-              this.addBranch(p.branches[n].prg, pb, engine);
-              }
-          }
-        else{
-          var b = new SC_ParBranch(pb, this, SC_Nothing);
-          b.prg = p.bindTo(engine, b, null, this.mseq, b, this.cube, this.cinst);
-          b.path = this;
-          b.purgeable = true;
-          this.branches.push(b);
-          this.suspended.append(b);
-          if(b.hasPotential){
-            if(undefined != b.itsParent){
-              if(!b.itsParent.hasPotential){
-                throw "Here we are, invalid registration of potential emmiters";
-                }
-              }
-            if(b.idxInProd<0){
-              b.idxInProd = this.registerInProdBranch(b);
+      else{
+        var b = new SC_ParBranch(pb, this, SC_Nothing);
+        b.prg = p.bindTo(engine, b, null, this.mseq, b, this.cube, this.cinst);
+        b.path = this;
+        b.purgeable = true;
+        this.branches.push(b);
+        this.suspended.append(b);
+        if(b.hasPotential){
+          if(undefined != b.itsParent){
+            if(!b.itsParent.hasPotential){
+              throw "Here we are, invalid registration of potential emmiters";
               }
             }
+          if(b.idxInProd<0){
+            b.idxInProd = this.registerInProdBranch(b);
+            }
           }
-          break;
-          }
-        default: throw "addBranch undefined for opcode "
-                         +SC_Opcodes.toString(this.oc);
         }
+        break;
+        }
+      default: throw "addBranch undefined for opcode "
+                       +SC_Opcodes.toString(this.oc);
       }
+    }
   , registerInProdBranch : function(pb){
       switch(this.oc){
         case SC_Opcodes.PAR_DYN_INIT:
@@ -1288,7 +1273,6 @@ SC_Instruction.prototype = {
         case SC_Opcodes.PAR_DYN:
         case SC_Opcodes.PAR_BACK:
         case SC_Opcodes.PAR:{
-          //this.hasProduction = true;
           break;
           }
         case SC_Opcodes.PAR_BRANCH:{
@@ -1462,25 +1446,21 @@ SC_Instruction.prototype = {
         case SC_Opcodes.PAR:{
           const pbl = this.prodBranches.length;
           for(var nb = 0; nb < pbl; nb++){
-            this.prodBranches[nb].generateValues(m);
-            }
-          break;
-          }
-        case SC_Opcodes.PAR_BRANCH:{
-          const el = this.emitters.length;
-          if(0 == el){
-            const pel = this.permanentEmitters.length;
-            for(var i = 0; i < pel; i++){
-              this.permanentEmitters[i].generateValues(m);
+            const pb = this.prodBranches[nb];
+            const el = pb.emitters.length;
+            if(0 == el){
+              const pel = pb.permanentEmitters.length;
+              for(var i = 0; i < pel; i++){
+                pb.permanentEmitters[i].generateValues(m);
+                }
               }
-            break;
-            }
-          else{
-            for(var i = 0; i < el; i++){
-              this.emitters[i].generateValues(m);
+            else{
+              for(var i = 0; i < el; i++){
+                pb.emitters[i].generateValues(m);
+                }
+              pb.emitters = [];
               }
-            this.emitters = [];
-            }
+	    }
           break;
           }
         default:{
@@ -1758,15 +1738,15 @@ SC_RepeatPoint.prototype = {
       var copy = new SC_Instruction(SC_Opcodes.REPEAT_N_TIMES_INIT);
       copy.end = parseInt(this.end);
       if("function" == typeof bound_it){
+	console.log("bounding fun");
         Object.defineProperty(copy, "it",{get : bound_it});
-        //copy.reset(engine);
         }
       else{
         copy.it = bound_it;
-        }
-      if(0 === copy.it){
-        copy.oc = SC_Opcodes.REL_JUMP;
-        copy.relativeJump = this.end;
+        if(0 === copy.it){
+          copy.oc = SC_Opcodes.REL_JUMP;
+          copy.relativeJump = this.end;
+          }
         }
       copy.count = copy.it;
       copy._it = this.it;
@@ -2629,7 +2609,6 @@ function SC_Pause(times){
   if(1 === this.time){
     return new SC_PauseOne();
     }
-  //console.log("pause n times : "+this.times, this.count);
 }
 SC_Pause.prototype = {
   constructor : SC_Pause
@@ -2648,9 +2627,7 @@ SC_Pause.prototype = {
         return new SC_PauseOne().bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
         }
       copy = new SC_Instruction(SC_Opcodes.PAUSE_N_TIMES_INIT);
-      //copy.times = bound_times;
       _SC.lateBindProperty(copy, "times", bound_times);
-      //console.log("bindTo ", copy.times);
       copy._times = this.times;
       return copy;
       }
@@ -2704,7 +2681,6 @@ SC_Seq.prototype = {
       for(var i = 0; i < this.seqElements.length; i++){
         var prg = this.seqElements[i];
         if(prg === SC_Nothing){
-          //console.log("make it inline");
           prg = SC_Nothing_inlined;
           }
         if(prg instanceof SC_Seq){
@@ -3130,9 +3106,7 @@ SC_ParBranch.prototype = {
         return;
         }
       this.hasPotential = true;
-      if(null != this.itsPar){
-        this.idxInProd = this.itsPar.registerInProdBranch(this);
-        }
+      this.idxInProd = this.itsPar.registerInProdBranch(this);
       if(null != this.itsParent){
         this.itsParent.declarePotential();
         }
@@ -3140,7 +3114,7 @@ SC_ParBranch.prototype = {
   , registerForProduction : SC_Instruction.prototype.registerForProduction
   , unregisterFromProduction : SC_Instruction.prototype.unregisterFromProduction
   , awake : SC_Instruction.prototype.awake
-  , generateValues : SC_Instruction.prototype.generateValues
+  //, generateValues : SC_Instruction.prototype.generateValues
   };
 /*********
  * Queues
@@ -3237,13 +3211,10 @@ SC_Par.prototype = {
       }
   , toString : function(){
       var res ="[";
-      //console.log("debug start", this.branches);
       for(var i in this.branches){
-        //console.log("--" , i, this.branches[i]);
         res += this.branches[i].prg.toString();
         res += (i<this.branches.length-1)?"||":"";
         }
-      //console.log("debug stop");
       return res+"] ";
       }
   , add : function(p){
@@ -3458,7 +3429,6 @@ SC_Or.prototype = {
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var tmp_configs = [];
-      //console.log("binding n-ary or", this.c);
       for(var i in this.c){
         tmp_configs.push(binder(this.c[i]).bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst));
         }
@@ -3716,7 +3686,6 @@ function SC_Cube(o, p, extension){
       }
     if(undefined != extension.swapList){
       this.swapList = extension.swapList;
-      //this.targetList = extension.targetList;
       }
     }
   this.toAdd = [];
@@ -3804,13 +3773,6 @@ SC_Cube.prototype = {
         }
       swap_text += "})";
       copy.swap = (cells)?eval(swap_text).bind(copy.exposedState, copy.o):NO_FUN;
-      //copy.swap = (cells)?function(state, exposed, fields, m){
-      //  const tl = fields.length;
-      //  for(var i = 0; i < tl; i++){
-      //    exposed[fields[i.id]] = state[fields[i.id]];
-      //    }
-      //  exposed.exposeInstant = m.instantNumber;
-      //  }.bind(copy, copy.o, copy.exposedState, copy.swapList): NO_FUN;
       copy.init = binder(this.init);
       copy.lastWill = binder(this.lastWill);
       copy.p = tmp_beh.bindTo(engine, parbranch, null
@@ -3998,7 +3960,6 @@ function SC_Machine(params){
   this.cubeSwap = [];
   this.actionsOnEvents = [];
   this.cells = [];
-  //this.evtWithOccurences = [];  
   this.generated_values = {};
   this.pending = [];
   this.pendingPrograms = [];
@@ -4025,7 +3986,7 @@ function SC_Machine(params){
   else{
     this.delay = -1;
     this.run = function(){
-      while(this.react())/*if(this.instantNumber > 20) break*/;
+      while(this.react());
       }
     }
   this.handlers = {
@@ -4319,7 +4280,6 @@ SC_Machine.prototype = {
       }
   , react : function(){
       if(this.ended){ return !this.ended; }
-      //this.evtWithOccurences = [];
       this.generated_values = {};
       var res = SC_Instruction_State.STOP;
       var tmp = this.pending;
@@ -4349,25 +4309,15 @@ SC_Machine.prototype = {
       this.parActions = [];
       this.stdOut("\n"+this.instantNumber+" -: ");
       // Phase 1 : pure reactive execution
-      //console.log(this.instantNumber, "--- phase1 ---");
       while(SC_Instruction_State.SUSP == (res = this.activate())){
         }
-      //console.log("res = ",res);
-      //this.moved = false;
       if((SC_Instruction_State.OEOI == res)||(SC_Instruction_State.WEOI == res)){
-        //console.log(this.instantNumber, "--- eoi starts ---");
         this.eoi();
         res = SC_Instruction_State.STOP;
         }
       // Phase 2 : collecting event values
-      //if(this.prg.hasProduction){
       this.prg.generateValues(this);
-      //const evtvel = this.evtWithOccurences.length;
-      //for(var ei = 0; ei < evtvel; ei++){
-      //  this.evtWithOccurences[ei].getAllValues(this, this.generated_values);
-      //  }
-      //Object.freeze(this.generated_values);
-      //}
+      //this.generateValues();
       // Phase 3 : atomic computations
       for(var cell in this.cells){
         this.cells[cell].prepare(this);
@@ -4375,8 +4325,6 @@ SC_Machine.prototype = {
       for(var i = 0; i < this.actionsOnEvents.length; i++){
         var act = this.actionsOnEvents[i];
         var a = act.action;
-        //var vals = {};
-        //act.config.getAllValues(this, vals);
         if(null != a.f){
           var t = a.t;
           if(null == t) continue;
@@ -4391,8 +4339,6 @@ SC_Machine.prototype = {
         const pres = inst.evtFun.config.isPresent(this);
         if(pres){
           const a = inst.evtFun.action;
-          //const vals = {};
-          //inst.evtFun.config.getAllValues(this, vals);
           if(null != a.f){
             var t = a.t;
             if(null == t) continue;
@@ -4408,8 +4354,6 @@ SC_Machine.prototype = {
         const pres = inst.evtFun.config.isPresent(this);
         if(pres){
           const a = inst.evtFun.action;
-          //const vals = {};
-          //inst.evtFun.config.getAllValues(this, vals);
           if(null != a.f){
             const t = a.t;
             if(null == t) continue;
@@ -4434,21 +4378,11 @@ SC_Machine.prototype = {
       const cal = this.cubeActions.length;
       for(var i = 0; i < cal; i++){
         const inst = this.cubeActions[i];
-        //const vals = {};
-        //const ell = inst.evtList.length;
-        //for(var ei = 0; ei < ell; ei++){
-        //  inst.evtList[ei].getAllValues(this, vals);
-        //  }
         inst.closure(this.generated_values, this);
         }
       const pcal = this.permanentCubeActions.length;
       for(var i = 0; i < pcal; i++){
         const inst = this.permanentCubeActions[i];
-        //const vals = {};
-        //const ell = inst.evtList.length;
-        //for(var ei = 0; ei < ell; ei++){
-        //  inst.evtList[ei].getAllValues(this, vals);
-        //  }
         inst.closure(this.generated_values, this);
         }
       for(var i = 0; i < this.actions.length; i++){
@@ -4476,13 +4410,7 @@ SC_Machine.prototype = {
       // Phase 4 : swap states
       for(var cell in this.cells){
         this.cells[cell].swap();
-        //var zeCell = this.cells[cell];
-        //zeCell.state = zeCell.futur;
         }
-      //for(var csw of this.cubeSwap){
-      //  
-      //  csw.swap();
-      //  }
       for(var i = 0; i < this.parActions.length; i++){
         this.parActions[i].computeAndAdd(this);
         }
@@ -4519,14 +4447,6 @@ SC_Machine.prototype = {
           this.reactMeasuring = performance.now();
           }
         }
-      /*if(this.traces.length>0){
-        console.log.call(console, this.traces);
-        this.traces = [];
-      }*/
-      /*if(SC_Instruction_State.TERM == res){
-        this.stdOut("machine stops");
-        }*/
-      //this.stdOut(SC_Instruction_State.toString(res));
       this.ended = (res == SC_Instruction_State.TERM);
       if(this.ended){
         this.collapse();
@@ -4545,7 +4465,6 @@ SC_Machine.prototype = {
       var seq = null;
       var control_body = false;
       var caller = act_exit;
-      //var oldInstOC = null;
       while(true){
 ACT:    switch(inst.oc){
           case SC_Opcodes._EXIT:{
@@ -4584,6 +4503,7 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.REPEAT_N_TIMES_INIT:{
             inst.count = inst.it;
+	    console.log("repeat init", inst.count);
             if(0 > inst.count){
               inst.oc = SC_Opcodes.REPEAT_N_TIMES_BUT_FOREVER;
               break;
@@ -4603,7 +4523,6 @@ ACT:    switch(inst.oc){
           case SC_Opcodes.REPEAT_N_TIMES_TO_STOP:{
             if(0 === inst.count){
               seq.idx += inst.end;
-              //this.reset(inst);
               inst.oc = SC_Opcodes.REPEAT_N_TIMES_INIT;
               inst = seq.seqElements[seq.idx];
               break;
@@ -4628,7 +4547,6 @@ ACT:    switch(inst.oc){
           case SC_Opcodes.IF_REPEAT_TO_STOP:{
             if(!inst.condition(this)){
               seq.idx += inst.end;
-              //this.reset(inst);
               inst.oc = SC_Opcodes.IF_REPEAT_INIT;
               inst = seq.seqElements[seq.idx];
               break;
@@ -4939,7 +4857,6 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.PAUSE_N_TIMES_INLINE:{
             if(0 == inst.count){
-              //this.reset(inst);
               inst.oc = SC_Opcodes.PAUSE_N_TIMES_INIT_INLINE;
               inst = seq.seqElements[++seq.idx];
               break;
@@ -4955,7 +4872,6 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.PAUSE_N_TIMES:{
             if(0 == inst.count){
-              //this.reset(inst);
               inst.oc = SC_Opcodes.PAUSE_N_TIMES_INIT;
               st = SC_Instruction_State.TERM;
               inst = caller;
@@ -5501,7 +5417,6 @@ ACT:    switch(inst.oc){
             inst.evt.generate(this);
             inst.count--;
             if(0 == inst.count){
-              //this.reset(inst);
               inst.oc = SC_Opcodes.GENERATE_NO_VAL_INIT_INLINE;
               inst = seq.seqElements[++seq.idx];
               break;
@@ -5522,7 +5437,6 @@ ACT:    switch(inst.oc){
             inst.evt.generate(this);
             inst.count--;
             if(0 == inst.count){
-              //this.reset(inst);
               inst.oc = SC_Opcodes.GENERATE_NO_VAL_INIT;
               st = SC_Instruction_State.TERM;
               }
@@ -5545,7 +5459,6 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.AWAIT_REGISTRED_INLINE:{
             if(inst.config.isPresent(this)){
-              //this.reset(inst);
               inst.oc = SC_Opcodes.AWAIT_INLINE;
               inst.config.unregister(inst);
               inst = seq.seqElements[++seq.idx];
@@ -5569,7 +5482,6 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.AWAIT_REGISTRED:{
             if(inst.config.isPresent(this)){
-              //this.reset(inst);
               inst.oc = SC_Opcodes.AWAIT;
               inst.config.unregister(inst);
               st = SC_Instruction_State.TERM;
@@ -5593,7 +5505,6 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.WHEN_REGISTERED:{
             if(inst.c.isPresent(this)){
-              //this.reset(inst);
               inst.oc = SC_Opcodes.WHEN;
               inst.c.unregister(inst);
               inst = seq.seqElements[++seq.idx];
@@ -5616,7 +5527,6 @@ ACT:    switch(inst.oc){
             break;
             }
           case SC_Opcodes.KILL_BACK:{
-            //seq = inst.seq;
             switch(st){
               case SC_Instruction_State.TERM:{
                 caller = inst.caller;
@@ -5627,10 +5537,7 @@ ACT:    switch(inst.oc){
                 break ACT;
                 }
               case SC_Instruction_State.SUSP:{
-                //inst.oc = SC_Opcodes.KILL_SUSP_REGISTERED;
                 caller = inst;
-                //caller = inst.caller;
-                //inst.oc = SC_Opcodes.KILL_BACK;
                 inst = inst.p;
                 break;
                 }
@@ -5684,9 +5591,7 @@ ACT:    switch(inst.oc){
             break;
             }
           case SC_Opcodes.KILLED:{
-            //this.reset(inst.p);
             inst.oc = SC_Opcodes.KILL_SUSP;
-            //caller = inst.caller;
             inst = seq.seqElements[++seq.idx];
             break;
             }
@@ -5847,7 +5752,6 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.ACTION_ON_EVENT_REGISTERED:{
             if(0 == inst.count){
-              //this.reset(inst);
               inst.evtFun.config.unregister(inst);
               inst.oc = SC_Opcodes.ACTION_ON_EVENT;
               st = SC_Instruction_State.TERM;
@@ -5860,7 +5764,6 @@ ACT:    switch(inst.oc){
                 inst.count--;
                 }
               if(0 == inst.count){
-                //this.reset(inst);
                 inst.evtFun.config.unregister(inst);
                 inst.oc = SC_Opcodes.ACTION_ON_EVENT;
                 st = SC_Instruction_State.TERM;
@@ -5878,7 +5781,6 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.ACTION_ON_EVENT_STOP:{
             if(0 == inst.count){
-              //this.reset(inst);
               inst.evtFun.config.unregister(inst);
               inst.oc = SC_Opcodes.ACTION_ON_EVENT;
               st = SC_Instruction_State.TERM;
@@ -5891,7 +5793,6 @@ ACT:    switch(inst.oc){
                 inst.count--;
                 }
               if(0 == inst.count){
-                //this.reset(inst);
                 inst.evtFun.config.unregister(inst);
                 inst.oc = SC_Opcodes.ACTION_ON_EVENT;
                 st = SC_Instruction_State.TERM;
@@ -5914,7 +5815,6 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT_REGISTERED:{
             if(0 == inst.count){
-              //this.reset(inst);
               inst.evtFun.config.unregister(inst);
               inst.oc = SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT;
               st = SC_Instruction_State.TERM;
@@ -5927,7 +5827,6 @@ ACT:    switch(inst.oc){
                 inst.count--;
                 }
               if(0 == inst.count){
-                //this.reset(inst);
                 inst.evtFun.config.unregister(inst);
                 inst.oc = SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT;
                 st = SC_Instruction_State.TERM;
@@ -5945,7 +5844,6 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT_STOP:{
             if(0 == inst.count){
-              //this.reset(inst);
               inst.evtFun.config.unregister(inst);
               inst.oc = SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT;
               st = SC_Instruction_State.TERM;
@@ -5958,7 +5856,6 @@ ACT:    switch(inst.oc){
                 inst.count--;
                 }
               if(0 == inst.count){
-                //this.reset(inst);
                 inst.evtFun.config.unregister(inst);
                 inst.oc = SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT;
                 st = SC_Instruction_State.TERM;
@@ -5977,7 +5874,6 @@ ACT:    switch(inst.oc){
           case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT:{
             if(inst.evtFun.config.isPresent(this)){
               this.addEvtFun(inst.evtFun);
-              //this.reset(inst);
               st = SC_Instruction_State.TERM;
               inst = caller;
               break;
@@ -5988,7 +5884,6 @@ ACT:    switch(inst.oc){
           case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT_REGISTERED:{
             if(inst.evtFun.config.isPresent(this)){
               this.addEvtFun(inst.evtFun);
-              //this.reset(inst);
               inst.evtFun.config.unregister(inst);
               inst.oc = SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT;
               st = SC_Instruction_State.TERM;
@@ -6002,7 +5897,6 @@ ACT:    switch(inst.oc){
           case SC_Opcodes.SIMPLE_ACTION_ON_EVENT:{
             if(inst.evtFun.config.isPresent(this)){
               this.addEvtFun(inst.evtFun);
-              //this.reset(inst);
               st = SC_Instruction_State.TERM;
               inst = caller;
               break;
@@ -6013,7 +5907,6 @@ ACT:    switch(inst.oc){
           case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_REGISTERED:{
             if(inst.evtFun.config.isPresent(this)){
               this.addEvtFun(inst.evtFun);
-              //this.reset(inst);
               inst.evtFun.config.unregister(inst);
               inst.oc = SC_Opcodes.SIMPLE_ACTION_ON_EVENT;
               st = SC_Instruction_State.TERM;
@@ -6025,7 +5918,6 @@ ACT:    switch(inst.oc){
               break;
             }
           case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT_ENDED:{
-            //this.reset(inst);
             inst.evtFun.config.unregister(inst);
             inst.oc = SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT;
             st = SC_Instruction_State.TERM;
@@ -6033,7 +5925,6 @@ ACT:    switch(inst.oc){
             break;
             }
           case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_ENDED:{
-            //this.reset(inst);
             inst.evtFun.config.unregister(inst);
             inst.oc = SC_Opcodes.SIMPLE_ACTION_ON_EVENT;
             st = SC_Instruction_State.TERM;
@@ -6162,7 +6053,6 @@ ACT:    switch(inst.oc){
               inst = caller;
               break;
               }
-            //this.reset(inst);
             inst.count = inst.times;
             st = SC_Instruction_State.TERM;
             inst = caller;
@@ -6192,10 +6082,8 @@ ACT:    switch(inst.oc){
             caller = inst;
             }
           case SC_Opcodes.PAR_DYN_FIRE:{
-            //if(inst.suspended.start != null){
             if(null != inst.suspended.start){
               inst.oc = SC_Opcodes.PAR_DYN_BACK;
-              //inst.toActivate = inst.suspended.pop();
               inst.toActivate = inst.suspended.start;
               inst.suspended.start = inst.suspended.start.next;
               inst = inst.toActivate.prg;
@@ -6274,10 +6162,8 @@ ACT:    switch(inst.oc){
             caller = inst;
             }
           case SC_Opcodes.PAR_FIRE:{
-            //if(inst.suspended.start != null){
             if(null != inst.suspended.start){
               inst.oc = SC_Opcodes.PAR_BACK;
-              //inst.toActivate = inst.suspended.pop();
               inst.toActivate = inst.suspended.start;
               inst.suspended.start = inst.suspended.start.next;
               inst = inst.toActivate.prg;
@@ -6368,7 +6254,6 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.PAUSE_RT:{
             if(performance.now() - inst.startTime > inst.duration){
-              //this.reset(inst);
               inst.oc = SC_Opcodes.PAUSE_RT_INIT;
               st =  SC_Instruction_State.TERM;
               inst = caller;
@@ -6398,7 +6283,6 @@ ACT:    switch(inst.oc){
           case SC_Opcodes.MATCH_BACK:{
             inst.oc = SC_Opcodes.MATCH_CHOOSEN;
             if(SC_Instruction_State.TERM == st){
-              //this.reset(inst.choice);
               inst.choice = null;
               inst.oc = SC_Opcodes.MATCH;
               }
@@ -6434,7 +6318,6 @@ ACT:    switch(inst.oc){
               inst.TODO = this.getInstantNumber();
               this.addCellFun(inst);
             }
-            //this.reset(inst);
             st = SC_Instruction_State.TERM;
             inst = caller;
             break;
@@ -6454,14 +6337,12 @@ ACT:    switch(inst.oc){
           case SC_Opcodes.CUBE_CELL_BACK:{
             inst.oc = SC_Opcodes.CUBE_CELL;
             if(SC_Instruction_State.TERM == st){
-              //this.reset(inst.cell);
               inst.oc = SC_Opcodes.CUBE_CELL;
               }
             caller = inst = inst.caller;
             break;
             }
           case SC_Opcodes.LOG:{
-            //console.log("trigger log");
             this.stdOut(inst.msg);
             st = SC_Instruction_State.TERM;
             inst = caller;
@@ -6500,7 +6381,6 @@ EOI:    switch(inst.oc){
             seq.idx += inst.elsB;
             inst.oc = SC_Opcodes.WHEN;
             inst.c.unregister(inst);
-            //this.reset(inst);
             inst = caller;
             break;
             }
@@ -6822,7 +6702,7 @@ RST:    switch(oldInstOC = inst.oc){
           case SC_Opcodes.GENERATE_FOREVER_HALTED:{
             this.removeFromPermanentGenerate(inst, 1);
             inst.itsParent.unregisterFromProduction(inst);
-	    inst.itsParent.registerForProduction(inst);
+            inst.itsParent.registerForProduction(inst);
             }
           case SC_Opcodes.GENERATE_FOREVER_CONTROLED:{
             inst.oc = SC_Opcodes.GENERATE_FOREVER_INIT;
@@ -6834,7 +6714,7 @@ RST:    switch(oldInstOC = inst.oc){
           case SC_Opcodes.GENERATE_FOREVER_EXPOSE_HALTED:{
             this.removeFromPermanentGenerate(inst, 1);
             inst.itsParent.unregisterFromProduction(inst);
-	    inst.itsParent.registerForProduction(inst);
+            inst.itsParent.registerForProduction(inst);
             }
           case SC_Opcodes.GENERATE_FOREVER_EXPOSE_CONTROLED:{
             inst.oc = SC_Opcodes.GENERATE_FOREVER_EXPOSE_INIT;
@@ -6846,7 +6726,7 @@ RST:    switch(oldInstOC = inst.oc){
           case SC_Opcodes.GENERATE_FOREVER_FUN_HALTED:{
             this.removeFromPermanentGenerate(inst, 1);
             inst.itsParent.unregisterFromProduction(inst);
-	    inst.itsParent.registerForProduction(inst);
+            inst.itsParent.registerForProduction(inst);
             }
           case SC_Opcodes.GENERATE_FOREVER_FUN_CONTROLED:{
             inst.oc = SC_Opcodes.GENERATE_FOREVER_FUN_INIT;
@@ -6858,7 +6738,7 @@ RST:    switch(oldInstOC = inst.oc){
           case SC_Opcodes.GENERATE_FOREVER_CELL_HALTED:{
             this.removeFromPermanentGenerate(inst, 1);
             inst.itsParent.unregisterFromProduction(inst);
-	    inst.itsParent.registerForProduction(inst);
+            inst.itsParent.registerForProduction(inst);
             }
           case SC_Opcodes.GENERATE_FOREVER_CELL_CONTROLED:{
             inst.oc = SC_Opcodes.GENERATE_FOREVER_CELL_INIT;
@@ -7043,7 +6923,6 @@ RST:    switch(oldInstOC = inst.oc){
           case SC_Opcodes.ACTION_ON_EVENT_REGISTERED:
           case SC_Opcodes.ACTION_ON_EVENT_STOP:{
             inst.evtFun.config.unregister(inst);
-            //inst.count = inst.times;
             inst.oc = SC_Opcodes.ACTION_ON_EVENT;
             }
           case SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT:{
@@ -7272,6 +7151,162 @@ RST:    switch(oldInstOC = inst.oc){
           }
         }
       }
+  , generateValues: function(){
+      var inst = this.prg;
+      var seq = null;
+      var caller = act_exit;
+      var stack = [];
+      while(true){
+GRV:    switch(inst.oc){
+          case SC_Opcodes._EXIT:{
+            return;
+            }
+          case SC_Opcodes.GENERATE_INIT:
+          case SC_Opcodes.GENERATE:
+          case SC_Opcodes.GENERATE_BUT_FOREVER_HALTED:
+          case SC_Opcodes.GENERATE_BUT_FOREVER_CONTROLED:
+          case SC_Opcodes.GENERATE_INIT_INLINE:
+          case SC_Opcodes.GENERATE_INLINE:
+          case SC_Opcodes.GENERATE_INLINE_BUT_FOREVER_HALTED:
+          case SC_Opcodes.GENERATE_INLINE_BUT_FOREVER_CONTROLED:
+          case SC_Opcodes.GENERATE_ONE_INLINE:
+          case SC_Opcodes.GENERATE_ONE:
+          case SC_Opcodes.GENERATE_FOREVER_INIT:
+          case SC_Opcodes.GENERATE_FOREVER_HALTED:
+          case SC_Opcodes.GENERATE_FOREVER_CONTROLED:{
+            inst.evt.generateValues(m, inst.val);
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_CELL_INIT:
+          case SC_Opcodes.GENERATE_CELL:
+          case SC_Opcodes.GENERATE_CELL_BUT_FOREVER_HALTED:
+          case SC_Opcodes.GENERATE_CELL_BUT_FOREVER_CONTROLED:
+          case SC_Opcodes.GENERATE_CELL_INIT_INLINE:
+          case SC_Opcodes.GENERATE_CELL_INLINE:
+          case SC_Opcodes.GENERATE_CELL_INLINE_BUT_FOREVER_HALTED:
+          case SC_Opcodes.GENERATE_CELL_INLINE_BUT_FOREVER_CONTROLED:
+          case SC_Opcodes.GENERATE_ONE_CELL_INLINE:
+          case SC_Opcodes.GENERATE_ONE_CELL:
+          case SC_Opcodes.GENERATE_FOREVER_CELL_HALTED:
+          case SC_Opcodes.GENERATE_FOREVER_CELL_CONTROLED:{
+            inst.evt.generateValues(m, inst.val.val());
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_FUN_INIT:
+          case SC_Opcodes.GENERATE_FUN:
+          case SC_Opcodes.GENERATE_FUN_BUT_FOREVER_HALTED:
+          case SC_Opcodes.GENERATE_FUN_BUT_FOREVER_CONTROLED:
+          case SC_Opcodes.GENERATE_FUN_INIT_INLINE:
+          case SC_Opcodes.GENERATE_FUN_INLINE:
+          case SC_Opcodes.GENERATE_FUN_INLINE_BUT_FOREVER_HALTED:
+          case SC_Opcodes.GENERATE_FUN_INLINE_BUT_FOREVER_CONTROLED:
+          case SC_Opcodes.GENERATE_ONE_FUN_INLINE:
+          case SC_Opcodes.GENERATE_ONE_FUN:
+          case SC_Opcodes.GENERATE_FOREVER_FUN_HALTED:
+          case SC_Opcodes.GENERATE_FOREVER_FUN_CONTROLED:{
+            inst.evt.generateValues(m, inst.val(m));
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_EXPOSE_INIT:
+          case SC_Opcodes.GENERATE_EXPOSE:
+          case SC_Opcodes.GENERATE_EXPOSE_BUT_FOREVER_HALTED:
+          case SC_Opcodes.GENERATE_EXPOSE_BUT_FOREVER_CONTROLED:
+          case SC_Opcodes.GENERATE_EXPOSE_INIT_INLINE:
+          case SC_Opcodes.GENERATE_EXPOSE_INLINE:
+          case SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER_HALTED:
+          case SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER_CONTROLED:
+          case SC_Opcodes.GENERATE_ONE_EXPOSE_INLINE:
+          case SC_Opcodes.GENERATE_ONE_EXPOSE:
+          case SC_Opcodes.GENERATE_FOREVER_EXPOSE_HALTED:
+          case SC_Opcodes.GENERATE_FOREVER_EXPOSE_CONTROLED:{
+            inst.evt.generateValues(m, inst.val.exposedState(m));
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.GENERATE_FOREVER_LATE_VAL:{
+            if(inst.val instanceof SC_CubeBinding){
+              var res = inst.val.resolve();
+              }
+            if(inst.val instanceof SC_Instruction
+                && inst.val.oc == SC_Opcodes.CELL){
+              inst.evt.generateValues(m, inst.val.val());
+              }
+            else if("function" == typeof(inst.val)){
+              inst.evt.generateValues(m, inst.val(m));
+              }
+            else if(inst.val instanceof SC_CubeExposedState){
+              inst.evt.generateValues(m, inst.val.exposedState(m));
+              }
+            else{
+              inst.evt.generateValues(m, inst.val);
+              }
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.FILTER_FOREVER_NO_ABS:
+          case SC_Opcodes.FILTER_FOREVER_NO_ABS_REGISTERED:
+          case SC_Opcodes.FILTER_FOREVER:
+          case SC_Opcodes.FILTER_NO_ABS:
+          case SC_Opcodes.FILTER:
+          case SC_Opcodes.FILTER_ONE:
+          case SC_Opcodes.FILTER_ONE_NO_ABS:{
+            if(inst.val instanceof SC_CubeBinding){
+              var res = inst.val.resolve();
+              }
+            if(inst.val instanceof SC_Instruction
+                && inst.val.oc == SC_Opcodes.CELL){
+              inst.evt.generateValues(m, inst.val.val());
+              }
+            else if("function" == typeof(inst.val)){
+              inst.evt.generateValues(m, inst.val(m));
+              }
+            else{
+              inst.evt.generateValues(m, inst.val);
+              }
+            inst.val = null;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.PAR_DYN_FORCE:
+          case SC_Opcodes.PAR_DYN_TO_REGISTER:
+          case SC_Opcodes.PAR_DYN:{
+            const pbl = inst.prodBranches.length;
+            for(var nb = 0; nb < pbl; nb++){
+              const pb = inst.prodBranches[nb];
+              const el = pb.emitters.length;
+              if(0 == el){
+                const pel = pb.permanentEmitters.length;
+                for(var i = 0; i < pel; i++){
+                  pb.permanentEmitters[i].generateValues(m);
+                  }
+                }
+              else{
+                for(var i = 0; i < el; i++){
+                  pb.emitters[i].generateValues(m);
+                  }
+                pb.emitters = [];
+                }
+	      }
+            break;
+            }
+          case SC_Opcodes.PAR:{
+            const pbl = inst.prodBranches.length;
+            for(var nb = 0; nb < pbl; nb++){
+              inst.prodBranches[nb].generateValues(m);
+              }
+            break;
+            }
+          default:{ throw new Error("generateForever(): undefined opcode "
+                         +SC_Opcodes.toString(inst.oc)
+                         );
+            console.trace();
+            }
+          }
+        }
+      }
   };
 /*
  * Public API
@@ -7311,6 +7346,12 @@ SC = {
       throw new Error("SC.sensorize(): undefined dom_targets"+params);
       }
     return new SC_Sensor(params);
+    }
+, reactiveMachine: function(initParams){
+    if(undefined == initParams){
+      initParams = {};
+      }
+    return new SC_Machine(initParams);
     }
 , machine: function(delay, initParams){
     if(undefined == initParams){
@@ -7409,19 +7450,14 @@ SC = {
     }
     var end = new SC_RelativeJump(-jump);
     prgs.push(end);
-    //end.relativeJump = -prgs.length;
     prgs[0].end = jump+1;
-    //var t = new Repeat(n, prgs);
     var t = new SC_Seq(prgs);
     return t;
   },
   ifRepeatLabel: function(l, c){
-    //console.log("original args ", arguments);
     var label = Array.prototype.shift.apply(arguments);
-    //console.log("args splited in ",label , arguments)
     var tmp = this.ifRepeat.apply(this, arguments);
     tmp.seqElements[0].label = label;
-    //console.log("what is built", tmp);
     return tmp;
     },
   ifRepeat: function(c){
@@ -7439,9 +7475,7 @@ SC = {
     }
     var end = new SC_RelativeJump(-jump);
     prgs[prgs.length] = end;
-    //end.relativeJump = -prgs.length;
     prgs[0].end = jump+1;
-    //var t = new Repeat(n, prgs);
     var t = new SC_Seq(prgs);
     return t;
   },
@@ -7457,7 +7491,6 @@ SC = {
     for(var i in arguments){
       tmp.push(_SC.b_(arguments[i]));
       }
-    //console.log("or with ", tmp);
     return new SC_Or(tmp);
   },
   kill: function(c,p,h){
@@ -7687,7 +7720,6 @@ SC = {
     },
   send: function(m, evt, v){
     return SC.action(function(evt, v){
-      //console.log("sending ",evt, v);
       this.generateEvent(evt, v);
       }.bind(m, evt, v))
     },

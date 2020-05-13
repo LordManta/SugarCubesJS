@@ -1,0 +1,24 @@
+CACHE MANIFEST
+
+# Version: 92
+
+CACHE:
+# Main page
+time.html
+# Javascript files
+SugarCubes.js
+SC_Tools.js
+demotime.js
+# CSS files
+SC_Panel.css
+images/png/stop.png
+time2.mp4
+time2.ogv
+time2.webm
+
+NETWORK:
+*
+
+FALLBACK:
+/ /time.html
+

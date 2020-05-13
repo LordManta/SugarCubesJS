@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html manifest='time.manifest'>
+<head>
+<meta charset="utf-8"/>
+<script type="text/javascript" src="SugarCubes_min.js">
+</script>
+<script type="text/javascript" src="SC_Tools.js">
+   </script>
+   <script type="text/javascript">
+var SC_App_Config = {
+  tickTime: 10
+  , machineConfig:{init: SC.pauseForever()}
+  , viewport:{
+      width:"device-width"
+      , height:"device-height"
+      , init_scale:"1"
+      , max:"1"
+      , min:"1"
+      , scalable:"no"
+      }
+  , audioSupport:true
+  , voiceSupport:true
+  , splashConfig:{
+      title:"Le réactif à la Boussinot !"
+      , title_style:"background-color: rgba(255,255,255, 0.6);font-size:12vh;font-weight:bold; text-shadow:0.5vw 0.5vh 0.5vmax white; padding:10px"
+      , start:"Démarrer !"
+      , startEvt: SC.evt("evt")
+      , background:"url(images/png/bg-test.png) no-repeat center"
+      }
+  , appTitle:"SC_ToolsTest"
+  , appAuthors:"Jean-Ferdy Susini"
+  , appDescription:""
+  , controler:true
+  , controler_closed:true
+  , controler_style:"SC_Panel.css"
+  , inspectorEnabled:true
+  , startup_img: [
+      {
+        rsrc:"images/png/st_1536x2008.png"
+        , media:"(device-width: 768px) and (device-height: 1024px)"
+                +"and (-webkit-device-pixel-ratio: 2)"
+                +"and (orientation: portrait)"
+        }
+      , {
+          rsrc:"images/png/st_1496x2048.png"
+          , media:"(device-width: 768px) and (device-height: 1024px)"
+                  +"and (-webkit-device-pixel-ratio: 2)"
+                  +"and (orientation: landscape)"
+          }
+      ]
+  }
+SC.tools.appInit(SC_App_Config);
+   </script>
+   <style>
+.toto{
+  border:1px solid black;
+}
+body{
+padding:0;
+margin:0;
+}
+#workspace {
+  border: solid 1px black;
+  margin:0;
+  padding:0;
+}
+#starter{
+  position:absolute;
+  top:0px;
+  margin:0;
+  background-color:rgba(0,0,0,0.2);
+}
+#pic{
+  width:64px;
+  height:40px;
+  border: solid 1px black;
+  vertical-align:middle;
+}
+/** Bubbles **/
+.JFSCSS_text_bubbleFrame{
+  position:fixed;
+  padding:0;
+  margin:0;
+  background:pink;
+  z-index:1;
+}
+.JFSCSS_text_bubble,.JFSCSS_text_bubble_1
+,.JFSCSS_text_bubble_2,.JFSCSS_text_bubble_3
+,.JFSCSS_text_bubble_4 {
+  color:black;
+  background-color:yellow;
+  padding:15px 15px 15px 15px;
+  border-radius:10px;
+  position:fixed;
+  min-width:250px;
+  max-width:250px;
+  margin:0;
+  /*z-index:2;*/
+  box-shadow: 2px -3px 2px rgba(178, 178, 178, .4);
+}
+.JFSCSS_text_bubble_4:before{
+  position:absolute;
+  z-index:-1;
+  background-color:yellow;
+  box-shadow: 0px -3px -2px rgba(178, 178, 178, .4);
+  content:"\00a0";
+  height:20px;
+  width:20px;
+  bottom:-10px;
+  right:20px;
+  transform:  rotate( 45deg ) skewX(15deg) skewY(15deg);
+  -webkit-transform: rotate( 45deg ) skewX(15deg) skewY(15deg);
+}
+.JFSCSS_text_bubble_3:before{
+  position:absolute;
+  z-index:-1;
+  background-color:yellow;
+  box-shadow: 0px -3px -2px rgba(178, 178, 178, .4);
+  content:"\00a0";
+  height:20px;
+  width:20px;
+  bottom:-10px;
+  left:20px;
+  transform:  rotate( 45deg ) skewX(15deg) skewY(15deg);
+  -webkit-transform: rotate( 45deg ) skewX(15deg) skewY(15deg);
+}
+.JFSCSS_text_bubble_2:before{
+  position:absolute;
+  z-index:-1;
+  background-color:yellow;
+  /*box-shadow: 1px -2px 2px rgba(178, 178, 178, .4);*/
+  content:"\00a0";
+  height:20px;
+  width:20px;
+  top:+20px;
+  left:-8px;
+  transform:  rotate( -45deg ) skewX(15deg) skewY(15deg);
+  -webkit-transform: rotate( -45deg ) skewX(15deg) skewY(15deg);
+}
+.JFSCSS_text_bubble_1:before{
+  position:absolute;
+  background-color:yellow;
+  box-shadow: 0px -3px 2px rgba(178, 178, 178, .4);
+  content:"\00a0";
+  height:20px;
+  width:20px;
+  top:-10px;
+  left:20px;
+  transform:  rotate( 45deg ) skewX(15deg) skewY(15deg);
+  -webkit-transform: rotate( 45deg ) skewX(15deg) skewY(15deg);
+}
+</style>
+</head>
+<body>
+  <script type="text/javascript" >
+  SC.tools.displaySplash();
+  </script>
+<canvas id="workspace" width="800" height="600">
+</canvas>
+<video id="anim_vid" loop controls preload hidden>
+<source src="time2.mp4" type ="video/mp4"/>
+<source src="time2.webm" type ="video/webm"/>
+<source src="time2.ogv" type ="video/ogg"/>
+</video>
+<br>
+<div id="controlleur">
+<input id="slider" type="range" min="1" max="1000" value="400" strep="1" onchange="changeRTClock(this.value)" style="width:700px;" hidden/><br>
+<button onclick="z1()" hidden id="tl1_btn">TimeLine 1</button>
+<button onclick="z2()" hidden id="tl2_btn">TimeLine 2</button>
+<button onclick="z3()" hidden id="tl3_btn">TimeLine 3</button>
+<div id="hack" onclick="hack_ios()" hidden>.</div>
+</div>
+<script type="text/javascript" src="demotime.js">
+</script>
+</body>
+</html>
