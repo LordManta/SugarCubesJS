@@ -1264,7 +1264,7 @@ SC_Instruction.prototype = {
                 }
               pb.emitters = [];
               }
-	    }
+            }
           break;
           }
         default:{
@@ -1528,7 +1528,6 @@ SC_RepeatPoint.prototype = {
       var copy = new SC_Instruction(SC_Opcodes.REPEAT_N_TIMES_INIT);
       copy.end = parseInt(this.end);
       if("function" == typeof bound_it){
-	console.log("bounding fun");
         Object.defineProperty(copy, "it",{get : bound_it});
         }
       else{
@@ -3647,7 +3646,6 @@ function SC_Machine(params){
   this.permanentActionsOnOnly = [];
   this.permanentCubeActions = [];
   this.actions = [];
-  this.cubeSwap = [];
   this.actionsOnEvents = [];
   this.cells = [];
   this.generated_values = {};
@@ -3821,7 +3819,6 @@ SC_Machine.prototype = {
     this.parActions = null;
     this.stdOut = NO_FUN;
     this.traceEvt = null;
-    this.cubeSwap = null;
     if(this.timer != 0){
       clearInterval(this.timer);
       this.timer = 0;
@@ -3886,15 +3883,6 @@ SC_Machine.prototype = {
       var t = this.permanentActions.indexOf(fun);
       if(t > -1){
         this.permanentActions.splice(t,1);
-        }
-      }
-  , registerForCubeSwap : function(inst){
-      this.cubeSwap.push(inst);
-      }
-  , removeForCubeSwap : function(inst){
-      var t = this.cubeSwap.indexOf(inst);
-      if(t > -1){
-        this.cubeSwap.splice(t,1);
         }
       }
   , addPermanentActionOnOnly : function(inst){
@@ -4186,7 +4174,6 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.REPEAT_N_TIMES_INIT:{
             inst.count = inst.it;
-	    console.log("repeat init", inst.count);
             if(0 > inst.count){
               inst.oc = SC_Opcodes.REPEAT_N_TIMES_BUT_FOREVER;
               break;
@@ -5978,7 +5965,6 @@ ACT:    switch(inst.oc){
           case SC_Opcodes.CUBE_INIT:{
             inst.init.call(inst.o, this);
             inst.swap(this);
-            this.registerForCubeSwap(inst);
             }
           case SC_Opcodes.CUBE:{
             caller = inst;
@@ -5990,7 +5976,6 @@ ACT:    switch(inst.oc){
             inst.oc = SC_Opcodes.CUBE;
             if(SC_Instruction_State.TERM == st){
               this.lastWills.push(inst.lastWill);
-              this.removeForCubeSwap(inst);
               }
             caller = inst = inst.caller;
             break;
@@ -6281,6 +6266,7 @@ RST:    switch(oldInstOC = inst.oc){
           case SC_Opcodes.ACTION_FOREVER_HALTED:{
             inst.oc = SC_Opcodes.ACTION_FOREVER;
             this.removeFromPermanent(inst.closure)
+            this.addFun(inst.closure)
             }
           case SC_Opcodes.ACTION_FOREVER_CONTROLED:
           case SC_Opcodes.ACTION_FOREVER:{
@@ -6573,6 +6559,9 @@ RST:    switch(oldInstOC = inst.oc){
           case SC_Opcodes.TEST:
           case SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT_HALTED:{
             this.removeFromPermanentActionsOnOnly(inst);
+            if(inst.evtFun.config.isPresent(this)){
+              this.addEvtFun(inst.evtFun);
+              }
             inst.oc = SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT;
             }
           case SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT:{
@@ -6588,6 +6577,12 @@ RST:    switch(oldInstOC = inst.oc){
             }
           case SC_Opcodes.ACTION_ON_EVENT_FOREVER_HALTED:{
             this.removeFromPermanentActionsOn(inst);
+            if(inst.evtFun.config.isPresent(this)){
+              this.addEvtFun(inst.evtFun);
+              }
+            else{
+              this.addFun(inst.defaultAct);
+              }
             inst.oc = SC_Opcodes.ACTION_ON_EVENT_FOREVER;
             }
           case SC_Opcodes.ACTION_ON_EVENT_FOREVER:{
@@ -6801,7 +6796,6 @@ RST:    switch(oldInstOC = inst.oc){
             caller = inst;
             inst.oc = SC_Opcodes.CUBE_BACK;
             this.lastWills.push(inst.lastWill);
-            this.removeForCubeSwap(inst);
             inst = inst.p;
             break;
             }
@@ -6972,7 +6966,7 @@ GRV:    switch(inst.oc){
                   }
                 pb.emitters = [];
                 }
-	      }
+              }
             break;
             }
           case SC_Opcodes.PAR:{
