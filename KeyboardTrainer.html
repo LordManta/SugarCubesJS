@@ -157,7 +157,7 @@ var systemKeyUp = SC.tools.systemEvent(window, "keyup");
 	  return (filtered.length > 0)?filtered:undefined;
 	  }
         key.filter_display_group = function(my_group,m){
-           var vals = groupViewEvt.getValues(m);
+           var vals = m.getValuesOf(groupViewEvt);
            if((undefined !== vals)
                && (0 != vals.length)){
              SC.tools.generateEvent(this.css_displayEvt,(vals[0]>=my_group)?"":"none");
@@ -290,7 +290,7 @@ var systemKeyUp = SC.tools.systemEvent(window, "keyup");
     var div_res = SC.tools.makeDiv({
       beh:SC.repeat(SC.forever
               , SC.action(function(m){
-                  var vals = keyEvt.getValues(m);
+                  var vals = m.getValuesOf(keyEvt);
                   if((undefined === vals)
                      ||(0 == vals.length)){
                     div_res.innerHTML="";

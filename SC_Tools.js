@@ -240,27 +240,27 @@ SC.tools = (function(){
     tmp.addIn_classListEvt = SC.evt("addIn_classList");
     tmp.removeIn_classListEvt = SC.evt("removeIn_classList");
     SC.cellify(tmp, "classList", function(addEvt, removeEvt, val, evts){
-                    var tmp = evts[addEvt];
-                    if(undefined !== tmp){
-                      for(var i = 0; i < tmp.length; i++){
-                        if(!val.contains(tmp[i])){
-                          val.add(tmp[i]);
-                          }
-                        }
-                      }
-                    tmp = evts[removeEvt];
-                    if(undefined !== tmp){
-                      for(var i = 0; i < tmp.length; i++){
-                        var cl = tmp[i];
-                        if(val.contains(cl)){
-                          val.remove(cl);
-                          }
-                        }
-                      }
-                    return val;
-                    }.bind(tmp, tmp.addIn_classListEvt
-                          , tmp.removeIn_classListEvt)
-                  , [tmp.addIn_classListEvt, tmp.removeIn_classListEvt]);
+        var tmp = evts[addEvt];
+        if(undefined !== tmp){
+          for(var i = 0; i < tmp.length; i++){
+            if(!val.contains(tmp[i])){
+              val.add(tmp[i]);
+              }
+            }
+          }
+        tmp = evts[removeEvt];
+        if(undefined !== tmp){
+          for(var i = 0; i < tmp.length; i++){
+            var cl = tmp[i];
+            if(val.contains(cl)){
+              val.remove(cl);
+              }
+            }
+          }
+        return val;
+        }.bind(tmp, tmp.addIn_classListEvt
+              , tmp.removeIn_classListEvt)
+      , [tmp.addIn_classListEvt, tmp.removeIn_classListEvt]);
     tmp.beh.addProgram(SC.repeat(SC.forever
                                 , SC.await(SC.or(tmp.addIn_classListEvt
                                              , tmp.removeIn_classListEvt)
@@ -352,12 +352,6 @@ SC.tools = (function(){
     if(p.inH){
       elt.innerHTML = p.inH;
       }
-    if(undefined !== p.evt_click){
-      elt.evt_click = p.evt_click;
-      elt.addEventListener("click", function(m, evt){
-         m.generateEvent(this.evt_click);
-         }.bind(elt, ((undefined === p.m)?this.m:p.m)));
-      }
     if(undefined !== p.src){
       elt.setAttribute("src", p.src);
       }
@@ -366,6 +360,12 @@ SC.tools = (function(){
       }
     if(undefined !== p.title){
       elt.setAttribute("title", p.title);
+      }
+    if(undefined !== p.evt_click){
+      elt.evt_click = p.evt_click;
+      elt.addEventListener("click", function(m, evt){
+         m.generateEvent(this.evt_click);
+         }.bind(elt, ((undefined === p.m)?this.m:p.m)));
       }
     if(undefined !== p.on_touchStart){
       elt.on_touchStartEvt= p.on_touchStart;
@@ -421,11 +421,14 @@ SC.tools = (function(){
   function makeElement(elt){
     return function(p){
       var tmp = document.createElement(elt);
-      activateElement(tmp);
-      if(undefined === p){
+      if(undefined == p){
         p = {};
         }
-      return finishElement.call(this,tmp, p);
+      if(p.sc_cubeInit){
+        p.sc_cubeInit.call(tmp);
+        }
+      activateElement(tmp);
+      return finishElement.call(this, tmp, p);
       }
     }
 /*
@@ -823,7 +826,7 @@ SC_ClientTools = {
         var res = SC.repeat(SC.forever
             , SC.await(theEvt)
             , SC.act(function(evt, m){
-                 var vals = evt.getValues(m);
+                 var vals = m.getValuesOf(evt);
                  SC_evt_mouse_client_x.innerHTML = (0 == vals.length)?"--"
                                                           :Math.floor(vals[0].cx);
                  SC_evt_mouse_client_y.innerHTML = (0 == vals.length)?"--"
@@ -1148,16 +1151,17 @@ SC_ClientTools = {
                                     , rt:ticks
                                     });
           res.a.addEventListener("loadeddata", function(m, evt){
-              m.generateEvent(this.sens);
+            m.generateEvent(this.loadedEvt);
             }.bind(res, SC_ClientTools.m));
           
           res.a.addEventListener("ended", function(m, evt){
-              m.generateEvent(this.endedEvt);
-              this.rt_count = this.rt;
-              this.playing=false;
+            m.generateEvent(this.endedEvt);
+            this.rt_count = this.rt;
+            this.playing=false;
             }.bind(res, SC_ClientTools.m));
           this.waittingLoad.add(SC.await(res.loadedEvt));
-          res.src = url+this.extension;
+          res.src = url;//+this.extension;
+	  console.log("laoding url = ", res.src);
           res.a.needToLoad = true;
           res.play=function(){
             if(res.rt<0){

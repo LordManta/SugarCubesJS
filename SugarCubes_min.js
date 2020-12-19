@@ -7,7 +7,7 @@
  * Copyright 2014-2018.
  */
 ;
-var SC = (function(){
+(function(){
 const SC_Instruction_state_str = [
   "undefined !"
   , "SUSP"
@@ -118,7 +118,8 @@ var _SC = {
            if(o instanceof SC_CubeBinding){
              o = o.clone();
              o.setCube(this);
-             return o.resolve();
+             var res = o.resolve();
+             return res;
              }
            return o;
            }.bind(cube);
@@ -138,7 +139,7 @@ var _SC = {
       if(undefined == evt){
         return false;
         }
-      return (evt instanceof SC_Event)||(evt instanceof SC_Sensor);
+      return (evt instanceof SC_EventId)||(evt instanceof SC_SensorId);
       }
   , checkEvent : function(evt){
       if(! this.isEvent(evt)){
@@ -153,7 +154,7 @@ var _SC = {
       if(undefined == evt){
         return false;
         }
-      return (evt instanceof SC_Event)
+      return (evt instanceof SC_EventId)
              ||(evt instanceof SC_CubeBinding);
       }
   , checkStrictEvent : function(evt){
@@ -172,6 +173,7 @@ var _SC = {
       return (cfg instanceof SC_Or) || (cfg instanceof SC_OrBin)
              || (cfg instanceof SC_And) || (cfg instanceof SC_AndBin)
              || (cfg instanceof SC_CubeBinding)
+             || (cfg instanceof SC_SensorId)
              || this.isEvent(cfg);
       }
   , checkConfig : function(cfg){
@@ -313,25 +315,55 @@ function SC_cubify(params){
                                , writable: false
                                }
                              );
-}
+  if(params.sci){
+    params.sci.call(this);
+    }
+  };
 const VOID_VALUES=[];
 Object.freeze(VOID_VALUES);
 var nextEventID = 0;
-function SC_Event(params){
+function SC_EventId(params){
+  this.makeNew = params.makeNew;
+  this.distribute = params.distribute;
+  this.registeredMachines = {};
+  Object.defineProperty(this, "internalId"
+         , {value: nextEventID++, writable:false});
+  Object.defineProperty(this, "name"
+         , {value: "&_"+this.internalId+"_"+params.name, writable:false});
+  };
+SC_EventId.prototype ={
+  constructor: SC_EventId
+, getId: function(){
+    return this.internalId;
+    }
+, toString: function(){
+    return this.name;
+    }
+, getName: function(){
+    return this.name;
+    }
+, bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
+    if(!this.registeredMachines[engine.id]){
+      this.registeredMachines[engine.id] = engine.getEvent(this);
+      }
+    return this.registeredMachines[engine.id];
+    }
+  };
+function SC_Event(id, m){
   this.lein = -1; 
-  this.name = params.name; 
+  this.name = id.name; 
+  this.eventId = id;
   if(
-    (undefined != params.makeNew)
-    && (undefined != params.distribute)
+    (undefined != id.makeNew)
+    && (undefined != id.distribute)
     ){
-    return new SC_EventDistributed(params);
+    return new SC_EventDistributed(id);
     }
   this.vals = [];
   this.permanentGenerators = [];
   this.permanentValuatedGenerator = 0;
   this.registeredInst = [];  
   this.m = null; 
-  this.internalID = nextEventID++;
   };
 SC_Event.prototype = {
   constructor : SC_Event
@@ -399,14 +431,14 @@ SC_Event.prototype = {
     return this;
     }
 , toString : function(){
-    return "&"+this.internalID+"_"+this.name;
+    return this.eventId.name;
     }
   };
-function SC_EventDistributed(params){
+function SC_EventDistributed(id){
   this.lein = -1; 
-  this.name = params.name; 
-  this.makeNew = params.makeNew;
-  this.distribute = params.distribute;
+  this.name = id.name; 
+  this.makeNew = id.makeNew;
+  this.distribute = id.distribute;
   this.vals = this.makeNew();
   this.permanentGenerators = [];
   this.permanentValuatedGenerator = 0;
@@ -452,6 +484,67 @@ SC_EventDistributed.prototype = {
     }
 , __proto__ : SC_Event.prototype
   };
+function SC_SensorId(params){
+  this.makeNew = params.makeNew; 
+  this.distribute = params.distribute; 
+  this.dom_targets = params.dom_targets;
+  this.registeredMachines = [];
+  this.ownMachine = null;
+  Object.defineProperty(this, "internalId"
+         , {value: nextEventID++, writable:false});
+  Object.defineProperty(this, "name"
+         , {value: "&_"+this.internalId+"_"+params.name, writable:false});
+  Object.defineProperty(this, "dom_evt_listener"
+         , {value: function(evt){
+            this.newValue(evt);
+            }.bind(this), writable:false});
+  if(this.dom_targets){
+    for(var t of this.dom_targets){
+      t.target.addEventListener(t.evt, this.dom_evt_listener);
+      }
+    }
+  };
+SC_SensorId.prototype ={
+  constructor: SC_SensorId
+, getId: function(){
+    return this.internalId;
+    }
+, toString: function(){
+    return this.name;
+    }
+, getName: function(){
+    return this.name;
+    }
+, newValue: function(value){
+    if(this.ownMachine){
+      this.ownMachine.addEntry(this, value);
+      this.ownMachine.react();
+      }
+    for(var client of this.registeredMachines){
+      client.addEntry(this, value);
+      }
+    }
+, addOwnEntry: function(evtName, value){
+    if(this.ownMachine){
+      this.ownMachine.addEntry(this, value);
+      }
+    }
+, addOwnProgram: function(prg){
+    if(this.ownMachine){
+      this.ownMachine.addProgram(prg);
+      }
+    }
+, bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
+    var sens = engine.getSensor(this); 
+    if(!this.registeredMachines.includes(engine)){
+      this.registeredMachines.push(engine);
+      }
+    if(undefined  === sens){
+      throw new Error("Sensor unable to allocate it");
+      }
+    return sens;
+    }
+  };
 function SC_Sensor(params){
   this.lein = -1;
   if(
@@ -460,18 +553,15 @@ function SC_Sensor(params){
     ){
     return new SC_EntryDistributed(params);
     }
-  this.dom_targets = params.dom_targets;
-  this.name = params.name;
-  this.dom_evt_listener = null;
+  this.sensId = params;
   this.vals = []; 
   this.registeredInst = [];
-  this.internalID = nextEventID++;
   };
 SC_Sensor.prototype = {
   constructor : SC_Sensor
 , isPresent : SC_Event.prototype.isPresent
 , wakeupAll : SC_Event.prototype.wakeupAll
-, generateValues : SC_Event.prototype.generateValues
+, generateValues : NO_FUN
 , systemGen : function(val, m, flag){
     if(this.lein != m.instantNumber){
       this.lein = m.instantNumber;
@@ -479,7 +569,7 @@ SC_Sensor.prototype = {
       this.wakeupAll(m, flag);
       if(undefined != val){
         Object.defineProperty(m.generated_values
-             , this.toString()
+             , this.sensId.toString()
              , {get : function(){return this.vals; }.bind(this)});
         }
       }
@@ -488,7 +578,9 @@ SC_Sensor.prototype = {
 , unregister : SC_Event.prototype.unregister
 , registerInst : SC_Event.prototype.registerInst
 , getValues : SC_Event.prototype.getValues
-, getAllValues : SC_Event.prototype.getAllValues
+, getAllValues : function(m, vals){
+    vals[this.sensId] = (this.lein == m.instantNumber)?this.vals:VOID_VALUES;
+    }
 , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
     if(null == this.m){
       this.m = engine;
@@ -496,25 +588,16 @@ SC_Sensor.prototype = {
     else if(this.m !== engine){
       throw new Error('bound event ('+this.name+') problem');
       }
-    if((undefined != this.dom_targets)
-      &&(null == this.dom_evt_listener)){
-      this.dom_evt_listener = function(evt){
-              this.m.generateEvent(this, evt);
-              }.bind(this);
-      for(var t of this.dom_targets){
-        t.target.addEventListener(t.evt, this.dom_evt_listener);
-        }
-      }
     return this;
     }
 , toString : function(){
-    return "&_"+this.internalID+"_"+this.name;
+    return this.sensId.getName();
     }
   };
 function SC_EntryDistributed(params){
   this.lein = -1; 
-  this.name = params.name; 
   this.makeNew = params.makeNew;
+  this.sensId = params;
   this.distribute = params.distribute;
   this.vals = this.makeNew();
   this.permanentGenerators = [];
@@ -539,7 +622,9 @@ SC_EntryDistributed.prototype = {
     this.distribute(this.vals, val);
     }
 , generate : SC_EventDistributed.prototype.generate
-, generateValues : SC_EventDistributed.prototype.generateValues
+, generateValues :  function(m, val){
+    this.distribute(this.vals, val);
+    }
 , getValues : SC_EventDistributed.prototype.getValues
 , __proto__ : SC_Sensor.prototype
   };
@@ -586,6 +671,10 @@ const SC_OpcodesNames = [
   , "PAUSE_N_TIMES_INIT_INLINE"
   , "PAUSE_N_TIMES_INLINE"
   , "PAUSE_N_TIMES_INIT"
+  , "PAUSE_N_TIMES"
+  , "PAUSE_UNTIL_INIT"
+  , "PAUSE_UNTIL"
+  , "PAUSE_UNTIL_DONE"
   , "PAUSE_N_TIMES"
   , "NOTHING_INLINED"
   , "NOTHING"
@@ -1129,8 +1218,9 @@ SC_Instruction.prototype = {
   , prepare : function(m){
       var vals = {};
       for(var i in this.eventList){
-        if(this.eventList[i].isPresent(m)){
-          this.eventList[i].getAllValues(m, vals);
+        const evt = m.getEvent(this.eventList[i]);
+        if(evt.isPresent(m)){
+          evt.getAllValues(m, vals);
           }
         }
       this.futur = this.sideEffect(this.state, vals, m);
@@ -1166,6 +1256,7 @@ SC_Instruction.prototype = {
         case SC_Opcodes.GENERATE_CELL_INLINE_BUT_FOREVER_CONTROLED:
         case SC_Opcodes.GENERATE_ONE_CELL_INLINE:
         case SC_Opcodes.GENERATE_ONE_CELL:
+        case SC_Opcodes.GENERATE_FOREVER_CELL_INIT:
         case SC_Opcodes.GENERATE_FOREVER_CELL_HALTED:
         case SC_Opcodes.GENERATE_FOREVER_CELL_CONTROLED:{
           this.evt.generateValues(m, this.val.val());
@@ -1181,6 +1272,7 @@ SC_Instruction.prototype = {
         case SC_Opcodes.GENERATE_FUN_INLINE_BUT_FOREVER_CONTROLED:
         case SC_Opcodes.GENERATE_ONE_FUN_INLINE:
         case SC_Opcodes.GENERATE_ONE_FUN:
+        case SC_Opcodes.GENERATE_FOREVER_FUN_INIT:
         case SC_Opcodes.GENERATE_FOREVER_FUN_HALTED:
         case SC_Opcodes.GENERATE_FOREVER_FUN_CONTROLED:{
           this.evt.generateValues(m, this.val(m));
@@ -1196,9 +1288,10 @@ SC_Instruction.prototype = {
         case SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER_CONTROLED:
         case SC_Opcodes.GENERATE_ONE_EXPOSE_INLINE:
         case SC_Opcodes.GENERATE_ONE_EXPOSE:
+        case SC_Opcodes.GENERATE_FOREVER_EXPOSE_INIT:
         case SC_Opcodes.GENERATE_FOREVER_EXPOSE_HALTED:
         case SC_Opcodes.GENERATE_FOREVER_EXPOSE_CONTROLED:{
-          this.evt.generateValues(m, this.val.exposedState(m));
+          this.evt.generateValues(m, this.val.getExposeReader(m));
           break;
           }
         case SC_Opcodes.GENERATE_FOREVER_LATE_VAL:{
@@ -1224,6 +1317,7 @@ SC_Instruction.prototype = {
         case SC_Opcodes.FILTER_FOREVER_NO_ABS_REGISTERED:
         case SC_Opcodes.FILTER_FOREVER:
         case SC_Opcodes.FILTER_NO_ABS:
+        case SC_Opcodes.FILTER_NO_ABS_INIT:
         case SC_Opcodes.FILTER:
         case SC_Opcodes.FILTER_ONE:
         case SC_Opcodes.FILTER_ONE_NO_ABS:{
@@ -1236,6 +1330,9 @@ SC_Instruction.prototype = {
             }
           else if("function" == typeof(this.val)){
             this.evt.generateValues(m, this.val(m));
+            }
+          else if(this.val instanceof SC_CubeExposedState){
+            this.evt.generateValues(m, this.val.exposedState(m));
             }
           else{
             this.evt.generateValues(m, this.val);
@@ -1578,7 +1675,7 @@ SC_GenerateForeverLateEvtNoVal.prototype = {
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var copy = new SC_Instruction(SC_Opcodes.GENERATE_FOREVER_LATE_EVT_NO_VAL);
-      copy.evt = this.evt;
+      copy.evt = this.evt.bindTo(engine);
       copy._evt = this._evt;
       return copy;
       }
@@ -1600,7 +1697,7 @@ SC_GenerateForeverLateVal.prototype =
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
-      var bound_evt = binder(this.evt);
+      var bound_evt = binder(this.evt).bindTo(engine);
       var bound_value = binder(this.val);
       var copy = null;
       if(bound_evt.isBinding){
@@ -1632,7 +1729,7 @@ SC_GenerateForeverLateVal.prototype =
           }
         }
       copy.itsParent = parbranch;
-      copy._evt = this.evt;
+      copy._evt = this.evt.bindTo(engine);
       copy._val = this.val;
       parbranch.declarePotential();
       return copy;
@@ -1645,9 +1742,9 @@ SC_GenerateForeverLateVal.prototype =
 }
 function SC_GenerateForeverNoVal(evt){
   if((undefined == evt)
-        ||(! (evt instanceof SC_Event
+        ||(! (evt instanceof SC_EventId
               || evt instanceof SC_CubeBinding
-              || evt instanceof SC_Sensor))){
+              || evt instanceof SC_SensorId))){
     throw "GenerateForEver error on evt:("+evt+")";
     }
   this.evt = evt;
@@ -1657,7 +1754,7 @@ SC_GenerateForeverNoVal.prototype = {
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var copy = new SC_Instruction(SC_Opcodes.GENERATE_FOREVER_NO_VAL_INIT);
-      copy.evt = this.evt;
+      copy.evt = this.evt.bindTo(engine);
       copy._evt = this.evt;
       return copy;
       }
@@ -1676,7 +1773,7 @@ SC_GenerateForever.prototype = {
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
-      var bound_evt = binder(this.evt);
+      var bound_evt = binder(this.evt).bindTo(engine);
       var bound_value = binder(this.val);
       var copy = null;
       if(bound_evt instanceof SC_CubeBinding){
@@ -1697,7 +1794,7 @@ SC_GenerateForever.prototype = {
       copy.evt = bound_evt;
       copy.val = bound_value;
       if(copy.val instanceof SC_CubeExposedState){
-        copy.val.setCube(cinst);
+        copy.val = cinst;
         copy.oc = SC_Opcodes.GENERATE_FOREVER_EXPOSE_INIT;
         }
       else if("function" == typeof(copy.val)){
@@ -1727,7 +1824,7 @@ SC_GenerateOneNoVal.prototype = {
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var copy = new SC_Instruction(SC_Opcodes.GENERATE_ONE_NO_VAL);
-      copy.evt = binder(this.evt);
+      copy.evt = binder(this.evt).bindTo(engine);
       return copy;
       }
   , toString : function(){
@@ -1751,7 +1848,7 @@ SC_GenerateOne.prototype = {
       if(null === this.evt){
         this.evt = engine.traceEvt;
         }
-      var tmp_evt = binder(this.evt);
+      var tmp_evt = binder(this.evt).bindTo(engine);
       var tmp_val = binder(this.val);
       if(undefined === tmp_val){
         return new SC_GenerateOneNoVal(tmp_evt)
@@ -1761,7 +1858,7 @@ SC_GenerateOne.prototype = {
       copy.evt = tmp_evt;
       copy.val = tmp_val;
       if(copy.val instanceof SC_CubeExposedState){
-        copy.val.setCube(cinst);
+        copy.val = cinst;
         copy.oc = SC_Opcodes.GENERATE_ONE_EXPOSE;
         }
       else if("function" == typeof(copy.val)){
@@ -1810,7 +1907,7 @@ SC_Generate.prototype = {
       var copy = null;
       var binder = _SC._b(cube);
       var tmp_times = binder(this.times);
-      var tmp_evt = binder(this.evt);
+      var tmp_evt = binder(this.evt).bindTo(engine);
       var tmp_val = binder(this.val);
       if(tmp_times < 0){
         return new SC_GenerateForever(tmp_evt, tmp_val)
@@ -1827,7 +1924,7 @@ SC_Generate.prototype = {
       copy.evt = tmp_evt;
       copy.val = tmp_val;
       if(copy.val instanceof SC_CubeExposedState){
-        copy.val.setCube(cinst);
+        copy.val = cinst;
         copy.oc = SC_Opcodes.GENERATE_EXPOSE_INIT;
         }
       else if("function" == typeof(copy.val)){
@@ -1862,7 +1959,7 @@ SC_GenerateNoVal.prototype = {
       var copy = null;
       var binder = _SC._b(cube);
       var tmp_times = binder(this.times);
-      var tmp_evt = binder(this.evt);
+      var tmp_evt = binder(this.evt).bindTo(engine);
       if(tmp_times < 0){
         return new SC_GenerateForeverNoVal(tmp_evt)
                .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
@@ -1888,13 +1985,13 @@ SC_GenerateNoVal.prototype = {
       }
   }
 function SC_FilterForeverNoSens(sensor, filterFun, evt){
-  if(!(sensor instanceof SC_Sensor) && !(sensor instanceof SC_CubeBinding)){
+  if(!(sensor instanceof SC_SensorId) && !(sensor instanceof SC_CubeBinding)){
       throw "sensor required !";
     }
   if(undefined === filterFun){
     throw "invalid filter function !";
     }
-  if(!(evt instanceof SC_Event)){
+  if(!(evt instanceof SC_EventId) && !(evt instanceof SC_CubeBinding)){
     throw "invalid filter event !!";
     }
   this.sensor = sensor;
@@ -1903,7 +2000,7 @@ function SC_FilterForeverNoSens(sensor, filterFun, evt){
   this.itsParent = null;
   this.path = null;
   this.val = null;
-}
+  };
 SC_FilterForeverNoSens.prototype = {
   constructor : SC_FilterForeverNoSens
   , isAnSCProgram : true
@@ -1911,10 +2008,10 @@ SC_FilterForeverNoSens.prototype = {
       var binder = _SC._b(cube);
       var bound_sensor = binder(this.sensor);
       var bound_fun = binder(this.filterFun);
-      var bound_evt = binder(this.evt);
+      var bound_evt = binder(this.evt).bindTo(engine);
       bound_fun = _SC.bindIt(bound_fun);
       var copy = new SC_Instruction(SC_Opcodes.FILTER_FOREVER_NO_ABS);
-      copy.sensor = bound_sensor;
+      copy.sensor = bound_sensor.bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
       copy.filterFun = bound_fun;
       copy.evt = bound_evt;
       copy._Sensor = this.sensor;
@@ -1932,20 +2029,20 @@ SC_FilterForeverNoSens.prototype = {
       }
   }
 function SC_FilterForever(sensor, filterFun, evt, no_sens){
-  if(!(sensor instanceof SC_Sensor)
+  if(!(sensor instanceof SC_SensorId)
     &&!(sensor instanceof SC_CubeBinding)){
       throw "sensor required !";
     }
   if(undefined === filterFun){
     throw "invalid filter function !";
     }
-  if(!(evt instanceof SC_Event) && !(evt instanceof SC_CubeBinding)){
+  if(!(evt instanceof SC_EventId) && !(evt instanceof SC_CubeBinding)){
     throw "invalid filter event !!";
     }
   if(undefined === no_sens){
     return new SC_FilterForeverNoSens(sensor, filterFun, evt);
     }
-  if(!(no_sens instanceof SC_Event) && !(no_sens instanceof SC_CubeBinding)){
+  if(!(no_sens instanceof SC_EventId) && !(no_sens instanceof SC_CubeBinding)){
     throw "invalid no sensor event !!";
     }
   this.sensor = sensor;
@@ -1963,7 +2060,7 @@ SC_FilterForever.prototype = {
       var binder = _SC._b(cube);
       var bound_sensor = binder(this.sensor);
       var bound_fun = binder(this.filterFun);
-      var bound_evt = binder(this.evt);
+      var bound_evt = binder(this.evt).bindTo(engine);
       var bound_noSens_evt = binder(this.noSens_evt);
       bound_fun = _SC.bindIt(bound_fun);      
       if(undefined === bound_noSens_evt){
@@ -1976,7 +2073,7 @@ SC_FilterForever.prototype = {
         return copy;
         }
       var copy = new SC_Instruction(SC_Opcodes.FILTER_FOREVER);
-      copy.sensor = bound_sensor;
+      copy.sensor = bound_sensor.bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
       copy.filterFun = bound_fun;
       copy.evt = bound_evt;
       copy.noSens_evt = bound_noSens_evt;
@@ -1996,14 +2093,14 @@ SC_FilterForever.prototype = {
       }
   }
 function SC_FilterOneNoSens(sensor, filterFun, evt){
-  if(!(sensor instanceof SC_Sensor)
+  if(!(sensor instanceof SC_SensorId)
     &&!(sensor instanceof SC_CubeBinding)){
       throw "sensor required !";
     }
   if(undefined === filterFun){
     throw "invalid filter function !";
     }
-  if(!(evt instanceof SC_Event) && !(evt instanceof SC_CubeBinding)){
+  if(!(evt instanceof SC_EventId) && !(evt instanceof SC_CubeBinding)){
     throw "invalid filter event !!";
     }
   this.sensor = sensor;
@@ -2020,11 +2117,11 @@ SC_FilterOneNoSens.prototype = {
       var binder = _SC._b(cube);
       var bound_sensor = binder(this.sensor);
       var bound_fun = binder(this.filterFun);
-      var bound_evt = binder(this.evt);
+      var bound_evt = binder(this.evt).bindTo(engine);
       var bound_noSens_evt = binder(this.noSens_evt);
       bound_fun = _SC.bindIt(bound_fun);
       var copy = new SC_Instruction(SC_Opcodes.FILTER_ONE_NO_ABS);
-      copy.sensor = bound_sensor;
+      copy.sensor = bound_sensor.bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
       copy.filterFun = bound_fun;
       copy.evt = bound_evt;
       copy.noSens_evt = bound_noSens_evt;
@@ -2045,20 +2142,20 @@ SC_FilterOneNoSens.prototype = {
       }
   }
 function SC_FilterOne(sensor, filterFun, evt, no_sens){
-  if(!(sensor instanceof SC_Sensor)
+  if(!(sensor instanceof SC_SensorId)
     &&!(sensor instanceof SC_CubeBinding)){
       throw "sensor required !";
     }
   if(undefined === filterFun){
     throw "invalid filter function !";
     }
-  if(!(evt instanceof SC_Event) && !(evt instanceof SC_CubeBinding)){
+  if(!(evt instanceof SC_EventId) && !(evt instanceof SC_CubeBinding)){
     throw "invalid filter event !!";
     }
   if(undefined === no_sens){
     return new SC_FilterOneNoSens(sensor, filterFun, evt);
     }
-  if(!(no_sens instanceof SC_Event)
+  if(!(no_sens instanceof SC_EventId)
     && !(no_sens instanceof SC_CubeBinding)){
     throw "invalid no sensor event !!";
     }
@@ -2077,11 +2174,11 @@ SC_FilterOne.prototype = {
       var binder = _SC._b(cube);
       var bound_sensor = binder(this.sensor);
       var bound_fun = binder(this.filterFun);
-      var bound_evt = binder(this.evt);
+      var bound_evt = binder(this.evt).bindTo(engine);
       var bound_noSens_evt = binder(this.noSens_evt);
       bound_fun = _SC.bindIt(bound_fun);
       var copy = new SC_Instruction(SC_Opcodes.FILTER_ONE);
-      copy.sensor = bound_sensor;
+      copy.sensor = bound_sensor.bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
       copy.filterFun = bound_fun;
       copy.evt = bound_evt;
       copy.noSens_evt = bound_noSens_evt;
@@ -2111,7 +2208,7 @@ function SC_FilterNoSens(sensor, evt, filterFun, times){
   if(times < 0){
     return new SC_FilterForeverNoSens(sensor, filterFun, evt);
     }
-  if(!(sensor instanceof SC_Sensor) && !(no_sens instanceof SC_CubeBinding)){
+  if(!(sensor instanceof SC_SensorId) && !(no_sens instanceof SC_CubeBinding)){
     throw "sensor required !";
     }
   this.sensor = sensor;
@@ -2147,7 +2244,7 @@ SC_FilterNoSens.prototype = {
            .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
         }
       copy = new SC_Instruction(SC_Opcodes.FILTER_NO_ABS_INIT);
-      copy.sensor = bound_sensor
+      copy.sensor = bound_sensor.bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
       copy.evt = bound_evt
       copy.filterFun = bound_fun
       copy.times = bound_times
@@ -2177,7 +2274,7 @@ function SC_Filter(sensor, evt, filterFun, times, no_sens){
   if(times < 0){
     return new SC_FilterForever(sensor, filterFun, evt, no_sens);
     }
-  if(!(sensor instanceof SC_Sensor) && !(no_sens instanceof SC_CubeBinding)){
+  if(!(sensor instanceof SC_SensorId) && !(no_sens instanceof SC_CubeBinding)){
     throw "sensor required !";
     }
   if(undefined == no_sens){
@@ -2196,7 +2293,7 @@ SC_Filter.prototype = {
       var binder = _SC._b(cube);
       var bound_sensor = binder(this.sensor);
       var bound_fun = binder(this.filterFun);
-      var bound_evt = binder(this.evt);
+      var bound_evt = binder(this.evt).bindTo(engine);
       var bound_times = binder(this.times);
       var bound_noSens_evt = binder(this.noSens_evt);
       var copy = null;
@@ -2214,7 +2311,7 @@ SC_Filter.prototype = {
                .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
         }
       copy = new SC_Instruction(SC_Opcodes.FILTER);
-      copy.sensor = bound_sensor;
+      copy.sensor = bound_sensor.bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
       copy.evt = bound_evt;
       copy.filterFun = bound_fun;
       copy.times = bound_times;
@@ -2255,7 +2352,7 @@ SC_Send.prototype = {
   , isAnSCProgram : true
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
-      var bound_evt = binder(this.evt);
+      var bound_evt = binder(this.evt).bindTo(engine);
       var bound_times = binder(this.times);
       var bound_val = binder(this.value);
       var copy = null;
@@ -2296,7 +2393,7 @@ SC_SendOne.prototype = {
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var binder = _SC._b(cube);
       var copy = new SC_Instruction(SC_Opcodes.SEND_ONE);
-      copy.evt = binder(this.evt)
+      copy.evt = binder(this.evt).bindTo(engine);
       copy.value = binder(this.value);
       copy._evt = this.evt;
       copy._value = this.value;
@@ -2347,9 +2444,7 @@ SC_PauseInline.isAnSCProgram = true;
 SC_PauseInline.bindTo = function(engine, parbranch, seq, masterSeq, path, cube, cinst){
   return this;
   }
-function SC_PauseOne(){
-  this.res = false;
-  }
+function SC_PauseOne(){};
 SC_PauseOne.prototype = {
   constructor : SC_PauseOne
   , isAnSCProgram : true
@@ -2359,7 +2454,7 @@ SC_PauseOne.prototype = {
   , toString : function(){
       return "pause ";
       }
-  }
+  };
 function SC_Pause(times){
   if(times < 0){
     return SC_PauseForever;
@@ -2414,25 +2509,57 @@ SC_PauseRT.prototype = {
       return "pause for "+this.duration+" ms ";
       }
   }
+function SC_PauseUntil(cond){
+  this.cond = cond;
+  };
+SC_PauseUntil.prototype = {
+  constructor : SC_PauseUntil,
+  isAnSCProgram : true,
+  bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
+    var binder = _SC._b(cube);
+    var bound_cond = binder(this.cond);
+    var copy = null;
+    if(bound_cond === true){
+      return SC_PauseOne
+              .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
+      }
+    else if(false == bound_cond){
+      return SC_PauseForever;
+      }
+    copy = new SC_Instruction(SC_Opcodes.PAUSE_UNTIL);
+    copy.cond = bound_cond;
+    copy._cond = this.cond;
+    return copy;
+    },
+  toString : function(){
+    return "pause "+this.count+"/"+this.times+" times ";
+    }
+  };
 function SC_Seq(seqElements){
   this.seqElements = [];
   var targetIDx = 0;
   for(var i = 0; i < seqElements.length; i++){
-    var prg = seqElements[i];
-    if(prg instanceof SC_Seq){
-      for(var j = 0; j < prg.seqElements.length; j++){
-        this.seqElements[targetIDx++] = prg.seqElements[j];
-        }
-      }
-    else{
-      this.seqElements[targetIDx++] = seqElements[i];
-      }
+    this.add(seqElements[i])
     }
-  }
+  };
 SC_Seq.prototype = {
   constructor : SC_Seq
-  , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
+, isAnSCProgram : true
+, add:function(p){
+    if(p){
+      if(p instanceof SC_Seq){
+        for(var j = 0; j < p.seqElements.length; j++){
+          this.seqElements.push(p.seqElements[j]);
+          }
+        }
+      else{
+        this.seqElements.push(p);
+        }
+      return;
+      }
+    throw new Error('Seq.add(): invalid program'+p);
+    }
+, bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var copy = new SC_Instruction(SC_Opcodes.SEQ_INIT);
       copy.seqElements = [];
       var targetIDx = 0;
@@ -2512,8 +2639,8 @@ SC_Seq.prototype = {
       copy.max = copy.seqElements.length-2;
       copy.path = path;
       return copy;
-      }
-  , toString : function(){
+      },
+  toString : function(){
       var res ="[";
       for(var i = 0; i < this.seqElements.length; i++){
         res += this.seqElements[i].toString();
@@ -2521,7 +2648,7 @@ SC_Seq.prototype = {
         }
       return res+"] ";
       }
-}
+  };
 function SC_ActionForever(f){
   this.action = f;
   }
@@ -3008,7 +3135,7 @@ SC_ParDyn.prototype = {
       copy.mseq = masterSeq;
       copy.itsParent = parbranch;
       copy.cube = cube;
-      copy.channel = this.channel;
+      copy.channel = this.channel.bindTo(engine);
       copy.path = path;
       return copy;
       }
@@ -3295,22 +3422,25 @@ SC_Control.prototype = {
 function SC_When(c){
   this.c = c;
   this.elsB = 0;
-  }
+  };
 SC_When.prototype = {
   constructor: SC_When
-  , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
-      var copy = new SC_Instruction(SC_Opcodes.WHEN);
-      copy.c = this.c.bindTo(engine, parbranch, null, masterSeq, copy, cube, cinst)
-      copy.elsB = parseInt(this.elsB);
-      copy.path = path;
-      copy.seq = seq;
-      return copy;
-      }
-  , toString : function(){
+, isAnSCProgram : true
+, bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
+    const binder = _SC._b(cube);
+    const bound_config = binder(this.c);
+    const copy = new SC_Instruction(SC_Opcodes.WHEN);
+    copy.c = bound_config
+               .bindTo(engine, parbranch, null, masterSeq, copy, cube, cinst);
+    copy.elsB = parseInt(this.elsB);
+    copy.path = path;
+    copy.seq = seq;
+    return copy;
+    }
+, toString : function(){
     return "when "+this.c.toString()+" then ";
-  }
-}
+    }
+  };
 function SC_Test(b){
   this.b = b;
   }
@@ -3382,6 +3512,15 @@ function SC_Cube(o, p, extension){
     if(undefined != extension.swapList){
       this.swapList = extension.swapList;
       }
+    if(undefined != extension.cubeProto){
+      this.cubeProto = extension.cubeProto;
+      }
+    else {
+      this.cubeProto = {};
+      }
+    }
+  else{
+    this.cubeProto = {};
     }
   this.toAdd = [];
   }
@@ -3403,7 +3542,7 @@ SC_Cube.prototype = {
         console.trace();        
         return null;
         }
-      SC_cubify.apply(this.o);
+      SC_cubify.apply(this.o, this.cubeProto);
       var copy = new SC_Instruction(SC_Opcodes.CUBE_ZERO);
       copy.o = this.o;
       copy.swapList = this.swapList;
@@ -3415,27 +3554,20 @@ SC_Cube.prototype = {
       if(cells){
         for(var i of cells){
           const idn = i.id;
-          if(i.target){
-            Object.defineProperty(copy.exposeReader
-                       , idn
-                       , {get:(function(name){
-                             return this[name];
-                             }).bind(copy.o, idn)
-                          }
-                          );
-            }
-          else{
-            Object.defineProperty(copy.exposeReader
-                       , idn
-                       , {get:(function(name){
-                             return this[name];
-                             }).bind(copy.exposedState, idn)
-                          }
-                          );
-            }
-          copy.exposedState[i.id] = null;
+          Object.defineProperty(copy.exposeReader
+                     , idn
+                     , {get:(function(name){
+                           return this[name];
+                           }).bind(copy.exposedState, idn)
+                        }
+                        );
+          copy.exposedState[idn] = null;
           }
         }
+      Object.defineProperty(copy.o
+                          , "SC_me"
+                          , { value: copy.exposeReader , writable:false }
+                          );
       var tmp_par_dyn;
       var tmp_beh = SC.kill(this.o.SC_cubeKillEvt
            , SC.par(
@@ -3459,14 +3591,28 @@ SC_Cube.prototype = {
       copy.path = path;
       var swap_text = "(function(state, m){";
       if(cells){
-        const cl = cells.length;
-        for(var k = 0; k < cl; k++){
-          swap_text += "  this."+cells[k].id
-                      +" = state."+cells[k].id
-                      +";";
+        for(var k of cells){
+          switch(k.type){
+            case 'fun':{
+              copy.exposedState[k.id] = copy.o[k.id].bind(copy.exposedState);
+              break;
+              }
+            case 'const':{
+              copy.exposedState[k.id] = copy.o[k.id];
+              break;
+              }
+            case 'var':
+            default:{
+              swap_text += "  this."+k.id
+                        +" = state."+k.id
+                        +";";
+              break;
+              }
+            }
           }
         }
       swap_text += "})";
+      copy.exposedState.__proto__ = copy.o;
       copy.swap = (cells)?eval(swap_text).bind(copy.exposedState, copy.o):NO_FUN;
       copy.init = binder(this.init);
       copy.lastWill = binder(this.lastWill);
@@ -3628,7 +3774,19 @@ function SC_ValueWrapper(tgt, n){
 SC_ValueWrapper.prototype.getVal = function(){
   return this.tgt[this.n];
   }
+var nextMachineID = 0;
+function SC_ReactiveInterface(){
+  };
+SC_ReactiveInterface.prototype = {
+  constructor: SC_ReactiveInterface
+, 
+};
 function SC_Machine(params){
+  Object.defineProperty(this, "id"
+           , { value: "@_"+nextMachineID++
+             , writable: false
+             }
+           );
   this.prg = new SC_Par([]).bindTo(this, null, null, null, null, null,null);
   this.instantNumber = 1;
   this.ended = false;
@@ -3659,7 +3817,7 @@ function SC_Machine(params){
   if(undefined != params){
     this.setStdOut(params.sortie);
     }
-  this.traceEvt = SC.evt("traceEvt");
+  this.traceEvt = new SC_Event({name:"traceEvt"});
   if(undefined != params && undefined != params.init){
     this.addProgram(params.init);
     }
@@ -3785,7 +3943,7 @@ function SC_Machine(params){
   };
   this.systemEvent = function(target, name, sync){
     if(this.handlers.hasOwnProperty(name)){
-      var SC_event = new SC_Sensor(""+target+"."+name, {});
+      var SC_event = SC.sensor(""+target+"."+name, {});
       var handler = this.handlers[name];
       var me = this;
       target.addEventListener(name, function(evt){
@@ -3798,11 +3956,33 @@ function SC_Machine(params){
     }
     throw "no system event "+name+" defined for "+target;
   }
-}
+  this.environment = {};
+  this.reactInterface = new SC_ReactiveInterface();
+  this.reactInterface.getIPS = this.getIPS.bind(this);
+  this.reactInterface.getInstantNumber = this.getInstantNumber.bind(this);
+  this.reactInterface.getTopLevelParallelBranchesNumber = this.getTopLevelParallelBranchesNumber.bind(this);
+  this.reactInterface.generateEvent = this.generateEvent.bind(this);
+  Object.defineProperty(this.reactInterface, "all"
+           , {get : function(){
+                      return this.generated_values;
+                      }.bind(this)
+             }
+               );
+  Object.defineProperty(this.reactInterface, "id"
+           , { get : function(){
+                      return this.id;
+                      }.bind(this)
+             }
+               );
+  };
 SC_Machine.prototype = {
   constructor : SC_Machine
+, toString: function(){
+    return this.id;
+    }
 , collapse : function(){
     this.prg = null;
+    this.promptEnabled = false;
     this.whenGettingThread = null;
     this.permanentActions = null;
     this.permanentGenerate = null;
@@ -3819,11 +3999,43 @@ SC_Machine.prototype = {
     this.parActions = null;
     this.stdOut = NO_FUN;
     this.traceEvt = null;
+    this.environment = null;
     if(this.timer != 0){
       clearInterval(this.timer);
       this.timer = 0;
       }
     this.delay = null;
+    },
+  getValuesOf: function(id){
+    if(id instanceof SC_EventId){
+      return this.getEvent(id).getValues(this);
+      }
+    else if(id instanceof SC_SensorId){
+      return this.getSensor(id).getValues(this);
+      }
+    },
+  getEvent : function(id){
+    var res = this.environment[id];
+    if(undefined === res){
+      this.environment[id] = res = new SC_Event(id, this);
+      }
+    else if(!(res instanceof SC_Event)){
+      throw new Error("invalid event type");
+      }
+    return res;
+    },
+  getSensor : function(id){
+    var res = this.environment[id];
+    if(undefined === res){
+      this.environment[id] = res = new SC_Sensor(id);
+      }
+    else if(!(res instanceof SC_Sensor)){
+      throw new Error("invalid sensor type");
+      }
+    return res;
+    },
+  enablePrompt: function(flag){
+    this.promptEnabled = flag;
     }
 , setStdOut : function(stdout){
     this.stdOut = NO_FUN;
@@ -3831,12 +4043,25 @@ SC_Machine.prototype = {
       this.stdOut = stdout;
       }
     }
+, addEntry : function(evtId, val){
+    const evt = this.environment[evtId];
+    if(undefined == evt){
+      throw new Error("unkown sensor", evtId);
+      }
+    this.pending.push({e:evt, v:val});
+    }
 , generateEvent : function(evt, val){
     if(this.ended){ return; }
+    if(evt instanceof SC_SensorId){
+      evt = this.getSensor(evt);
+      }
+    if(evt instanceof SC_EventId){
+      evt = this.getEvent(evt);
+      }
     if((undefined == evt)
-     &&((!(evt instanceof SC_Event))
-      ||(!(evt instanceof SC_Sensor)))){
-      throw "invalid event "+evt;
+      ||((!(evt instanceof SC_Event))
+      &&(!(evt instanceof SC_Sensor)))){
+      throw new Error("Invalid event "+evt);
       }
     this.pending.push({e:evt, v:val});
     }
@@ -3849,21 +4074,21 @@ SC_Machine.prototype = {
       this.pendingPrograms.push(p);
       }
     }
-  , addCellFun : function(aCell){
-      this.cells.push(aCell);
+, addCellFun : function(aCell){
+    this.cells.push(aCell);
+    }
+, addEvtFun : function(f){
+    this.actionsOnEvents.push(f);
+    }
+, addPermanentGenerate : function(inst, genVal){
+    const evt = inst.evt;
+    evt.permanentGenerators.push(inst);
+    evt.permanentValuatedGenerator += genVal;
+    const t = this.permanentGenerate.indexOf(evt);
+    if(0 > t){
+      this.permanentGenerate.push(evt);
       }
-  , addEvtFun : function(f){
-      this.actionsOnEvents.push(f);
-      }
-  , addPermanentGenerate : function(inst, genVal){
-      const evt = inst.evt;
-      evt.permanentGenerators.push(inst);
-      evt.permanentValuatedGenerator += genVal;
-      const t = this.permanentGenerate.indexOf(evt);
-      if(0 > t){
-        this.permanentGenerate.push(evt);
-        }
-      }
+    }
   , removeFromPermanentGenerate : function(inst, genVal){
       const evt = inst.evt;
       const t = evt.permanentGenerators.indexOf(inst);
@@ -3984,13 +4209,26 @@ SC_Machine.prototype = {
       this.cells = [];
       this.lastWills = [];
       this.parActions = [];
-      this.stdOut("\n"+this.instantNumber+" -: ");
+      if(this.promptEnabled){
+        this.stdOut("\n"+this.instantNumber+" -: ");
+        }
       while(SC_Instruction_State.SUSP == (res = this.activate())){
         }
       if((SC_Instruction_State.OEOI == res)||(SC_Instruction_State.WEOI == res)){
         this.eoi();
         res = SC_Instruction_State.STOP;
         }
+      this.reactInterface.getValuesOf = function(evtID){
+        return this.all[evtID.name];
+        };
+      this.reactInterface.presenceOf = function(id){
+        if(id instanceof SC_EventId){
+          return id.registeredMachines[this.id].isPresent(this);
+          }
+        else if(id instanceof SC_SensorId){
+          return this.getSensor(id).isPresent(this);
+          }
+        }.bind(this);
       this.prg.generateValues(this);
       for(var cell in this.cells){
         this.cells[cell].prepare(this);
@@ -4001,10 +4239,10 @@ SC_Machine.prototype = {
         if(null != a.f){
           var t = a.t;
           if(null == t) continue;
-          t[a.f].call(t, this.generated_values, this);
+          t[a.f].call(t, this.generated_values, this.reactInterface);
           }
         else{
-          a(this.generated_values, this);
+          a(this.generated_values, this.reactInterface);
           }
         }
       for(var i = 0; i < this.permanentActionsOnOnly.length; i++){
@@ -4015,10 +4253,10 @@ SC_Machine.prototype = {
           if(null != a.f){
             var t = a.t;
             if(null == t) continue;
-            t[a.f].call(t, this.generated_values, this);
+            t[a.f].call(t, this.generated_values, this.reactInterface);
             }
           else{
-            a(this.generated_values, this);
+            a(this.generated_values, this.reactInterface);
             }
           }
         }
@@ -4030,10 +4268,10 @@ SC_Machine.prototype = {
           if(null != a.f){
             const t = a.t;
             if(null == t) continue;
-            t[a.f].call(t, this.generated_values, this);
+            t[a.f].call(t, this.generated_values, this.reactInterface);
             }
           else{
-            a(this.generated_values, this);
+            a(this.generated_values, this.reactInterface);
             }
           }
         else if(SC_Opcodes.ACTION_ON_EVENT_FOREVER_HALTED == inst.oc){
@@ -4041,32 +4279,32 @@ SC_Machine.prototype = {
           if(null != act.f){
             const t = act.t;
             if(null == t) continue;
-            t[act.f].call(t,this);
+            t[act.f].call(t, this.reactInterface);
             }
           else{
-            act(this);
+            act(this.reactInterface);
             }
           }
         }
       const cal = this.cubeActions.length;
       for(var i = 0; i < cal; i++){
         const inst = this.cubeActions[i];
-        inst.closure(this.generated_values, this);
+        inst.closure(this.reactInterface);
         }
       const pcal = this.permanentCubeActions.length;
       for(var i = 0; i < pcal; i++){
         const inst = this.permanentCubeActions[i];
-        inst.closure(this.generated_values, this);
+        inst.closure(this.reactInterface);
         }
       for(var i = 0; i < this.actions.length; i++){
         var act = this.actions[i];
         if(null != act.f){
           var t = act.t;
           if(null == t) continue;
-          t[act.f].call(t,this);
+          t[act.f].call(t, this.reactInterface);
           }
         else{
-          act(this);
+          act(this.reactInterface);
           }
         }
       for(var i = 0; i < this.permanentActions.length; i++){
@@ -4074,10 +4312,10 @@ SC_Machine.prototype = {
         if(null != act.f){
           var t = act.t;
           if(null == t) continue;
-          t[act.f].call(t,this);
+          t[act.f].call(t, this.reactInterface);
           }
         else{
-          act(this);
+          act(this.reactInterface);
           }
         }
       for(var cell in this.cells){
@@ -4087,7 +4325,7 @@ SC_Machine.prototype = {
         this.parActions[i].computeAndAdd(this);
         }
       for(var will of this.lastWills){
-        will(this);
+        will(this.reactInterface);
         }
       if(this.traceEvt.isPresent(this)){
         if(undefined != this.dumpTraceFun){
@@ -4118,6 +4356,8 @@ SC_Machine.prototype = {
           this.reactMeasuring = performance.now();
           }
         }
+      delete(this.reactInterface.getValuesOf);
+      delete(this.reactInterface.presenceOf);
       this.ended = (res == SC_Instruction_State.TERM);
       if(this.ended){
         this.collapse();
@@ -4518,6 +4758,17 @@ ACT:    switch(inst.oc){
           case SC_Opcodes.PAUSE_DONE:{
             inst.oc = SC_Opcodes.PAUSE;
             st = SC_Instruction_State.TERM;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.PAUSE_UNTIL_DONE:{
+            st = SC_Instruction_State.TERM;
+            inst.oc = SC_Opcodes.PAUSE_UNTIL;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.PAUSE_UNTIL:{
+            st = SC_Instruction_State.OEOI;
             inst = caller;
             break;
             }
@@ -5699,7 +5950,8 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.FILTER_NO_ABS:{
             if(inst.sensor.isPresent(this)){
-              inst.val = inst.filterFun(inst.sensor.getValues(this), this);
+              inst.val = inst.filterFun(inst.sensor.getValues(this)
+                                      , this.reactInterface);
               if(null != inst.val){
                 inst.itsParent.registerForProduction(inst);
                 inst.evt.generate(this, true);
@@ -6119,6 +6371,13 @@ EOI:    switch(inst.oc){
             inst = caller;
             break;
             }
+          case SC_Opcodes.PAUSE_UNTIL:{
+            if(inst.cond(this.reactInterface)){
+              inst.oc = SC_Opcodes.PAUSE_UNTIL_DONE;
+              }
+            inst = caller;
+            break;
+            }
           case SC_Opcodes.PAR_DYN:{
             if(null != inst.tmp){
               inst.suspended.append(inst.tmp);
@@ -6316,8 +6575,15 @@ RST:    switch(oldInstOC = inst.oc){
             inst = caller = inst.resetCaller;
             break;
             }
+          case SC_Opcodes.PAUSE_UNTIL_DONE:{
+            inst.oc = SC_Opcodes.PAUSE_UNTIL;
+            }
           case SC_Opcodes.SEQ_ENDED:
           case SC_Opcodes.HALT:
+          case SC_Opcodes.PAUSE_UNTIL:{
+            inst = caller;
+            break;
+            }
           case SC_Opcodes.PAUSE_INLINE:
           case SC_Opcodes.PAUSE:{
             inst = caller;
@@ -6986,14 +7252,26 @@ GRV:    switch(inst.oc){
       }
   };
 SC = {
-  evt: function(name, params){
+  clock : function(params){
+    if(undefined == initParams){
+      initParams = {};
+      }
     if(undefined != params){
       params.name = name;
       }
     else{
       params = {name:name};
       }
-    return new SC_Event(params);
+    return new SC_SensorId(params);
+    }
+, evt: function(name, params){
+    if(undefined != params){
+      params.name = name;
+      }
+    else{
+      params = {name:name};
+      }
+    return new SC_EventId(params);
     }
 , sensor: function(name, params){
     if(undefined != params){
@@ -7002,19 +7280,19 @@ SC = {
     else{
       params = {name:name};
       }
-    return new SC_Sensor(params);
+    return new SC_SensorId(params);
     }
 , sensorize: function(params){
     if(undefined == params){
-      throw new Error("SC.sensorize(): undefined params"+params);
+      throw new Error("SC.sensorize(): undefined params "+params);
       }
     if(undefined == params.name){
-      throw new Error("SC.sensorize(): undefined params.name"+params);
+      throw new Error("SC.sensorize(): undefined params.name "+params);
       }
     if(undefined == params.dom_targets){
-      throw new Error("SC.sensorize(): undefined dom_targets"+params);
+      throw new Error("SC.sensorize(): undefined dom_targets "+params);
       }
-    return new SC_Sensor(params);
+    return new SC_SensorId(params);
     }
 , reactiveMachine: function(initParams){
     if(undefined == initParams){
@@ -7048,13 +7326,40 @@ SC = {
   },
   pause: function(n){
     return new SC_Pause(_SC.b_(n));
-  },
+    },
+  pauseUntil(cond){
+    if((undefined === cond)||(null === cond)){
+      throw new Error('pauseUntil(): invalid condition: '+cond);
+      }
+    if(false === cond){
+      console.log("pauseUntil(): pauseForever for a false const.");
+      return this.pauseForever();
+      }
+    if(true === cond){
+      console.log("pauseUntil(): single pause for a true const.");
+      return this.pause();
+      }
+    if("function" != typeof(cond) && !(cond instanceof SC_CubeBinding)){
+      throw new Error('pauseUntil(): invalid condition implementation: '+cond);
+      }
+    return new SC_PauseUntil(cond);
+    },
   await: function(config){
     if(undefined == config){
       throw "config not defined";
       }
     return new SC_Await(_SC.b_(config));
   },
+  resetOnEach: function(params){
+    if(undefined == params){
+      throw new Error("resetOnEach(): undefined params")
+      }
+    return new SC.repeatForever(
+        SC.kill(params.killCond
+          , SC.seq(params.prg, SC.pauseForever())
+          )
+        );
+    },
   seq: function(){
     return new SC_Seq(arguments);
   },
@@ -7251,7 +7556,7 @@ SC = {
                        , _SC.b_(t)
                        , _SC.b_(n));
   }
-, me : new SC_CubeExposedState(null)
+, me : new SC_CubeExposedState()
 , cubify: function(params){
   if(undefined == params){
     throw new Error("cubify no params provided");
@@ -7263,22 +7568,40 @@ SC = {
     params.root = {};
     }
   const funs = params.methods;
-  for(var i of funs){
-    if(typeof(i.name) != "string"){
-      throw new Error("cubify fun name "+i.name+" not valid");
+  if(funs){
+    for(var i of funs){
+      if(typeof(i.name) != "string"){
+        throw new Error("cubify fun name "+i.name+" not valid");
+        }
+      if(typeof(i.fun) != "function"){
+        throw new Error("cubify fun "+i.fun+" not valid");
+        }
+      params.root[i.name] = i.fun;
       }
-    if(typeof(i.fun) != "function"){
-      throw new Error("cubify fun "+i.fun+" not valid");
-      }
-    params.root[i.name] = i.fun;
     }
-  const cells = params.state;
-  params.life.swapList = (params.state)?[]:undefined;
-  for(var i of cells){
-    if(typeof(i.id) != "string"){
-      throw new Error("cubify state name "+i.id+" not valid in "+cells);
+  if(params.state && !params.expose){
+    params.expose = params.state;
+    }
+  const cells = params.expose;
+  if(cells){
+    if(!params.life){
+      params.life = {};
       }
-    params.life.swapList.push(i);
+    params.life.swapList = [];
+    for(var i of cells){
+      if(typeof(i.id) != "string"){
+        throw new Error("cubify state name "+i.id+" not valid in "+cells);
+        }
+      switch(i.type){
+        case 'fun':{
+          if(typeof(params.root[i.id]) != "function"){
+            throw new Error("cubify state inconsistent type of field "+i.id+" not a function.");
+            }
+          break;
+          }
+        }
+      params.life.swapList.push(i);
+      }
     }
   return new SC_Cube(params.root, params.prg, params.life);
   }
@@ -8046,11 +8369,7 @@ SC.lang.parse = function(aSource, aReactiveWorld){
     }
   this.pendingParsing.push(aSource);
   }
-  return SC;
-})();
-var isNode=new Function("try {return this===global;}catch(e){return false;}");
-if(isNode()){
-  console.log("loading js");
-  performance = require('perf_hooks').performance;
-  exports.SC = SC;
-  }
+  this.SC = SC;
+}).call(function() {
+  return this || (typeof window !== 'undefined' ? window : global);
+}());

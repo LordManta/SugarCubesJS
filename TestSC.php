@@ -109,6 +109,7 @@ SC.dump = function(msg){
   }
 
 var m = SC.machine();
+m.enablePrompt(true);
 m.dumpTraceFun = function(msgs){
   for(var i in msgs){
     testPanel.value += msgs[i];
