@@ -10,12 +10,13 @@
 <script>
 var machine = SC.machine();
 var e = SC.evt("e");
-var program1 = SC.repeatForever(SC.await(e), SC.log("event &e is generated !"));
+var program1 = SC.repeatForever(SC.await(e), SC.log("event &e is generated !\n"));
 var program2 = SC.repeatForever(SC.pause(5), SC.generate(e));
 machine.addToOwnProgram(program1);
 machine.addToOwnProgram(program2);
 var output = document.createElement("pre");
 document.body.appendChild(output);
+machine.enablePrompt(true);
 machine.setStdOut(function(msg){
   output.innerText += msg;
   });

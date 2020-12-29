@@ -2,11 +2,11 @@
 ##### Author : Jean-Ferdy Susini
 ##### Created : 2/12/2014 9:23 PM
 ##### version : 5.0 alpha
-##### implantation : 0.9.5
+##### implantation : 0.9.8
 ##### Copyright 2014-2020.
 
-A Javascript implementation of the Reactive Programming Framework SugarCubes v5 originally designed on top of Java.
-It uses Frederic Boussinot's synchronous/reactive paradigm proposed in the early 90's by Frédéric BOUSSINOT[Bo1] and allows one to write reactive parallel/concurrent programs on top of sequential Javascript.
+A Javascript implementation of the Reactive Programming Framework *SugarCubes* v5 originally designed on top of Java.
+It uses Frederic Boussinot's *synchronous/reactive paradigm* proposed in the early 90's by Frédéric BOUSSINOT[Bo1], and allows one to write *reactive parallel/concurrent programs* on top of sequential Javascript.
 
 Quick start:
 ------------
@@ -17,88 +17,95 @@ Quick start:
    ```
    to your HTML
 
-2. then in a script node, build a reactive engine to execute reactive programs :
+2. then in a script node, build a reactive execution environment to execute reactive programs :
    ```javascript
    var machine = SC.machine();
    ```
-   
-3. declare events :
+
+3. declare *SugarCubes* events :
    ```javascript
    var e = SC.evt("e");
    ```
-4. write programs :
+4. write programs using events previously declared :
    ```javascript
    var program1 = SC.repeatForever(SC.await(e), SC.log("event &e is generated !"));
    var program2 = SC.repeatForever(SC.pause(5), SC.generate(e));
    ```
 
-5. add each program to the execution machine (each program will be added to execute in parallel each with the others) :
+5. add each program to the execution environment (each program will be added to execute in parallel each with the others) :
    ```javascript
-   machine.addProgram(program1);
-   machine.addProgram(program2);
+   machine.addToOwnProgram(program1);
+   machine.addToOwnProgram(program2);
    ```
 
-6. cyclically activate the execution machine :
+6. cyclically activate the execution environment :
    ```javascript
    for(var i = 0 ; i < 20; i++){
-     machine.react();
+     machine.newValue();
      }
    ```
    
-   *Note:* It is a common practice to trigger the reactions of the execution machine according to a "real time" clock. A simple way to do this is to use the `setInterval()` method :
+   *Note:* It is a common practice to trigger the reactions of the execution environment according to a "real time" clock. A simple way to do this is to use the `setInterval()` method :
    ```javascript
    window.setInterval(
            function(){
-             machine.react();
+             machine.newValue();
              }
            , 30
            );
    ```
-   But the easiest way to integrate the reactive machine is to declare it with a delay parameter :
+   But the easiest way to integrate the reactive environment is to declare it with a `delay` parameter :
    
    ```javascript
    var machine = SC.machine(30);
    ```
-   where 30 is the delay (in milliseconds) between two consecutive reactions. So you don't need to deal with a loop of react() method calls or the `setInterval()` method in your code. The execution machine will be triggered automatically every 30ms (or more... Because only minimal delay is guarantied).
+   where 30 is the delay (in milliseconds) between two consecutive reactions. So you don't need to deal with a loop of `react()` method calls or the `setInterval()` method in your code. The execution environment will be triggered automatically every 30ms (or more... Because only minimal delay is guarantied).
 
-7. The result of such execution goes to the debugging console, so it doesn't provide anything observable to the user in the document page. To redirect output to the content of a HTML document, you can for example declare a HTML element in your document : for example a PRE element :
+7. The result of such execution goes to the debugging console, so it doesn't provide anything observable to the user in the document page. To redirect output to the content of a *HTML* document, you can for example declare a *HTML* element in your document : for example a `PRE` element :
    ```javascript
    var output = document.createElement("pre");
    document.body.appendChild(output);
    ```
-   Then set a closure to capture and redirect standard SugarCubesJS output :
+   Then set a closure to capture and redirect standard *SugarCubesJS* output :
    ```javascript
    machine.setStdOut(function(msg){
      output.innerText += msg;
      });
    ```
 
-Look at the source of `SC_Demo0.html` HTML file to see the big picture of this very first example.
+8. For a better understanding of what is going on you can activate a prompt indicating each new instant of the reactive execution environment :
+   ```javascript
+   machine.enablePrompt(true);
+   ```
 
-Basic Principles:
------------------
+Look at the source of `SC_Demo0.html` *HTML* file to see the big picture of this very first example.
 
-SugarCubes Framework provides a specific API to build reactive programs. To write a reactive program, a developer will nest calls of methods of the object `SC` to instantiate instructions. Doing so one builds a tree structure, which is the AST of the reactive program. For example :
+One word about Reactive Synchronous Programming Model « à la » Boussinot:
+-------------------------------------------------------------------------
+
+F. Boussinot reactive synchronous programming model derives from Synchronous paradigms such as the one of the Esterel programming language (G. Gontier, G. Berry[]). The execution of a whole system is split into small peaces which are executed one after the other in sequence. Such a sequence is called a clock and peaces of execution are called instants. That way the computation model defines an abstract notion of time. Programs and more precisely instructions that define programs are referring to that abstract notion of time. The reactive/synchronous paradigm mandates that an instant of execution takes no time to complete and *physical time* only flow in between to consecutive instants.
+
+On a theoretical point of view, this logical notion of time allows us to define parallel and sequential computations. First of all one defines parallelism as the fact that every computation taking place during one instant of the clock is considered as executing in parallel with the other ones. So computations that take places in different instants are considered as executing in sequence (and so we can state that one is before or after another one). In a pure synchronous paradigm (such as in Esterel or Lustre model), time only flows in between two consecutive instants of the logical clock. Execution of one instant takes, on a model point of view, virtually no time at all. This enforces strong mathematical properties of the pure synchronous approach. One considers that computations in one instant are infinitely quick. One of the main implication of that model is that at each instant, the environment of execution of the whole system is fully determined. One cannot talk about any beginning or duration or end of instant as all go in no time. So one builds a strong *time type system* which enforce correctness of a program in a perfectly determined execution environment modulo the entries of the system (informations taken into input of the system at each instant). Programs define at each instant which outputs are produced and how the system 's internal state evolves.
+
+The reactive programming model «à la» F. Boussinot's relax the strong synchronous constraint, allowing instants of execution to last. **But** an instant shall always terminate ! So sequence of instant can always proceed as an instant shall terminate before the subsequent instant of execution should begin. The main implication of this here is that no instantaneous reaction to the absence of information (of *SugarCubesJS* events) can take place before the end of the instant (that was possible in pure reactive/synchronous paradigm). Doing so reaction to the absence of information at one instant is always postponed to the next instant. The interesting point of such an approach is that it allows us to build language constructions dealing with the logical time to have a semantics correct by construction (syntactically correct program always have one and only one deterministic meaning). So no more time type system is needed. Every program will have a unique semantics and provides a deterministic execution. But this comes at the cost of slightly different expressiveness capabilities.
+
+The most observable consequence of this model is that we can define modular and dynamically transformable systems, which we thought are simpler to use in the context of Web programming.
+
+One word about reactive programs:
+---------------------------------
+
+*SugarCubes* framework provides a specific *API* to build reactive programs. To write a reactive program, a developer will nest calls of methods of the object `SC` to instantiate instructions. Doing so one builds a tree structure, which is the *AST* of the reactive program. For example :
    ```javascript
    var aProgram = SC.repeat(SC.forever
                     , SC.await(e)
                     , SC.log("message in the console")
                     );
    ```
-In this example, one writes a *repeat* instruction (which is the root of the AST of the program). The repeat instruction takes a first parameter which is a number iterations (that is the number of times it will executes its body). In this example, one uses the predefined constant `SC.forever` which means an infinite number of iterations. The rest of the parameters are the instructions of the body of the *repeat* instruction put into a sequence. In this example, the body of the *repeat* instruction is made of two instructions in sequence. First the `SC.await()` is an instruction which awaits the presence of the event `&e`. And the second instruction `SC.log()` which writes a string in the javascript console.
+In this example, one writes a *repeat* instruction (which is the root of the *AST* of the program). The *repeat* instruction takes a first parameter which is a number iterations (that is the number of times it will executes its body). In this example, one uses the predefined constant `SC.forever` which means an infinite number of iterations. The rest of the parameters are the instructions of the body of the *repeat* instruction put into a sequence. In this example, the body of the *repeat* instruction is made of two instructions in sequence. First the `SC.await()` is an instruction which awaits the presence of the event `&e`. And the second instruction `SC.log()` which writes a string in the *SugarCubesJS* standard output.
 
-The *await* instruction awaits the event `&e` and at the precise instant where that event is present, the await instruction terminates. Letting the *log* instruction be executed in very same instant of execution. As this body is in an infinite loop, this programs means that at every instant where the event `&e` is present a message is written into the javascript console.
+The *await* instruction awaits the event `&e` and at the precise instant where that event is present, the *await* instruction immediately terminates. Letting the *log* instruction be executed at very same instant of execution. As this body is in an infinite loop, this programs means that at every instant where the event `&e` is present a message is written into the *SugarCubesJS* standard output.
 
-One word about Reactive Synchronous Programming Model « à la » Boussinot:
--------------------------------------------------------------------------
-
-F. Boussinot reactive synchronous programming model derives from Synchronous paradigm such as the one of the Esterel programming language (G. Gontier, G. Berry[]). The execution of a whole system is split into small peaces put in sequence. Such a sequence is called a clock and peaces of execution are called instants. That way the computation model define an abstract notion of time. Programs and more precisely instructions that define programs are referring to that abstract notion of time.
-
-On a theoretical point of view, this logical notion of time allows us to define parallel and sequential computations. First of all one defines parallelism as the fact that every computation taking place during one instant of the clock is considered as executing in parallel with the other ones of the whole system during the very same instant. So computations that take places in different instants are considered as executing in sequence. In a pure synchronous paradigm (such as in Esterel or Lustre model), time only flows in between two consecutive instants of the logical clock. Execution of one instant takes, on a model point of view, virtually no time at all. This enforces strong mathematical properties of the pure synchronous approach. One considers that computations in one instant are infinitely quick. One of the main implication of that model is that at each instant, the environment of execution of the whole system is fully determined. One cannot talk about any beginning or duration or end of instant as all go in no time. So one builds a strong time type system which enforce correctness of a program in a perfectly determined execution environment modulo the entries of the system (informations taken into input of the system at each instant). Programs define at each instant which outputs are produced and how the system internal state evolves.
-
-The reactive programming model «à la» F. Boussinot's relax the strong synchronous constraint, allowing instants of execution to last but an instant shall always be terminated before another instant of execution begins. The main differences here is that no instantaneous reaction  to the absence of information can take place before the end of the instant. Doing so reaction to the absence of information at one instant is always postponed to the next instant. The interesting point of such an approach is that it allows us to build language constructions dealing with the logical time to have a semantics correct by construction. So no more time type system is needed. Every program will have a unique semantics and provides a deterministic execution. But this comes at the cost of slightly different expressiveness capabilities.
-
-The most observable consequence of this model is that we can define modular and dynamically transformable systems, which we thought are simpler to use in the context of Web programming.
+There is many *SugarCubesJS* instructions that can be used to build complex reactive programs. Program's *AST* can be reused in more complex structures allowing one to build complex programs incrementally.
 
 Instructions Basics:
 --------------------
