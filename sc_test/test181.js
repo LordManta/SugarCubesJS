@@ -36,7 +36,7 @@
    , async: function(){
               window.sctest_count++;
               if(0 == (window.sctest_count%2)){
-                m.generateEvent(sens1);
+                sens1.newValue();
                 }
               }
    , maxI: 20

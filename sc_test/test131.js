@@ -27,5 +27,5 @@
              window.myCount = 1;
              window.myCount2 = 1;
              }
-   , async: function(){ m.generateEvent(sens1, "Hello World !"+(window.myCount++)); }
+   , async: function(){ sens1.newValue("Hello World !"+(window.myCount++)); }
   }

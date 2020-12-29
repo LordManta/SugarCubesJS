@@ -27,7 +27,7 @@
              )
          )
    , init: function(){}
-   , async: function(){ m.generateEvent(sens1); }
+   , async: function(){ sens1.newValue(); }
    , expected :
        "\n1 -: start\n2 -: \n3 -: gen await to \n4 -: \n5 -: \n6 -: \n7 -: after go \n8 -: start\n9 -: \n10 -: gen await to "
   }

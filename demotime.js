@@ -336,7 +336,7 @@ var text = [
     var tmp = SC.tools.speech(text[i]);
     var res = SC.seq(
        res
-       , SC.next()
+       , SC.next(1)
        , SC.pause()
        , SC.generate(tmp.sc_startSpeakEvt)
        , SC.send(SC.tools.m, writting, _(text[i]))
@@ -374,7 +374,7 @@ var text = [
                   , SC.action(function(){
                         window.speechSynthesis.cancel();
                         setTimeout(function(){
-                             talkMachine.react();
+                             talkMachine.newValue();
                              }, 1000); 
                         })
                   )
@@ -434,7 +434,7 @@ var text = [
     var tmp = SC.tools.speech(description[i]);
     var res = SC.seq(
        res
-       , SC.next()
+       , SC.next(1)
        , SC.pause()
        , SC.generate(tmp.sc_startSpeakEvt)
        , SC.send(SC.tools.m, writting, _(description[i]))
@@ -509,7 +509,7 @@ var text = [
     var tmp = SC.tools.speech(timeline23[i]);
     var res = SC.seq(
        res
-       , SC.next()
+       , SC.next(1)
        , SC.pause()
        , SC.generate(tmp.sc_startSpeakEvt)
        , SC.send(SC.tools.m, writting, _(timeline23[i]))
@@ -556,7 +556,7 @@ var text = [
     var tmp = SC.tools.speech(slider[i]);
     var res = SC.seq(
        res
-       , SC.next()
+       , SC.next(1)
        , SC.pause()
        , SC.generate(tmp.sc_startSpeakEvt)
        , SC.send(SC.tools.m, writting, _(slider[i]))
@@ -565,11 +565,11 @@ var text = [
     }
   return res;
   }
-talkMachine.addProgram(
+talkMachine.addToOwnProgram(
   makeTalk()
   );
 function hack_ios(){
-  talkMachine.react();
+  talkMachine.newValue();
   }
 
 SC.tools.addProgram(
@@ -584,10 +584,10 @@ workspace.addEventListener("touchstart", function(evt){evt.preventDefault()});
  * callage sur 10ms.
  */
 var graphMachine = SC.machine(4000,{init:SC.pauseForever()});
-graphMachine.addProgram(
+graphMachine.addToOwnProgram(
   SC.action(function(m){
-      m.setRunningDelay(4000);
-      SC.tools.m.generateEvent(newAcquisitionTime, 400);
+      //m.setRunningDelay(4000);
+      SC.tools.generateEvent(newAcquisitionTime, 400);
       }
     )
   );
@@ -595,20 +595,20 @@ graphMachine.addProgram(
 /*
  * génère un reset() dans la machine graphMachine
  */
-graphMachine.addProgram(
+graphMachine.addToOwnProgram(
   SC.repeat(SC.forever
     , SC.action(function(m){
-        SC.tools.m.generateEvent(graph_reset, m.getInstantNumber());
+        SC.tools.generateEvent(graph_reset, m.getInstantNumber());
         })
     )
   );
 
-function changeRTClock(v){
-  console.log("change RT to "+v);
-  SC.tools.m.generateEvent(graph_reset, SC.tools.m.getInstantNumber());
-  graphMachine.setRunningDelay(parseInt(v)*10);
-  SC.tools.m.generateEvent(newAcquisitionTime, v);
-  }
+//function changeRTClock(v){
+//  console.log("change RT to "+v);
+//  SC.tools.generateEvent(graph_reset, SC.tools.m.getInstantNumber());
+//  graphMachine.setRunningDelay(parseInt(v)*10);
+//  SC.tools.generateEvent(newAcquisitionTime, v);
+//  }
 
 /* Définitions des principaux evenements utilisé dans la démo. */
 var e = SC.evt("e");
@@ -627,22 +627,78 @@ var zeConfig = SC.and(zone1, zone2)
  * quie l'on peut filtrer en événements standards grace à l'instruction
  * filter.
  */
-SC_evt_mouse_click = SC.tools.m.systemEvent(workspace, "click");
-SC_evt_mouse_down = SC.tools.m.systemEvent(workspace, "mousedown");
-SC_evt_mouse_up = SC.tools.m.systemEvent(workspace, "mouseup");
-SC_evt_mouse_move = SC.tools.m.systemEvent(workspace, "mousemove");
-SC_evt_touch_start = SC.tools.m.systemEvent(workspace, "touchstart");
-SC_evt_touch_end = SC.tools.m.systemEvent(workspace, "touchend");
-SC_evt_touch_cancel = SC.tools.m.systemEvent(workspace, "touchcancel");
-SC_evt_touch_move = SC.tools.m.systemEvent(workspace, "touchmove");
-graph_mouse_click = graphMachine.systemEvent(workspace, "click");
-graph_mouse_down = graphMachine.systemEvent(workspace, "mousedown");
-graph_mouse_up = graphMachine.systemEvent(workspace, "mouseup");
-graph_mouse_move = graphMachine.systemEvent(workspace, "mousemove");
-graph_touch_start = graphMachine.systemEvent(workspace, "touchstart");
-graph_touch_end = graphMachine.systemEvent(workspace, "touchend");
-graph_touch_cancel = graphMachine.systemEvent(workspace, "touchcancel");
-graph_touch_move = graphMachine.systemEvent(workspace, "touchmove");
+SC_evt_mouse_click = SC.sensorize({name:"SC_evt_mouse_click"
+                         , dom_targets:[
+                               {
+				 target:workspace
+			       , evt:"click"
+			       }
+                                       ]
+                         });
+SC_evt_mouse_down = SC.sensorize({name:"SC_evt_mouse_down"
+                         , dom_targets:[
+                               {
+				 target:workspace
+			       , evt:"mousedown"
+			       }
+                                       ]
+                         });
+SC_evt_mouse_up = SC.sensorize({name:"SC_evt_mouse_up"
+                         , dom_targets:[
+                               {
+				 target:workspace
+			       , evt:"mouseup"
+			       }
+                                       ]
+                         });
+SC_evt_mouse_move = SC.sensorize({name:"SC_evt_mouse_move"
+                         , dom_targets:[
+                               {
+				 target:workspace
+			       , evt:"mousemove"
+			       }
+                                       ]
+                         });
+SC_evt_touch_start = SC.sensorize({name:"SC_evt_touch_start"
+                         , dom_targets:[
+                               {
+				 target:workspace
+			       , evt:"touchstart"
+			       }
+                                       ]
+                         });
+SC_evt_touch_end = SC.sensorize({name:"SC_evt_touch_end"
+                         , dom_targets:[
+                               {
+				 target:workspace
+			       , evt:"touchend"
+			       }
+                                       ]
+                         });
+SC_evt_touch_cancel = SC.sensorize({name:"SC_evt_touch_cancel"
+                         , dom_targets:[
+                               {
+				 target:workspace
+			       , evt:"touchcancel"
+			       }
+                                       ]
+                         });
+SC_evt_touch_move = SC.sensorize({name:"SC_evt_touch_move"
+                         , dom_targets:[
+                               {
+				 target:workspace
+			       , evt:"touchmove"
+			       }
+                                       ]
+                         });
+graph_mouse_click = SC_evt_mouse_click;
+graph_mouse_down = SC_evt_mouse_down;
+graph_mouse_up = SC_evt_mouse_up;
+graph_mouse_move = SC_evt_mouse_move;
+graph_touch_start = SC_evt_touch_start;
+graph_touch_end = SC_evt_touch_end;
+graph_touch_cancel = SC_evt_touch_cancel;
+graph_touch_move = SC_evt_touch_move;
 graph_reset = SC.evt('reset');
 workspace.lvl1=[];
 workspace.lvl2=[];
@@ -687,7 +743,7 @@ SC.tools.addProgram(
           })
         }, undefined, SC.forever)
   );
-graphMachine.addProgram(
+graphMachine.addToOwnProgram(
   SC.actionOn(requestDisplayC2
     , function(all){
         if(workspace.dropFrame2){
@@ -726,7 +782,7 @@ function Buble(x,y,r, clr, startEvt){
   this.label = "Zone de jeu ";
   this.text = "";
   this.started = false;
-  graphMachine.addProgram(
+  graphMachine.addToOwnProgram(
     SC.par(
       SC.repeat(SC.forever, SC.generate(requestDisplayC2, this))
       , SC.seq(
@@ -784,7 +840,7 @@ function Zone(x, y , r, zoneEvt, zc2, startEvt, clr, img){
   this.img = img;
   this.img_zoom = 1;
   this.rotateImg = 0;
-  graphMachine.addProgram(
+  graphMachine.addToOwnProgram(
       SC.par(
           SC.generate(requestDisplayC2, this, SC.forever)
           , SC.seq( SC.await(startEvt), SC.filter(graph_mouse_down, zoneEvt, {t:this,f:"filterStartMouse"}, SC.forever))
@@ -981,7 +1037,7 @@ new Zone(60,100,40, zone1, zone1C2, show1g, "yellow", stopImage);
 new Zone(60,400,40, zone2, zone2C2, show2g, "red", stopImage);
 buble = new Buble(400,300, 60, "green", show3g);
 
-graphMachine.addProgram(
+graphMachine.addToOwnProgram(
   SC.repeat(SC.forever
     , SC.await(zone1)
     , SC.action(function(){
@@ -989,7 +1045,7 @@ graphMachine.addProgram(
         })
     )
 );
-graphMachine.addProgram(
+graphMachine.addToOwnProgram(
   SC.repeat(SC.forever
     , SC.await(zone2)
     , SC.action(function(){
@@ -1261,7 +1317,7 @@ SC.tools.addProgram(
         , SC.repeat(SC.forever, SC.action(SC.my('step')))
         , SC.actionOn(show1, SC.my("actVisible"), undefined, SC.forever)
         , SC.repeat(SC.forever, SC.await(zone1C2), SC.action(function(){
-            talkMachine.generateEvent(zone1t, null);
+            talkMachine.addToOwnEntry(zone1t, null);
             talkMachine.react();
             }))
         , SC.repeat(SC.forever
@@ -1281,7 +1337,7 @@ SC.tools.addProgram(
         , SC.repeat(SC.forever, SC.action(SC.my('step')))
         , SC.actionOn(show2, SC.my("actVisible"), undefined, SC.forever)
         , SC.repeat(SC.forever, SC.await(zone2C2), SC.action(function(){
-            talkMachine.generateEvent(zone2t, null);
+            talkMachine.addToOwnEntry(zone2t, null);
             talkMachine.react();
             }))
         , SC.repeat(SC.forever
@@ -1312,20 +1368,20 @@ SC.tools.addProgram(
 
 function z1(){
   SC.tools.generateEvent(show1,true);
-  graphMachine.generateEvent(show1g,true);
-  talkMachine.generateEvent(show1t,true);
+  graphMachine.addToOwnEntry(show1g,true);
+  talkMachine.addToOwnEntry(show1t,true);
   talkMachine.react();
   }
 function z2(){
   SC.tools.generateEvent(show2,true);
-  graphMachine.generateEvent(show2g,true);
-  talkMachine.generateEvent(show2t,true);
+  graphMachine.addToOwnEntry(show2g,true);
+  talkMachine.addToOwnEntry(show2t,true);
   talkMachine.react();
   }
 function z3(){
   SC.tools.generateEvent(show3,true);
-  graphMachine.generateEvent(show3g,true);
-  talkMachine.generateEvent(show3t,true);
+  graphMachine.addToOwnEntry(show3g,true);
+  talkMachine.addToOwnEntry(show3t,true);
   talkMachine.react();
   tt_video.load();
   //video.play();

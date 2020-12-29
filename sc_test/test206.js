@@ -30,7 +30,7 @@
    , async: function(){ 
        window.myCount++;
        if(window.myCount == 10){
-         m.generateEvent(sens1, "Hello World !");
+         sens1.newValue("Hello World !");
          }
        }
    , maxI: 20

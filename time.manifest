@@ -1,12 +1,12 @@
 CACHE MANIFEST
 
-# Version: 96
+# Version: 115
 
 CACHE:
 # Main page
 time.html
 # Javascript files
-SugarCubes.js
+SugarCubes_min.js
 SC_Tools.js
 demotime.js
 # CSS files

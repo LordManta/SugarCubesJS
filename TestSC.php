@@ -108,13 +108,14 @@ SC.dump = function(msg){
     );
   }
 
-var m = SC.machine();
-m.enablePrompt(true);
-m.dumpTraceFun = function(msgs){
-  for(var i in msgs){
-    testPanel.value += msgs[i];
+var m = SC.reactiveMachine({
+  dumpTraceFun: function(msgs){
+    for(var i in msgs){
+      testPanel.value += msgs[i];
+      }
     }
-  };
+  });
+m.enablePrompt(true);
 
 var e = SC.evt("e");
 var f = SC.evt("f");
@@ -157,14 +158,14 @@ if("string" == typeof(test_prg)){
   test_prg = eval(test_prg);
   }
 source.innerHTML = testBehavior.prg;
-m.addProgram(test_prg);
+m.addToOwnProgram(test_prg);
 
 var maxInstants = (undefined == testBehavior.maxI)?10:testBehavior.maxI;
 for(var i = 0 ; i < maxInstants; i++){
   if(undefined !== testBehavior.async){
     testBehavior.async();
     }
-  m.react();
+  m.newValue();
   }
 
 if(testPanel.value == testBehavior.expected){

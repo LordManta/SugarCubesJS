@@ -333,6 +333,7 @@ function SC_EventId(params){
   };
 SC_EventId.prototype ={
   constructor: SC_EventId
+, isSensor:false
 , getId: function(){
     return this.internalId;
     }
@@ -419,7 +420,7 @@ SC_Event.prototype = {
     return this.vals;
     }
 , getAllValues : function(m, vals){
-    vals[this] = (this.lein == m.instantNumber)?this.vals:VOID_VALUES;
+    vals[this.eventId] = (this.lein == m.instantNumber)?this.vals:VOID_VALUES;
     }
 , bindTo : function(engine, parbranch, seq, masterSeq, path, cube){
     if(null == this.m){
@@ -437,6 +438,7 @@ SC_Event.prototype = {
 function SC_EventDistributed(id){
   this.lein = -1; 
   this.name = id.name; 
+  this.eventId = id;  
   this.makeNew = id.makeNew;
   this.distribute = id.distribute;
   this.vals = this.makeNew();
@@ -484,28 +486,146 @@ SC_EventDistributed.prototype = {
     }
 , __proto__ : SC_Event.prototype
   };
+const SC_registeredMachines = [];
+const SC_updateSensor = function(sensorId){
+  for(var machine of SC_registeredMachines){
+    if(!machine.ended){
+      machine.sampleSensor(sensorId);
+      }
+    }
+  };
 function SC_SensorId(params){
-  this.makeNew = params.makeNew; 
-  this.distribute = params.distribute; 
-  this.dom_targets = params.dom_targets;
-  this.registeredMachines = [];
-  this.ownMachine = null;
   Object.defineProperty(this, "internalId"
          , {value: nextEventID++, writable:false});
   Object.defineProperty(this, "name"
-         , {value: "&_"+this.internalId+"_"+params.name, writable:false});
+         , {value: "#_"+this.internalId+"_"+params.name, writable:false});
+  this.currentVal = null;
   Object.defineProperty(this, "dom_evt_listener"
          , {value: function(evt){
             this.newValue(evt);
             }.bind(this), writable:false});
-  if(this.dom_targets){
-    for(var t of this.dom_targets){
-      t.target.addEventListener(t.evt, this.dom_evt_listener);
+  this.dom_targets = params.dom_targets;
+  if(params.owned){
+    this.setOwn(params);
+    }
+  else{
+    if(this.dom_targets){
+      for(var t of this.dom_targets){
+        t.target.addEventListener(t.evt, this.dom_evt_listener);
+        }
       }
     }
   };
 SC_SensorId.prototype ={
   constructor: SC_SensorId
+, isSensor:true
+, setOwn: function(params){
+    if(undefined == params){
+      params = {};
+      }
+    if(undefined == params.name){
+      params.name = this.name;
+      }
+    const ownMachine = new SC_Machine({
+                                   name: params.name
+                                 , init: params.init
+                                 , sensorId: this
+                                   });
+    this.getIPS = ownMachine.getIPS.bind(ownMachine);
+    this.getInstantNumber = ownMachine.getInstantNumber.bind(ownMachine);
+    this.getTopLevelParallelBranchesNumber
+             = ownMachine.getTopLevelParallelBranchesNumber.bind(ownMachine);
+    this.setStdOut = ownMachine.setStdOut.bind(ownMachine);
+    this.enablePrompt = ownMachine.enablePrompt.bind(ownMachine);
+    if("function" == typeof(params.dumpTraceFun)){
+      ownMachine.dumpTraceFun = params.dumpTraceFun;
+      }
+    this.addToOwnEntry = function(evtName, value){
+      if(evtName instanceof SC_EventId){
+        this.addEntry(evtName, value);
+        }
+      else{
+        throw new Error("invalid event Id : "+evtName);
+        }
+      }.bind(ownMachine);
+    this.addToOwnProgram = function(prg){
+      if(prg.isAnSCProgram){
+        this.addProgram(prg);
+        }
+      else{
+        throw new Error("invalid program : "+prg);
+        }
+      }.bind(ownMachine);
+    const reactMultiple = function(ownMachine){
+      do{
+        ownMachine.react();
+        }
+      while(ownMachine.toContinue);
+      };
+    if(!isNaN(params.delay) && params.delay > 0){
+      ownMachine.delay = params.delay;
+      ownMachine.timer_handler = function(ownMachine){
+                                 this.currentVal = performance.now();
+                                 SC_updateSensor(this);
+                                 reactMultiple(ownMachine);
+                               }.bind(this, ownMachine);
+      ownMachine.timer = setInterval(ownMachine.timer_handler, params.delay);
+      this.setKeepRunningTo = function(b){
+        if(this.timer != 0){
+          if(b){
+            return;
+            }
+          clearInterval(this.timer);
+          this.timer = 0;
+          }
+        else{
+          if(b){
+            this.timer = setInterval(this.timer_handler, this.delay);
+            }
+          }
+        }.bind(ownMachine);
+      }
+    if(params.sc_RAF){
+      if(undefined == ownMachine.lFunc_raf){
+        ownMachine.raf_registered = true;
+        ownMachine.lFunc_raf = function(ownMachine){
+          this.currentVal = performance.now();
+          SC_updateSensor(this);
+          reactMultiple(ownMachine);
+          if(!ownMachine.ended && ownMachine.raf_registered){
+            requestAnimationFrame(ownMachine.lFunc_raf);
+            }
+          }.bind(this, ownMachine);
+        requestAnimationFrame(ownMachine.lFunc_raf);
+        }
+      }
+    if(params.dom_targets){
+      ownMachine.lFunc_handlers= [];
+      for(tgt of params.dom_targets){
+        const lFunc_handler = function(ownMachine, lFunc_h, evt) {
+          this.currentVal = evt;
+          SC_updateSensor(this);            
+          reactMultiple(ownMachine);
+          if(ownMachine.ended){
+            tgt.target.removeEventListener(tgt.evt, lFunc_h)
+            }
+          }.bind(this, ownMachine);
+        const bdh = lFunc_handler.bind(null, lFunc_handler);
+        ownMachine.lFunc_handlers.push({tgt: tgt.target, fun:bdh});
+        tgt.target.addEventListener(tgt.evt, bdh);
+        }
+      }
+    if(!params.no_manual_control){
+      this.newValue = function(ownMachine, value){
+        this.currentVal = value;
+        SC_updateSensor(this);
+        reactMultiple(ownMachine);
+        }.bind(this, ownMachine);
+      }
+    else{
+      this.newValue = NO_FUN;
+      }
+    }
 , getId: function(){
     return this.internalId;
     }
@@ -515,44 +635,31 @@ SC_SensorId.prototype ={
 , getName: function(){
     return this.name;
     }
+, getValue: function(){
+    return this.currentVal;
+    }
+, getIPS: function(){ return 0; }
+, getInstantNumber: function(){ return 0; }
+, getTopLevelParallelBranchesNumber:  function(){ return 0; }
+, postpone: function(delay){
+    setTimeout(this.newValue.bind(this), delay);
+    }
+, enablePrompt: NO_FUN
+, setStdOut: NO_FUN
+, setKeepRunningTo: NO_FUN
 , newValue: function(value){
-    if(this.ownMachine){
-      this.ownMachine.addEntry(this, value);
-      this.ownMachine.react();
-      }
-    for(var client of this.registeredMachines){
-      client.addEntry(this, value);
-      }
+    this.currentVal = value;
+    SC_updateSensor(this);
     }
-, addOwnEntry: function(evtName, value){
-    if(this.ownMachine){
-      this.ownMachine.addEntry(this, value);
-      }
-    }
-, addOwnProgram: function(prg){
-    if(this.ownMachine){
-      this.ownMachine.addProgram(prg);
-      }
-    }
+, addToOwnEntry: NO_FUN
+, addToOwnProgram: NO_FUN
 , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
-    var sens = engine.getSensor(this); 
-    if(!this.registeredMachines.includes(engine)){
-      this.registeredMachines.push(engine);
-      }
-    if(undefined  === sens){
-      throw new Error("Sensor unable to allocate it");
-      }
+    var sens = engine.getSensor(this);
     return sens;
     }
   };
 function SC_Sensor(params){
   this.lein = -1;
-  if(
-    (undefined != params.makeNew)
-    && (undefined != params.distribute)
-    ){
-    return new SC_EntryDistributed(params);
-    }
   this.sensId = params;
   this.vals = []; 
   this.registeredInst = [];
@@ -565,15 +672,15 @@ SC_Sensor.prototype = {
 , systemGen : function(val, m, flag){
     if(this.lein != m.instantNumber){
       this.lein = m.instantNumber;
-      this.vals = [];
       this.wakeupAll(m, flag);
-      if(undefined != val){
+      this.vals = [];
+      if(undefined != this.sensId.getValue()){
         Object.defineProperty(m.generated_values
              , this.sensId.toString()
              , {get : function(){return this.vals; }.bind(this)});
         }
+      this.vals.push(this.sensId.getValue());
       }
-    this.vals.push(val);
     }
 , unregister : SC_Event.prototype.unregister
 , registerInst : SC_Event.prototype.registerInst
@@ -581,52 +688,9 @@ SC_Sensor.prototype = {
 , getAllValues : function(m, vals){
     vals[this.sensId] = (this.lein == m.instantNumber)?this.vals:VOID_VALUES;
     }
-, bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
-    if(null == this.m){
-      this.m = engine;
-      }
-    else if(this.m !== engine){
-      throw new Error('bound event ('+this.name+') problem');
-      }
-    return this;
-    }
 , toString : function(){
     return this.sensId.getName();
     }
-  };
-function SC_EntryDistributed(params){
-  this.lein = -1; 
-  this.makeNew = params.makeNew;
-  this.sensId = params;
-  this.distribute = params.distribute;
-  this.vals = this.makeNew();
-  this.permanentGenerators = [];
-  this.permanentValuatedGenerator = 0;
-  this.registeredInst = [];  
-  this.m = null; 
-  this.internalID = nextEventID++;
-  };
-SC_EntryDistributed.prototype = {
-  constructor: SC_EntryDistributed
-, systemGen : function(val, m, flag){
-    if(this.lein != m.instantNumber){
-      this.lein = m.instantNumber;
-      this.vals = this.makeNew();
-      this.wakeupAll(m, flag);
-      if(undefined != val){
-        Object.defineProperty(m.generated_values
-             , this.toString()
-             , {get : function(){return this.vals; }.bind(this)});
-        }
-      }
-    this.distribute(this.vals, val);
-    }
-, generate : SC_EventDistributed.prototype.generate
-, generateValues :  function(m, val){
-    this.distribute(this.vals, val);
-    }
-, getValues : SC_EventDistributed.prototype.getValues
-, __proto__ : SC_Sensor.prototype
   };
 const SC_OpcodesNames = [
   "NOP"
@@ -678,6 +742,8 @@ const SC_OpcodesNames = [
   , "PAUSE_N_TIMES"
   , "NOTHING_INLINED"
   , "NOTHING"
+  , "NEXT_INLINED"
+  , "NEXT"
   , "GENERATE_ONE_NO_VAL_INLINE"
   , "GENERATE_ONE_NO_VAL"
   , "GENERATE_ONE_INLINE"
@@ -1466,6 +1532,10 @@ SC_Instruction.prototype = {
         case SC_Opcodes.PAUSE:{
           return "pause ";
           }
+        case SC_Opcodes.NEXT_INLINED:
+        case SC_Opcodes.NEXT:{
+          return "next ";
+          }
         case SC_Opcodes.NOTHING_INLINED:
         case SC_Opcodes.NOTHING:{
           return "nothing ";
@@ -2244,8 +2314,8 @@ SC_FilterNoSens.prototype = {
            .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
         }
       copy = new SC_Instruction(SC_Opcodes.FILTER_NO_ABS_INIT);
-      copy.sensor = bound_sensor.bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
-      copy.evt = bound_evt
+      copy.sensor = bound_sensor.bindTo(engine);
+      copy.evt = bound_evt.bindTo(engine);
       copy.filterFun = bound_fun
       copy.times = bound_times
       copy._sensor = this.sensor;
@@ -2434,6 +2504,16 @@ SC_Nothing_inlined.bindTo = function(engine, parbranch, seq, masterSeq, path
 SC_Nothing.bindTo = function(engine, parbranch, seq, masterSeq, path, cube, cinst){
     return this;
   }
+const SC_Next = new SC_Instruction(SC_Opcodes.NEXT);
+const SC_Next_inlined = new SC_Instruction(SC_Opcodes.NEXT_INLINED);
+SC_Next.isAnSCProgram = true;
+SC_Next_inlined.isAnSCProgram = true;
+SC_Next_inlined.bindTo = function(){
+    return this;
+  }
+SC_Next.bindTo = function(){
+    return this;
+  }
 const SC_PauseForever = new SC_Instruction(SC_Opcodes.HALT);
 SC_PauseForever.isAnSCProgram = true;
 SC_PauseForever.bindTo = function(engine, parbranch, seq, masterSeq, path, cube, cinst){
@@ -2532,7 +2612,7 @@ SC_PauseUntil.prototype = {
     return copy;
     },
   toString : function(){
-    return "pause "+this.count+"/"+this.times+" times ";
+    return "pause until "+this.cond;
     }
   };
 function SC_Seq(seqElements){
@@ -2713,7 +2793,7 @@ SC_Action.prototype = {
       copy.closure = copy.action.t[copy.action.f].bind(copy.action.t);
       }
     else{
-      copy.closure = copy.action;
+      copy.closure = copy.action.bind(cube);
       }
     return copy;
     }
@@ -2741,7 +2821,7 @@ SC_SimpleAction.prototype={
         copy.closure = copy.action.t[copy.action.f].bind(copy.action.t);
         }
       else{
-        copy.closure = copy.action;
+        copy.closure = copy.action.bind(cube);
         }
       return copy;
       }
@@ -3723,7 +3803,7 @@ SC_CubeAction.prototype = {
       copy.closure = copy.action.t[copy.action.f].bind(copy.action.t);
       }
     else{
-      copy.closure = copy.action;
+      copy.closure = copy.action.bind(cube);
       }
     copy.evtList = [];
     for(var i = 0; i < this.evtList.length; i++){
@@ -3754,7 +3834,7 @@ SC_CubeSimpleAction.prototype={
         copy.closure = copy.action.t[copy.action.f].bind(copy.action.t);
         }
       else{
-        copy.closure = copy.action;
+        copy.closure = copy.action.bind(cube);
         }
       copy.evtList = [];
       for(var i = 0; i < this.evtList.length; i++){
@@ -3779,9 +3859,26 @@ function SC_ReactiveInterface(){
   };
 SC_ReactiveInterface.prototype = {
   constructor: SC_ReactiveInterface
-, 
+, sensorValueOf : function(sensorID){
+    if(sensorID instanceof SC_SensorId){
+      let val = this.all[sensorID.name];
+      return val?val[0]:undefined;
+      }
+    throw new Error("ask for value of non sensor ID");
+    }
 };
 function SC_Machine(params){
+  if(undefined == performance){
+    performance = {now:function(){
+                 return new Date().getTime();
+                 }
+               };
+    }
+  Object.defineProperty(this, "sensorId"
+           , { value: params.sensorId
+             , writable: false
+             }
+           );
   Object.defineProperty(this, "id"
            , { value: "@_"+nextMachineID++
              , writable: false
@@ -3790,14 +3887,9 @@ function SC_Machine(params){
   this.prg = new SC_Par([]).bindTo(this, null, null, null, null, null,null);
   this.instantNumber = 1;
   this.ended = false;
+  this.toContinue = false;
+  this.burstMode = false;
   this.eventID = 0;
-  this.delay = ((undefined != params)
-              &&(undefined != params.delay))?params.delay:undefined;
-  this.whenGettingThread = (((undefined !== params)
-                             &&(undefined !== params.whenGettingThread))
-                      ?params.whenGettingThread
-                      :function(){this.react();}).bind(this)
-                      ;
   this.permanentActions = [];
   this.permanentGenerate = [];
   this.permanentActionsOn = [];
@@ -3808,6 +3900,8 @@ function SC_Machine(params){
   this.cells = [];
   this.generated_values = {};
   this.pending = [];
+  this.burstState = [];
+  this.pendingSensors = [];
   this.pendingPrograms = [];
   this.parActions = [];
   this.name = ((undefined === params)||(undefined === params.name))?"machine_"+SC.count:params.name;
@@ -3826,159 +3920,82 @@ function SC_Machine(params){
     }
   this.ips = 0;
   this.reactMeasuring = 0;
-  if(this.delay > 0){
-    this.timer = setInterval(this.whenGettingThread, this.delay);
-    }
-  else{
-    this.delay = -1;
-    this.run = function(){
-      while(this.react());
-      }
-    }
-  this.handlers = {
-    "click" : function(evt, e){
-        this.generateEvent(e, {x:evt.pageX, y:evt.pageY
-                    , cx:evt.clientX, cy:evt.clientY
-                    , sx:evt.screenX, sy:evt.screenY
-                    , ctrl: evt.ctrlKey, alt: evt.altKey
-                    , btn:((undefined == evt.button)?-1:evt.button)
-                    });
-      }.bind(this),
-    "keydown" : function(evt, e){
-        this.generateEvent(e, evt);
-      }.bind(this),
-    "keyup" : function(evt, e){
-        this.generateEvent(e, evt);
-      }.bind(this),
-    "keypress" : function(evt, e){
-        this.generateEvent(e, {which:evt.which
-                              , keyCode: evt.keyCode
-                              , target: evt.target});
-      }.bind(this),
-    "mousedown" : function(evt, e){
-        this.generateEvent(e, {x:evt.pageX, y:evt.pageY
-                    , cx:evt.clientX, cy:evt.clientY
-                    , sx:evt.screenX, sy:evt.screenY
-                    , btn:((undefined == evt.button)?-1:evt.button)
-                    , which: evt.which
-                    , buttons : evt.buttons
-                    });
-      }.bind(this),
-    "mousemove" : function(evt, e){
-        this.generateEvent(e, {x:evt.pageX, y:evt.pageY
-                    , cx:evt.clientX, cy:evt.clientY
-                    , sx:evt.screenX, sy:evt.screenY
-                    , btn:((undefined == evt.button)?-1:evt.button)
-                    , which: evt.which
-                    , buttons : evt.buttons
-                    });
-      }.bind(this),
-    "mouseup" : function(evt, e){
-        this.generateEvent(e, {x:evt.pageX, y:evt.pageY
-                    , cx:evt.clientX, cy:evt.clientY
-                    , sx:evt.screenX, sy:evt.screenY
-                    , btn:((undefined == evt.button)?-1:evt.button)
-                    , which: evt.which
-                    , buttons : evt.buttons
-                    });
-      }.bind(this),
-    "touchstart" : function(evt, e){
-        var changes = evt.changedTouches;
-        for(var i=0; i < changes.length; i++){
-          this.generateEvent(e, {x:changes[i].pageX, y:changes[i].pageY
-                      , cx:changes[i].clientX, cy:changes[i].clientY
-                      , sx:changes[i].screenX, sy:changes[i].screenY
-                      , id:changes[i].identifier
-                      });
-        }
-      }.bind(this),
-    "touchmove" : function(evt, e){
-        var changes = evt.changedTouches;
-        for(var i=0; i < changes.length; i++){
-          this.generateEvent(e, {x:changes[i].pageX, y:changes[i].pageY
-                      , cx:changes[i].clientX, cy:changes[i].clientY
-                      , sx:changes[i].screenX, sy:changes[i].screenY
-                      , id:changes[i].identifier
-                      });
-        }
-      }.bind(this),
-    "touchend" : function(evt, e){
-        var changes = evt.changedTouches;
-        for(var i=0; i < changes.length; i++){
-          this.generateEvent(e, {x:changes[i].pageX, y:changes[i].pageY
-                      , cx:changes[i].clientX, cy:changes[i].clientY
-                      , sx:changes[i].screenX, sy:changes[i].screenY
-                      , id:changes[i].identifier
-                      });
-        }
-      }.bind(this),
-    "touchcancel" : function(evt, e){
-        var changes = evt.changedTouches;
-        for(var i=0; i < changes.length; i++){
-          this.generateEvent(e, {x:changes[i].pageX, y:changes[i].pageY
-                      , cx:changes[i].clientX, cy:changes[i].clientY
-                      , sx:changes[i].screenX, sy:changes[i].screenY
-                      , id:changes[i].identifier
-                      });
-        }
-      }.bind(this),
-    "load" : function(evt, e){
-          this.generateEvent(e, true);
-        }.bind(this),
-    "resize" : function(evt, e){
-          this.generateEvent(e, {});
-        }.bind(this),
-    "orientationchange" : function(evt, e){
-          this.generateEvent(e, {orientation:screen.orientation});
-        }.bind(this),
-    "online" : function(evt, e){
-          this.generateEvent(e);
-        }.bind(this),
-    "offline" : function(evt, e){
-          this.generateEvent(e);
-        }.bind(this),
-    "storage" : function(evt, e){
-          this.generateEvent(e);
-        }.bind(this)
-  };
-  this.systemEvent = function(target, name, sync){
-    if(this.handlers.hasOwnProperty(name)){
-      var SC_event = SC.sensor(""+target+"."+name, {});
-      var handler = this.handlers[name];
-      var me = this;
-      target.addEventListener(name, function(evt){
-         handler(evt,SC_event);
-         if(sync){
-           me.react();
-           }
-         });
-      return SC_event;
-    }
-    throw "no system event "+name+" defined for "+target;
-  }
   this.environment = {};
   this.reactInterface = new SC_ReactiveInterface();
   this.reactInterface.getIPS = this.getIPS.bind(this);
   this.reactInterface.getInstantNumber = this.getInstantNumber.bind(this);
   this.reactInterface.getTopLevelParallelBranchesNumber = this.getTopLevelParallelBranchesNumber.bind(this);
-  this.reactInterface.generateEvent = this.generateEvent.bind(this);
+  this.reactInterface.addToOwnEntry = function(evtName, value){
+      if(evtName instanceof SC_EventId){
+        this.addEntry(evtName, value);
+        }
+      else{
+        throw new Error("invalid event Id : "+evtName);
+        }
+      }.bind(this);
+  this.reactInterface.addToOwnProgram = function(prg){
+    if(prg.isAnSCProgram){
+      this.addProgram(prg);
+      }
+    else{
+      throw new Error("invalid program : "+prg);
+      }
+    }.bind(this);
+  Object.defineProperty(this.reactInterface, "continue"
+           , {get: function(){
+                      return this.continue;
+                      }.bind(this)
+             }
+           );
+  Object.defineProperty(this.reactInterface, "this.burstMode"
+           , {get: function(){
+                      return this.this.burstMode;
+                      }.bind(this)
+             }
+           );
   Object.defineProperty(this.reactInterface, "all"
            , {get : function(){
                       return this.generated_values;
                       }.bind(this)
              }
-               );
+           );
   Object.defineProperty(this.reactInterface, "id"
            , { get : function(){
                       return this.id;
                       }.bind(this)
              }
-               );
+           );
+  SC_registeredMachines.push(this);
   };
 SC_Machine.prototype = {
   constructor : SC_Machine
 , toString: function(){
     return this.id;
+    }
+, enablePrompt: function(flag){
+    this.promptEnabled = flag;
+    }
+, setStdOut : function(stdout){
+    this.stdOut = NO_FUN;
+    if((undefined != stdout)&&("function" == typeof(stdout))){
+      this.stdOut = stdout;
+      }
+    }
+, addEntry : function(evtId, val){
+    const evt = this.getEvent(evtId);
+    this.pending.push({e:evt, v:val});
+    }
+, addProgram : function(p){
+    this.pendingPrograms.push(p);
+    }
+, getInstantNumber : function(){
+    return this.instantNumber;
+    }
+, getTopLevelParallelBranchesNumber : function(){
+    return this.prg.branches.length;
+    }
+, getIPS : function(){
+    return this.ips;
     }
 , collapse : function(){
     this.prg = null;
@@ -3995,6 +4012,7 @@ SC_Machine.prototype = {
     this.actionsOnEvents = null;
     this.cells = null;
     this.pending = null;
+    this.pendingSensors = null;
     this.pendingPrograms = null;
     this.parActions = null;
     this.stdOut = NO_FUN;
@@ -4004,17 +4022,11 @@ SC_Machine.prototype = {
       clearInterval(this.timer);
       this.timer = 0;
       }
-    this.delay = null;
-    },
-  getValuesOf: function(id){
-    if(id instanceof SC_EventId){
-      return this.getEvent(id).getValues(this);
-      }
-    else if(id instanceof SC_SensorId){
-      return this.getSensor(id).getValues(this);
-      }
-    },
-  getEvent : function(id){
+    this.addProgram = NO_FUN;
+    this.addEntry = NO_FUN;
+    this.getTopLevelParallelBranchesNumber = function(){ return 0; };
+    }
+, getEvent : function(id){
     var res = this.environment[id];
     if(undefined === res){
       this.environment[id] = res = new SC_Event(id, this);
@@ -4023,8 +4035,8 @@ SC_Machine.prototype = {
       throw new Error("invalid event type");
       }
     return res;
-    },
-  getSensor : function(id){
+    }
+, getSensor : function(id){
     var res = this.environment[id];
     if(undefined === res){
       this.environment[id] = res = new SC_Sensor(id);
@@ -4033,46 +4045,9 @@ SC_Machine.prototype = {
       throw new Error("invalid sensor type");
       }
     return res;
-    },
-  enablePrompt: function(flag){
-    this.promptEnabled = flag;
     }
-, setStdOut : function(stdout){
-    this.stdOut = NO_FUN;
-    if((undefined != stdout)&&("function" == typeof(stdout))){
-      this.stdOut = stdout;
-      }
-    }
-, addEntry : function(evtId, val){
-    const evt = this.environment[evtId];
-    if(undefined == evt){
-      throw new Error("unkown sensor", evtId);
-      }
-    this.pending.push({e:evt, v:val});
-    }
-, generateEvent : function(evt, val){
-    if(this.ended){ return; }
-    if(evt instanceof SC_SensorId){
-      evt = this.getSensor(evt);
-      }
-    if(evt instanceof SC_EventId){
-      evt = this.getEvent(evt);
-      }
-    if((undefined == evt)
-      ||((!(evt instanceof SC_Event))
-      &&(!(evt instanceof SC_Sensor)))){
-      throw new Error("Invalid event "+evt);
-      }
-    this.pending.push({e:evt, v:val});
-    }
-, addProgram : function(p){
-    if(this.ended){ return; }
-    if(undefined == p){ 
-      throw "program to add not defined";
-      }
-    if(p.isAnSCProgram){
-      this.pendingPrograms.push(p);
-      }
+, sampleSensor: function(sensId){
+    this.pendingSensors[sensId] = {s:sensId,v:sensId.getValue()};
     }
 , addCellFun : function(aCell){
     this.cells.push(aCell);
@@ -4089,153 +4064,146 @@ SC_Machine.prototype = {
       this.permanentGenerate.push(evt);
       }
     }
-  , removeFromPermanentGenerate : function(inst, genVal){
-      const evt = inst.evt;
-      const t = evt.permanentGenerators.indexOf(inst);
-      if(t > -1){
-        evt.permanentGenerators.splice(t, 1);
-        evt.permanentValuatedGenerator -= genVal;
+, removeFromPermanentGenerate : function(inst, genVal){
+    const evt = inst.evt;
+    const t = evt.permanentGenerators.indexOf(inst);
+    if(t > -1){
+      evt.permanentGenerators.splice(t, 1);
+      evt.permanentValuatedGenerator -= genVal;
+      }
+    if(0 == evt.permanentGenerators.length){
+      const te = this.permanentGenerate.indexOf(evt);
+      this.permanentGenerate.splice(te, 1);
+      }
+    }
+, addPermanentFun : function(fun){
+    this.permanentActions.push(fun);
+    }
+, removeFromPermanent : function(fun){
+    var t = this.permanentActions.indexOf(fun);
+    if(t > -1){
+      this.permanentActions.splice(t,1);
+      }
+    }
+, addPermanentActionOnOnly : function(inst){
+    this.permanentActionsOnOnly.push(inst);
+    }
+, removeFromPermanentActionsOnOnly : function(inst){
+    var t = this.permanentActionsOnOnly.indexOf(inst);
+    if(t > -1){
+      this.permanentActionsOnOnly.splice(t,1);
+      }
+    }
+, addPermanentActionOn : function(inst){
+    this.permanentActionsOn.push(inst);
+    }
+, removeFromPermanentActionsOn : function(inst){
+    var t = this.permanentActionsOn.indexOf(inst);
+    if(t > -1){
+      this.permanentActionsOn.splice(t,1);
+      }
+    }
+, addCubeFun : function(inst){
+    this.cubeActions.push(inst);
+    }
+, addPermanentCubeFun : function(inst){
+    this.permanentCubeActions.push(inst);
+    }
+, removeFromPermanentCube : function(inst){
+    var t = this.permanentCubeActions.indexOf(inst);
+    if(t > -1){
+      this.permanentCubeActions.splice(t,1);
+      }
+    }
+, addFun : function(fun){
+    this.actions.push(fun);
+    }
+, addDynPar : function(p){
+    this.parActions.push(p);
+    }
+, react : function(){
+   if(this.ended){ return !this.ended; }
+    this.generated_values = {};
+    var res = SC_Instruction_State.STOP;
+    if(this.toContinue){
+      this.burstMode = true;
+      this.toContinue = false;
+      }
+    else{
+      this.burstState = this.pendingSensors;
+      this.pendingSensors={};
+      }
+    for(var n in this.burstState){
+      const p = this.burstState[n];
+      const sens = this.getSensor(p.s);
+      if(sens){
+        sens.systemGen(p.v, this, true);
         }
-      if(0 == evt.permanentGenerators.length){
-        const te = this.permanentGenerate.indexOf(evt);
-        this.permanentGenerate.splice(te, 1);
+      }
+    var tmp = this.pending;
+    this.pending=[];
+    for(var n in tmp){
+      tmp[n].e.generateInput(this, tmp[n].v);
+      }
+    for(var n in this.permanentGenerate){
+      const evt = this.permanentGenerate[n];
+      evt.generate(this, evt.permanentValuatedGenerator > 0);
+      }
+    tmp = this.pendingPrograms;
+    this.pendingPrograms = [];
+    for(var i in tmp){
+      this.prg.addBranch(tmp[i], null, this);
+      }
+    this.actions = [];
+    this.cubeActions = [];
+    this.actionsOnEvents = [];
+    this.cells = [];
+    this.lastWills = [];
+    this.parActions = [];
+    if(this.promptEnabled){
+      this.stdOut("\n"+this.instantNumber+" -: ");
+      }
+    while(SC_Instruction_State.SUSP == (res = this.activate())){
+      }
+    if((SC_Instruction_State.OEOI == res)||(SC_Instruction_State.WEOI == res)){
+      this.eoi();
+      res = SC_Instruction_State.STOP;
+      }
+    this.reactInterface.getValuesOf = function(evtID){
+      if(evtID instanceof SC_EventId){
+        return this.all[evtID.name];
         }
-      }
-  , addPermanentFun : function(fun){
-      this.permanentActions.push(fun);
-      }
-  , removeFromPermanent : function(fun){
-      var t = this.permanentActions.indexOf(fun);
-      if(t > -1){
-        this.permanentActions.splice(t,1);
+      throw new Error("ask for values of non event ID");
+      };
+    this.reactInterface.presenceOf = function(id){
+      if(id instanceof SC_EventId){
+        return this.getEvent(id).isPresent(this);
         }
-      }
-  , addPermanentActionOnOnly : function(inst){
-      this.permanentActionsOnOnly.push(inst);
-      }
-  , removeFromPermanentActionsOnOnly : function(inst){
-      var t = this.permanentActionsOnOnly.indexOf(inst);
-      if(t > -1){
-        this.permanentActionsOnOnly.splice(t,1);
+      else if(id instanceof SC_SensorId){
+        return this.getSensor(id).isPresent(this);
         }
+      }.bind(this);
+    this.prg.generateValues(this);
+    for(var cell in this.cells){
+      this.cells[cell].prepare(this);
       }
-  , addPermanentActionOn : function(inst){
-      this.permanentActionsOn.push(inst);
-      }
-  , removeFromPermanentActionsOn : function(inst){
-      var t = this.permanentActionsOn.indexOf(inst);
-      if(t > -1){
-        this.permanentActionsOn.splice(t,1);
-        }
-      }
-  , addCubeFun : function(inst){
-      this.cubeActions.push(inst);
-      }
-  , addPermanentCubeFun : function(inst){
-      this.permanentCubeActions.push(inst);
-      }
-  , removeFromPermanentCube : function(inst){
-      var t = this.permanentCubeActions.indexOf(inst);
-      if(t > -1){
-        this.permanentCubeActions.splice(t,1);
-        }
-      }
-  , addFun : function(fun){
-      this.actions.push(fun);
-      }
-  , getInstantNumber : function(){
-      return this.instantNumber;
-      }
-  , getTopLevelParallelBranchesNumber : function(){
-      return this.prg.branches.length;
-      }
-  , addDynPar : function(p){
-      this.parActions.push(p);
-      }
-  , setRunningDelay : function(d){
-      if(this.ended){ return; }
-      if(isNaN(d) || d <= 0){
-        console.log("negative delay");
-        return;
-        }
-      this.delay = d;
-      if(this.timer != 0){
-        clearInterval(this.timer);
-        this.timer = 0;
-        }
-      this.timer = setInterval(this.whenGettingThread, this.delay);
-      }
-  , setKeepRunningTo : function(b){
-      if(this.ended){ return; }
-      if(this.timer != 0){
-        if(b){
-          return;
-          }
-        clearInterval(this.timer);
-        this.timer = 0;
+    for(var i = 0; i < this.actionsOnEvents.length; i++){
+      var act = this.actionsOnEvents[i];
+      var a = act.action;
+      if(null != a.f){
+        var t = a.t;
+        if(null == t) continue;
+        t[a.f].call(t, this.generated_values, this.reactInterface);
         }
       else{
-        if(b){
-          this.timer = setInterval(this.whenGettingThread, this.delay);
-          }
+        a(this.generated_values, this.reactInterface);
         }
       }
-  , react : function(){
-      if(this.ended){ return !this.ended; }
-      this.generated_values = {};
-      var res = SC_Instruction_State.STOP;
-      var tmp = this.pending;
-      this.pending=[];
-      for(var n in tmp){
-        if(tmp[n].e instanceof SC_Sensor){
-          tmp[n].e.systemGen(tmp[n].v, this, true);
-          }
-        else{
-          tmp[n].e.generateInput(this, tmp[n].v);
-          }
-        }
-      for(var n in this.permanentGenerate){
-        const evt = this.permanentGenerate[n];
-        evt.generate(this, evt.permanentValuatedGenerator > 0);
-        }
-      tmp = this.pendingPrograms;
-      this.pendingPrograms = [];
-      for(var i in tmp){
-        this.prg.addBranch(tmp[i], null, this);
-        }
-      this.actions = [];
-      this.cubeActions = [];
-      this.actionsOnEvents = [];
-      this.cells = [];
-      this.lastWills = [];
-      this.parActions = [];
-      if(this.promptEnabled){
-        this.stdOut("\n"+this.instantNumber+" -: ");
-        }
-      while(SC_Instruction_State.SUSP == (res = this.activate())){
-        }
-      if((SC_Instruction_State.OEOI == res)||(SC_Instruction_State.WEOI == res)){
-        this.eoi();
-        res = SC_Instruction_State.STOP;
-        }
-      this.reactInterface.getValuesOf = function(evtID){
-        return this.all[evtID.name];
-        };
-      this.reactInterface.presenceOf = function(id){
-        if(id instanceof SC_EventId){
-          return id.registeredMachines[this.id].isPresent(this);
-          }
-        else if(id instanceof SC_SensorId){
-          return this.getSensor(id).isPresent(this);
-          }
-        }.bind(this);
-      this.prg.generateValues(this);
-      for(var cell in this.cells){
-        this.cells[cell].prepare(this);
-        }
-      for(var i = 0; i < this.actionsOnEvents.length; i++){
-        var act = this.actionsOnEvents[i];
-        var a = act.action;
+    for(var i = 0; i < this.permanentActionsOnOnly.length; i++){
+      const inst = this.permanentActionsOnOnly[i];
+      const pres = inst.evtFun.config.isPresent(this);
+      if(pres){
+        const a = inst.evtFun.action;
         if(null != a.f){
           var t = a.t;
           if(null == t) continue;
@@ -4245,61 +4213,25 @@ SC_Machine.prototype = {
           a(this.generated_values, this.reactInterface);
           }
         }
-      for(var i = 0; i < this.permanentActionsOnOnly.length; i++){
-        const inst = this.permanentActionsOnOnly[i];
-        const pres = inst.evtFun.config.isPresent(this);
-        if(pres){
-          const a = inst.evtFun.action;
-          if(null != a.f){
-            var t = a.t;
-            if(null == t) continue;
-            t[a.f].call(t, this.generated_values, this.reactInterface);
-            }
-          else{
-            a(this.generated_values, this.reactInterface);
-            }
+      }
+    for(var i = 0; i < this.permanentActionsOn.length; i++){
+      const inst = this.permanentActionsOn[i];
+      const pres = inst.evtFun.config.isPresent(this);
+      if(pres){
+        const a = inst.evtFun.action;
+        if(null != a.f){
+          const t = a.t;
+          if(null == t) continue;
+          t[a.f].call(t, this.generated_values, this.reactInterface);
+          }
+        else{
+          a(this.generated_values, this.reactInterface);
           }
         }
-      for(var i = 0; i < this.permanentActionsOn.length; i++){
-        const inst = this.permanentActionsOn[i];
-        const pres = inst.evtFun.config.isPresent(this);
-        if(pres){
-          const a = inst.evtFun.action;
-          if(null != a.f){
-            const t = a.t;
-            if(null == t) continue;
-            t[a.f].call(t, this.generated_values, this.reactInterface);
-            }
-          else{
-            a(this.generated_values, this.reactInterface);
-            }
-          }
-        else if(SC_Opcodes.ACTION_ON_EVENT_FOREVER_HALTED == inst.oc){
-          const act = inst.defaultAct;
-          if(null != act.f){
-            const t = act.t;
-            if(null == t) continue;
-            t[act.f].call(t, this.reactInterface);
-            }
-          else{
-            act(this.reactInterface);
-            }
-          }
-        }
-      const cal = this.cubeActions.length;
-      for(var i = 0; i < cal; i++){
-        const inst = this.cubeActions[i];
-        inst.closure(this.reactInterface);
-        }
-      const pcal = this.permanentCubeActions.length;
-      for(var i = 0; i < pcal; i++){
-        const inst = this.permanentCubeActions[i];
-        inst.closure(this.reactInterface);
-        }
-      for(var i = 0; i < this.actions.length; i++){
-        var act = this.actions[i];
+      else if(SC_Opcodes.ACTION_ON_EVENT_FOREVER_HALTED == inst.oc){
+        const act = inst.defaultAct;
         if(null != act.f){
-          var t = act.t;
+          const t = act.t;
           if(null == t) continue;
           t[act.f].call(t, this.reactInterface);
           }
@@ -4307,69 +4239,77 @@ SC_Machine.prototype = {
           act(this.reactInterface);
           }
         }
-      for(var i = 0; i < this.permanentActions.length; i++){
-        var act = this.permanentActions[i];
-        if(null != act.f){
-          var t = act.t;
-          if(null == t) continue;
-          t[act.f].call(t, this.reactInterface);
-          }
-        else{
-          act(this.reactInterface);
-          }
-        }
-      for(var cell in this.cells){
-        this.cells[cell].swap();
-        }
-      for(var i = 0; i < this.parActions.length; i++){
-        this.parActions[i].computeAndAdd(this);
-        }
-      for(var will of this.lastWills){
-        will(this.reactInterface);
-        }
-      if(this.traceEvt.isPresent(this)){
-        if(undefined != this.dumpTraceFun){
-          this.dumpTraceFun(this.traceEvt.getValues(this));
-          }
-        else{
-          console.log.call(console, this.traceEvt.getValues(this));
-          }
-        }
-      this.instantNumber++;
-      if(this.delay > 0 && res == SC_Instruction_State.TERM && (null != this.timer)){
-        clearInterval(this.timer)
       }
-      if(0 == this.instantNumber%256){
-        if(0 != this.reactMeasuring){
-          const now = performance.now();
-          this.ips = Math.floor(256*10000
-                            /(now-this.reactMeasuring))/10;
-          this.reactMeasuring = now;
-        }
-        else{
-          if(undefined == performance){
-            performance = {now:function(){
-                         return new Date().getTime();
-                         }
-                       };
-            }
-          this.reactMeasuring = performance.now();
-          }
-        }
-      delete(this.reactInterface.getValuesOf);
-      delete(this.reactInterface.presenceOf);
-      this.ended = (res == SC_Instruction_State.TERM);
-      if(this.ended){
-        this.collapse();
-        }
-      return !this.ended;
+    const cal = this.cubeActions.length;
+    for(var i = 0; i < cal; i++){
+      const inst = this.cubeActions[i];
+      inst.closure(this.reactInterface);
       }
-  , getIPS : function(){
-      return this.ips;
+    const pcal = this.permanentCubeActions.length;
+    for(var i = 0; i < pcal; i++){
+      const inst = this.permanentCubeActions[i];
+      inst.closure(this.reactInterface);
       }
-  , reactASAP : function(){
-      setInterval(this.whenGettingThread);
+    for(var i = 0; i < this.actions.length; i++){
+      var act = this.actions[i];
+      if(null != act.f){
+        var t = act.t;
+        if(null == t) continue;
+        t[act.f].call(t, this.reactInterface);
+        }
+      else{
+        act(this.reactInterface);
+        }
       }
+    for(var i = 0; i < this.permanentActions.length; i++){
+      var act = this.permanentActions[i];
+      if(null != act.f){
+        var t = act.t;
+        if(null == t) continue;
+        t[act.f].call(t, this.reactInterface);
+        }
+      else{
+        act(this.reactInterface);
+        }
+      }
+    for(var cell in this.cells){
+      this.cells[cell].swap();
+      }
+    for(var i = 0; i < this.parActions.length; i++){
+      this.parActions[i].computeAndAdd(this);
+      }
+    for(var will of this.lastWills){
+      will(this.reactInterface);
+      }
+    if(this.traceEvt.isPresent(this)){
+      if(undefined != this.dumpTraceFun){
+        this.dumpTraceFun(this.traceEvt.getValues(this));
+        }
+      else{
+        console.log.call(console, this.traceEvt.getValues(this));
+        }
+      }
+    this.instantNumber++;
+    if(0 == this.instantNumber%256){
+      if(0 != this.reactMeasuring){
+        const now = performance.now();
+        this.ips = Math.floor(256*10000.0
+                          /(now-this.reactMeasuring))/10.0;
+        this.reactMeasuring = now;
+      }
+      else{
+        this.reactMeasuring = performance.now();
+        }
+      }
+    this.ended = (res == SC_Instruction_State.TERM);
+    if(this.ended){
+      this.collapse();
+      }
+    this.reactInterface.getValuesOf = NO_FUN;
+    this.reactInterface.presenceOf = NO_FUN;
+    this.burstMode = false;
+    return !this.ended;
+    }
   , activate : function(){
       var st = SC_Instruction_State.SUSP;
       var inst = this.prg;
@@ -4384,10 +4324,6 @@ ACT:    switch(inst.oc){
           case SC_Opcodes.REL_JUMP:{
             seq.idx += inst.relativeJump;
             inst = seq.seqElements[seq.idx];
-            break;
-            }
-          case SC_Opcodes.NOTHING_INLINED:{
-            inst = seq.seqElements[++seq.idx];
             break;
             }
           case SC_Opcodes.REPEAT_FOREVER:{
@@ -4801,6 +4737,21 @@ ACT:    switch(inst.oc){
             inst.count--;
             st = SC_Instruction_State.STOP;
             inst = caller;
+            break;
+            }
+          case SC_Opcodes.NEXT_INLINED:{
+            this.toContinue = true;
+            inst = seq.seqElements[++seq.idx];
+            break;
+            }
+          case SC_Opcodes.NEXT:{
+            this.toContinue = true;
+            st = SC_Instruction_State.TERM;
+            inst = caller;
+            break;
+            }
+          case SC_Opcodes.NOTHING_INLINED:{
+            inst = seq.seqElements[++seq.idx];
             break;
             }
           case SC_Opcodes.NOTHING:{
@@ -5877,7 +5828,8 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.FILTER_FOREVER_NO_ABS_REGISTERED:{
             if(inst.sensor.isPresent(this)){
-              inst.val = inst.filterFun(inst.sensor.getValues(this), this);
+              inst.val = inst.filterFun(inst.sensor.getValues(this)
+                                        , this.reactInterface);
               if(undefined !== inst.val){
                 inst.itsParent.registerForProduction(inst);
                 inst.evt.generate(this, true);
@@ -5889,7 +5841,8 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.FILTER_FOREVER:{
             if(inst.sensor.isPresent(this)){
-              inst.val = inst.filterFun(inst.sensor.getValues(this), this);
+              inst.val = inst.filterFun(inst.sensor.getValues(this)
+                                      , this.reactInterface);
               if(undefined !== inst.val){
                 inst.itsParent.registerForProduction(inst);
                 inst.evt.generate(this, true);
@@ -5904,7 +5857,8 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.FILTER_ONE:{
             if(inst.sensor.isPresent(this)){
-              inst.val = inst.filterFun(inst.sensor.getValues(this), this);
+              inst.val = inst.filterFun(inst.sensor.getValues(this)
+                                      , this.reactInterface);
               if(null != inst.val){
                 inst.itsParent.registerForProduction(inst);
                 inst.evt.generate(this, true);
@@ -5919,7 +5873,8 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.FILTER_ONE_NO_ABS:{
             if(inst.sensor.isPresent(this)){
-              inst.val = inst.filterFun(inst.sensor.getValues(this), this);
+              inst.val = inst.filterFun(inst.sensor.getValues(this)
+                                      , this.reactInterface);
               if(null != inst.val){
                 inst.itsParent.registerForProduction(inst);
                 inst.evt.generate(this, true);
@@ -5931,7 +5886,8 @@ ACT:    switch(inst.oc){
             }
           case SC_Opcodes.FILTER:{
             if(inst.sensor.isPresent(this)){
-              inst.val = inst.filterFun(inst.sensor.getValues(this), this);
+              inst.val = inst.filterFun(inst.sensor.getValues(this)
+                                      , this.reactInterface);
               if(null != inst.val){
                 inst.itsParent.registerForProduction(inst);
                 inst.evt.generate(this, true);
@@ -6610,6 +6566,8 @@ RST:    switch(oldInstOC = inst.oc){
             inst = caller;
             break;
             }
+          case SC_Opcodes.NEXT:
+          case SC_Opcodes.NEXT_INLINED:
           case SC_Opcodes.NOTHING:
           case SC_Opcodes.NOTHING_INLINED:
           case SC_Opcodes.GENERATE_ONE_NO_VAL_INLINE:
@@ -7253,15 +7211,21 @@ GRV:    switch(inst.oc){
   };
 SC = {
   clock : function(params){
-    if(undefined == initParams){
-      initParams = {};
+    if(undefined == params){
+      throw new Error("no params for clock");
+      return;
       }
-    if(undefined != params){
-      params.name = name;
+    if((undefined == params.name)
+       ||("string" != typeof(params.name))
+       ||(undefined == params.delay)
+       ||(isNaN(params.delay))
+       ||(params.delay < 1)
+       ){
+      throw new Error("missing mandatory parameters : name, delay <"+params+">");
+      return;
       }
-    else{
-      params = {name:name};
-      }
+    params.owned=true;
+    params.init = (params.init)?params.init:SC.pauseForever();
     return new SC_SensorId(params);
     }
 , evt: function(name, params){
@@ -7298,16 +7262,21 @@ SC = {
     if(undefined == initParams){
       initParams = {};
       }
-    return new SC_Machine(initParams);
+    if(undefined == initParams.name){
+      initParams.name = "unanmed_machine";
+      }
+    initParams.owned=true;
+    return new SC_SensorId(initParams);
     }
 , machine: function(delay, initParams){
     if(undefined == initParams){
-      initParams = (undefined != delay)?{ delay : delay }:undefined;
+      initParams = (undefined != delay)?{ delay : delay }:{};
       }
     else if(undefined == initParams.delay){
       initParams.delay = delay;
       }
-    return new SC_Machine(initParams);
+    initParams.owned=true;
+    return new SC_SensorId(initParams);
     },
   pauseForever: function(){
     return SC_PauseForever;
@@ -7712,19 +7681,21 @@ SC = {
     },
   send: function(m, evt, v){
     return SC.action(function(evt, v){
-      this.generateEvent(evt, v);
+      this.addToOwnEntry(evt, v);
       }.bind(m, evt, v))
     },
-  next: function(delay){
-    if(undefined === delay){
-      delay = 0;
-      }
-    if(delay < 0){
-      throw "invalid delay : "+delay;
-      }
-    return SC.action(function(delay, m){
-      setTimeout(m.react.bind(m), delay);
-      }.bind(null, delay));
+  next: function(){
+    return SC_Next;
+    },
+  externalEvent: function externalEvent(pElt_target, ps_DomEvt, pn_nbreFois) {
+    if(undefined === pn_nbreFois){ pn_nbreFois = -1; }
+    const pSensor = new SC.sensorize({
+            name: ''+ Elt_target+'.'+ps_DomEvt
+          , dom_targets:[{target: pElt_target, evt:ps_DomEvt}]
+          , pn_nbreFois: pn_nbreFois
+          , owned:true
+            });
+    return pSensor
     },
   writeInConsole:function(){
     console.log.call(console,arguments);
@@ -7761,7 +7732,8 @@ SC_ReactiveWorld.prototype.include = function(aSource){
   var zeRes = SC.lang.parse(aSource, this);
   }
 SC_ReactiveWorld.prototype.react = function(){
-  return this.machine.react();
+  console.log("react");
+  return this.machine.newValue();
   }
 function SC_Definition(content){
   this.content = content;
@@ -8364,7 +8336,7 @@ SC.lang.parse = function(aSource, aReactiveWorld){
     if(undefined != aSource.onBuilt){
       aSource.onBuilt(zeLog);
       }
-    aSource.RW.machine.addProgram(zePrg.result);
+    aSource.RW.machine.addToOwnProgram(zePrg.result);
     return zePrg;
     }
   this.pendingParsing.push(aSource);

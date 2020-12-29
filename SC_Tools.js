@@ -361,60 +361,60 @@ SC.tools = (function(){
     if(undefined !== p.title){
       elt.setAttribute("title", p.title);
       }
+    function mkListener(sc_evt, m){
+      return (sc_evt.isSensor)? function(evt){
+            this.newValue(evt);
+            }.bind(sc_evt)
+          : function(m, evt){
+            m.addToOwnEntry(this, evt);
+            }.bind(sc_evt, m)
+      };
     if(undefined !== p.evt_click){
       elt.evt_click = p.evt_click;
-      elt.addEventListener("click", function(m, evt){
-         m.generateEvent(this.evt_click);
-         }.bind(elt, ((undefined === p.m)?this.m:p.m)));
+      elt.addEventListener("click"
+           , mkListener(elt.evt_click, ((undefined === p.m)?this.m:p.m)));
       }
     if(undefined !== p.on_touchStart){
       elt.on_touchStartEvt= p.on_touchStart;
-      elt.addEventListener("touchstart", function(m, sc_evt, evt){
-         m.generateEvent(sc_evt, evt);
-         }.bind(elt, ((undefined === p.m)?this.m:p.m), elt.on_touchStartEvt))
+      elt.addEventListener("touchstart"
+         , mkListener(elt.on_touchStartEvt, ((undefined === p.m)?this.m:p.m)))
       }
     if(undefined !== p.on_touchStop){
       elt.on_touchStopEvt= p.on_touchStop;
-      elt.addEventListener("touchend", function(m, sc_evt, evt){
-         m.generateEvent(sc_evt, evt);
-         }.bind(elt, ((undefined === p.m)?this.m:p.m), elt.on_touchStopEvt))
+      elt.addEventListener("touchend"
+         , mkListener(elt.on_touchStopEvt, ((undefined === p.m)?this.m:p.m)))
       }
     if(undefined !== p.on_touchCancel){
       elt.on_touchCancelEvt= p.on_touchCancel;
-      elt.addEventListener("touchcancel", function(m, sc_evt, evt){
-         m.generateEvent(sc_evt, evt);
-         }.bind(elt, ((undefined === p.m)?this.m:p.m), elt.on_touchCancelEvt))
+      elt.addEventListener("touchcancel"
+         , mkListener(elt.on_touchCancelEvt, ((undefined === p.m)?this.m:p.m)))
       }
     if(undefined !== p.on_mouseUp){
       elt.on_mouseUpEvt= p.on_mouseUp;
-      elt.addEventListener("mouseup", function(m, sc_evt, evt){
-         m.generateEvent(sc_evt, evt);
-         }.bind(elt, ((undefined === p.m)?this.m:p.m), elt.on_mouseUpEvt))
+      elt.addEventListener("mouseup"
+         , mkListener(elt.on_mouseUpEvt, ((undefined === p.m)?this.m:p.m)))
       }
     if(undefined !== p.on_mouseDown){
       elt.on_mouseDownEvt= p.on_mouseDown;
-      elt.addEventListener("mousedown", function(m, sc_evt, evt){
-         m.generateEvent(sc_evt, evt);
-         }.bind(elt, ((undefined === p.m)?this.m:p.m), elt.on_mouseDownEvt))
+      elt.addEventListener("mousedown"
+         , mkListener(elt.on_mouseDownEvt, ((undefined === p.m)?this.m:p.m)))
       }
     if(undefined !== p.on_keyDown){
       elt.on_keyDownEvt= p.on_keyDown;
-      elt.addEventListener("keydown", function(m, sc_evt, evt){
-         m.generateEvent(sc_evt, evt);
-         }.bind(elt, ((undefined === p.m)?this.m:p.m), elt.on_keyDownEvt))
+      elt.addEventListener("keydown"
+         , mkListener(elt.on_keyDownEvt, ((undefined === p.m)?this.m:p.m)))
       }
     if(undefined !== p.on_keyUp){
       elt.on_keyUpEvt= p.on_keyUp;
-      elt.addEventListener("keyup", function(m, sc_evt, evt){
-         m.generateEvent(sc_evt, evt);
-         }.bind(elt, ((undefined === p.m)?this.m:p.m), elt.on_keyUpEvt))
+      elt.addEventListener("keyup"
+         , mkListener(elt.on_keyUpEvt, ((undefined === p.m)?this.m:p.m)))
       }
     if(undefined !== p.beh){
       elt.beh.addProgram(p.beh);
       }
     if(undefined !== elt.beh){
       //console.log("adding beh to machine ", elt.beh);
-      ((undefined === p.m)?SC_ClientTools:p.m).addProgram(elt.beh);
+      ((undefined === p.m)?SC_ClientTools:p).m.addToOwnProgram(elt.beh);
       }
     return elt;
     }
@@ -525,7 +525,7 @@ if(null !== sharedContext){
         }
       this.audioContext.decodeAudioData(arrayBuff.buffer, (function (me){ return function(audioData){
         me.buffer = audioData;
-        SC_ClientTools.m.generateEvent(me.loadedEvt);
+        me.loadedEvt.newValue();
         SC.writeInConsole("loaded"+me.idx+"\n");
         }})(this));
       }
@@ -567,7 +567,7 @@ if(null !== sharedContext){
           }
         this.source[this.start](0);
         this.source.onended = (function(me) { return function(evt){
-            SC_ClientTools.m.generateEvent(me.endedEvt);
+            me.endedEvt.newValue();
             if(me.dbg){
               console.log("stop");
               }
@@ -626,15 +626,19 @@ SC_ClientTools = {
   , addProgram : function(p){
       throw "Not well initialized !";
       }
-  , systemEvent : function(evt, val){
+/*  , systemEvent : function(evt, val){
       if(null === this.m){
         throw "Not well initialized !";
         }
       this.m.systemEvent.apply(this.m, arguments);
-      }
+      }*/
   , appStartedEvt : SC.evt("appStarted")
   , appInited : false
   , init : function(m){
+      if(this.m){
+        console.log("already initialized...");
+        return;
+        }
       this.setWorkspace(document);
       this.m = m;
       if("complete" != document.readyState){
@@ -642,17 +646,17 @@ SC_ClientTools = {
         this.addProgram = function(p){
           this.programsToAdd.add(p);
           };
-        this.systemEvent = function(evt, val){
-          return this.m.systemEvent.apply(this.m, arguments);
-          };
+        //this.systemEvent = function(evt, val){
+        //  return this.m.systemEvent.apply(this.m, arguments);
+        //  };
         window.addEventListener("load", function(){
-            this.m.addProgram(SC.seq(
-                  (this.appInited)?SC.await(this.appStartedEvt):SC.nothing()
+            this.m.addToOwnProgram(SC.seq(
+                    (this.appInited)?SC.await(this.appStartedEvt):SC.nothing()
                   , SC.action(function(){
-                    this.addProgram = function(p){
-                      this.m.addProgram(p);
-                      }
-                    this.m.addProgram(this.programsToAdd);
+                      this.addProgram = function(p){
+                        this.m.addToOwnProgram(p);
+                        }
+                      this.addProgram(this.programsToAdd);
                     }.bind(this))
                   )
                 );
@@ -662,7 +666,7 @@ SC_ClientTools = {
         console.log("Probably initialized too late !");
         if(null != this.m){
           this.addProgram = function(p){
-            this.m.addProgram(p);
+            this.m.addToOwnProgram(p);
             }
           }
         else{
@@ -670,10 +674,10 @@ SC_ClientTools = {
           }
         }
       this.generateEvent = function(evt, val){
-        this.m.generateEvent.apply(this.m, arguments);
+        this.m.addToOwnEntry.apply(this.m, arguments);
         }
       this.setRunningDelay = function(d){
-        this.m.setRunningDelay.apply(this.m, arguments);
+        //this.m.setRunningDelay.apply(this.m, arguments);
         }
       }
   , loadData : function(url, resEvt, engine){
@@ -738,8 +742,11 @@ SC_ClientTools = {
       tmp.innerHTML="ScreenShot :";
       this.controlPanel.screenShot = new Image();
       this.controlPanel.screenShot.setAttribute("id","SC_ScreenShot_pic");
-      this.controlPanel.screenShotSensor = 
-                   this.m.systemEvent(this.controlPanel.screenShot, "click");
+      this.controlPanel.screenShotSensor = SC.sensorize({name:"screenShotSensor"
+                         , dom_targets:[
+                               {target:this.controlPanel.screenShot, evt:"click"}
+                                       ]
+                         });
       tmp.appendChild(this.controlPanel.screenShot);
       this.controlPanel.content.appendChild(tmp);
       tmp=document.createElement("p");
@@ -782,7 +789,7 @@ SC_ClientTools = {
       tmp.appendChild(SC_toplevel_bn);
       tmpTable.appendChild(tmp);
       tmp=document.createElement("tr");
-      tmp.innerHTML="<tr><td><button onclick='SC_ClientTools.SC_controlMachine(event);'>Pause</button></td><td><button onclick='SC_ClientTools.m.react()'>Step</button></td></tr>";
+      tmp.innerHTML="<tr><td><button onclick='SC_ClientTools.SC_controlMachine(event);'>Pause</button></td><td><button onclick='SC_ClientTools.m.newValue()'>Step</button></td></tr>";
       tmpTable.appendChild(tmp);
       tmp=document.createElement("tr");
       tmp.innerHTML="<th>instant:</th>";
@@ -803,14 +810,46 @@ SC_ClientTools = {
       if(undefined !== this.elementInspector){
         this.controlPanel.setInspectorBtn();
         }
-      SC_evt_mouse_click = this.m.systemEvent(document, "click");
-      SC_evt_mouse_down = this.m.systemEvent(document, "mousedown");
-      SC_evt_mouse_up = this.m.systemEvent(document, "mouseup");
-      SC_evt_mouse_move = this.m.systemEvent(document, "mousemove");
-      SC_evt_touch_start = this.m.systemEvent(document, "touchstart");
-      SC_evt_touch_end = this.m.systemEvent(document, "touchend");
-      SC_evt_touch_cancel = this.m.systemEvent(document, "touchcancel");
-      SC_evt_touch_move = this.m.systemEvent(document, "touchmove");
+      SC_evt_mouse_click = SC.sensorize({name:"SC_evt_mouse_click"
+                         , dom_targets:[
+                               {target:document, evt:"click"}
+                                       ]
+                         });
+      SC_evt_mouse_down = SC.sensorize({name:"SC_evt_mouse_down"
+                         , dom_targets:[
+                               {target:document, evt:"mousedown"}
+                                       ]
+                         });
+      SC_evt_mouse_up = SC.sensorize({name:"SC_evt_mouse_up"
+                         , dom_targets:[
+                               {target:document, evt:"mouseup"}
+                                       ]
+                         });
+      SC_evt_mouse_move = SC.sensorize({name:"SC_evt_mouse_move"
+                         , dom_targets:[
+                               {target:document, evt:"mousemove"}
+                                       ]
+                         });
+      SC_evt_touch_start = SC.sensorize({name:"SC_evt_touch_start"
+                         , dom_targets:[
+                               {target:document, evt:"touchstart"}
+                                       ]
+                         });
+      SC_evt_touch_end = SC.sensorize({name:"SC_evt_touch_end"
+                         , dom_targets:[
+                               {target:document, evt:"touchend"}
+                                       ]
+                         });
+      SC_evt_touch_cancel = SC.sensorize({name:"SC_evt_touch_cancel"
+                         , dom_targets:[
+                               {target:document, evt:"touchcancel"}
+                                       ]
+                         });
+      SC_evt_touch_move = SC.sensorize({name:"SC_evt_touch_move"
+                         , dom_targets:[
+                               {target:document, evt:"touchmove"}
+                                       ]
+                         });
       this.SC_controlMachine = function(evt){
         this.m.setKeepRunningTo("Pause" != evt.target.innerHTML);
         evt.target.innerHTML=(("Pause" == evt.target.innerHTML)?"Resume":"Pause");
@@ -826,32 +865,32 @@ SC_ClientTools = {
         var res = SC.repeat(SC.forever
             , SC.await(theEvt)
             , SC.act(function(evt, m){
-                 var vals = m.getValuesOf(evt);
+                 var vals = [m.sensorValueOf(evt)];
                  SC_evt_mouse_client_x.innerHTML = (0 == vals.length)?"--"
-                                                          :Math.floor(vals[0].cx);
+                                                          :Math.floor(vals[0].clientX);
                  SC_evt_mouse_client_y.innerHTML = (0 == vals.length)?"--"
-                                                          :Math.floor(vals[0].cy);
+                                                          :Math.floor(vals[0].clientY);
                  SC_evt_mouse_page_x.innerHTML = (0 == vals.length)?"--"
                                                           :Math.floor(vals[0].x);
                  SC_evt_mouse_page_y.innerHTML = (0 == vals.length)?"--"
                                                           :Math.floor(vals[0].y);
                  SC_evt_mouse_screen_x.innerHTML = (0 == vals.length)?"--"
-                                                          :Math.floor(vals[0].sx);
+                                                          :Math.floor(vals[0].screenX);
                  SC_evt_mouse_screen_y.innerHTML = (0 == vals.length)?"--"
-                                                          :Math.floor(vals[0].sy);
+                                                          :Math.floor(vals[0].screenY);
                }.bind(undefined, theEvt))
             );
         return res;
       }
       
-      this.m.addProgram(trackEvent(SC_evt_mouse_down));
-      this.m.addProgram(trackEvent(SC_evt_mouse_move));
-      this.m.addProgram(trackEvent(SC_evt_mouse_up));
-      this.m.addProgram(trackEvent(SC_evt_touch_start));
-      this.m.addProgram(trackEvent(SC_evt_touch_move));
-      this.m.addProgram(trackEvent(SC_evt_touch_end));
+      this.m.addToOwnProgram(trackEvent(SC_evt_mouse_down));
+      this.m.addToOwnProgram(trackEvent(SC_evt_mouse_move));
+      this.m.addToOwnProgram(trackEvent(SC_evt_mouse_up));
+      this.m.addToOwnProgram(trackEvent(SC_evt_touch_start));
+      this.m.addToOwnProgram(trackEvent(SC_evt_touch_move));
+      this.m.addToOwnProgram(trackEvent(SC_evt_touch_end));
       
-      this.m.addProgram(
+      this.m.addToOwnProgram(
           SC.repeat(SC.forever
             , SC.act(function(m){
                   this.controlPanel.SC_Panel_fps.innerHTML = " FPS : "
@@ -860,7 +899,7 @@ SC_ClientTools = {
             , SC.pause(200)
             )
         );
-      this.m.addProgram(
+      this.m.addToOwnProgram(
           SC.repeat(SC.forever
             , SC.act(function(m){
                   this.controlPanel.SC_Panel_ips.innerHTML = " "+m.getIPS()+" ";
@@ -868,19 +907,18 @@ SC_ClientTools = {
             , SC.pause(200)
             )
         );
-      this.m.addProgram(
-          SC.repeat(SC.forever
-              , SC.await(this.controlPanel.screenShotSensor)
-              , SC.act(
-                  function(){
+      this.m.addToOwnProgram(
+          SC.repeatForever(
+                SC.await(this.controlPanel.screenShotSensor)
+              , SC.action(
+                  function(m){
                     if(undefined !== this.workspace.toDataURL){
                       this.controlPanel.screenShot.src=this.workspace.toDataURL("image/png");
                       }
-                  }.bind(this)
-                )
+                    }.bind(this))
             )
         );
-      this.m.addProgram(
+      this.m.addToOwnProgram(
           SC.repeat(SC.forever
             , SC.act(function(view, m){
                 view.innerHTML=m.getInstantNumber();
@@ -1018,7 +1056,14 @@ SC_ClientTools = {
                   );
           }
         }
-      var m = SC.machine(config.tickTime, config.machineConfig);
+      //var m = SC.machine(config.tickTime, config.machineConfig);
+      let config_m = (config.machineConfig)?config.machineConfig:{delay:config.tickTime};
+      if(! config_m.delay){
+        config_m.delay = 30;
+        }
+      config_m.name = "SC_Tools_clock";
+      console.log("SC_Tools.config_m",config_m, config.machineConfig, config);
+      const m = SC.clock(config_m);
       this.init(m);
       var tmp_par = SC.par(SC.pause(10));
       if(config.audioSupport){
@@ -1057,10 +1102,9 @@ SC_ClientTools = {
                    //+ "console.log(\"cache update pending\");"
                    + "return;};"
                    //+ "console.log(\"démarrage\");"
-                   + "window.SC.tools.m.generateEvent("
-                   + "SC_ClientTools.splashScreen.clickStartEvt);"
+                   + "SC_ClientTools.splashScreen.clickStartEvt.newValue();"
                    + ((config.voiceSupport)?" window.speechSynthesis.speak(new SpeechSynthesisUtterance(\"Démarrer\"));":"")
-                   + " window.SC.tools.m.react();'"
+                   + " window.SC.tools.m.newValue();'"
                    + ">"+config.splashConfig.start
                    +"</div></div>"
             }
@@ -1082,7 +1126,7 @@ SC_ClientTools = {
             //console.log("dismissing splash");
             this.splashScreen.children[0].children[1].style.display="none";
             this.splashScreen.children[0].children[2].style.display="";
-            this.m.addProgram(
+            this.m.addToOwnProgram(
                 SC.seq(
                   /*SC.log("awaiting evt")
                   , */SC.await(this.splashScreen.SCSS_allLoaded)
@@ -1097,7 +1141,7 @@ SC_ClientTools = {
               }.bind(this, config.splashConfig.startEvt)
           );
         //console.log(tmp_par);
-        this.m.addProgram(
+        this.m.addToOwnProgram(
           SC.seq(
             SC.await(this.splashScreen.clickStartEvt)
             //, SC.log("start clicked")
@@ -1114,7 +1158,7 @@ SC_ClientTools = {
           );
         }
         else{
-          this.m.addProgram(
+          this.m.addToOwnProgram(
             SC.seq(SC.pause(10),SC.generate((this.appStartedEvt)/*,SC.log("appstarted")*/))
             );
           }
@@ -1151,17 +1195,17 @@ SC_ClientTools = {
                                     , rt:ticks
                                     });
           res.a.addEventListener("loadeddata", function(m, evt){
-            m.generateEvent(this.loadedEvt);
+            this.loadedEvt.newValue();
             }.bind(res, SC_ClientTools.m));
           
           res.a.addEventListener("ended", function(m, evt){
-            m.generateEvent(this.endedEvt);
+            this.endedEvt.newValue();
             this.rt_count = this.rt;
             this.playing=false;
             }.bind(res, SC_ClientTools.m));
           this.waittingLoad.add(SC.await(res.loadedEvt));
           res.src = url;//+this.extension;
-	  console.log("laoding url = ", res.src);
+          console.log("laoding url = ", res.src);
           res.a.needToLoad = true;
           res.play=function(){
             if(res.rt<0){
@@ -1217,7 +1261,7 @@ SC_ClientTools = {
           return tmp;
           }
       , loadAll:function(){
-            SC_ClientTools.m.addProgram(
+            SC_ClientTools.m.addToOwnProgram(
               SC.seq(
                 this.waittingLoad
                 , SC.generate(this.audioLoaded)
@@ -1337,19 +1381,17 @@ SC_ClientTools = {
       speeckable.sc_endedEvt = params.get("end_evt",SC.evt("stop"));
       speeckable.sc_delay = params.get("r_delay",0);
       speeckable.sc_m = params.get("rm",null);
+      //console.log("speeckable.sc_m", speeckable.sc_m);
       speeckable.sc_speak = function(){
         window.speechSynthesis.speak(this);
-        };
-      speeckable.sc_initSpeakable = function(m){
-        this.sc_m = m;
         };
       speeckable.onend = function(){
         if(null == this.sc_m){
           console.log('no speak reactive machine !');
           return;
           }
-        this.sc_m.generateEvent(this.sc_endedEvt);
-        setTimeout(this.sc_m.react.bind(this.sc_m), this.sc_delay); 
+        this.sc_m.addToOwnEntry(this.sc_endedEvt);
+        this.sc_m.postpone(this.sc_delay); 
         }.bind(speeckable);
       if(null !== speeckable.sc_m){
         var tmp_b =  SC.seq(
@@ -1359,13 +1401,10 @@ SC_ClientTools = {
            , SC.await(SC.my("sc_endedEvt"))
            //, SC.log("speakable item realy ends talking")
            );
-        speeckable.sc_m.addProgram(SC.seq(
+        speeckable.sc_m.addToOwnProgram(SC.seq(
                SC.cube(speeckable
                  , SC.seq(
-                     SC.action(SC.my("sc_initSpeakable"))
-                     //, SC.log("speackable item init...")
-                     , SC.pause()
-                     , (undefined !== params.repeat)?
+                       (undefined !== params.repeat)?
                          SC.repeat(params.repeat, tmp_b)
                          : tmp_b
                      //, SC.log("speakable item terminates")
@@ -1477,8 +1516,8 @@ SC_ClientTools = {
         ok.innerHTML = "<em style='font-size:10px;cursor:pointer'>OK</em>";
         ok.onclick = function(){
           SC.tools.generateEvent(this.stopItEvt);
-          this.talkMachine.generateEvent(this.talkOKEvt);
-          this.talkMachine.reactASAP();
+          this.talkMachine.addToOwnEntry(this.talkOKEvt);
+          this.talkMachine.postpone(1);
           }.bind(this)
         this.appendChild(ok);
         }
@@ -1610,7 +1649,7 @@ SC_ClientTools = {
           , speech: data.speech
           , r_delay: data.r_delay
           });
-        this.talkMachine.addProgram(SC.seq(
+        this.talkMachine.addToOwnProgram(SC.seq(
             SC.next()
             , SC.pause()
             //, SC.log("talkingM: enterring pre talk beh")
@@ -1640,7 +1679,7 @@ SC_ClientTools = {
         }
       bubble_view.writeOKEvt = writeOKEvt;
       bubble_view.talkMachine = talkMachine;
-      talkMachine.addProgram(SC.log("talk M inited"));
+      talkMachine.addToOwnProgram(SC.log("talk M inited"));
       bubble_view.hidden=true;
       bubble_frame.style.position="absolute";
       bubble_view.frame = bubble_frame;
@@ -1958,7 +1997,13 @@ SC_ClientTools.initInspector = function(){
         this.elementInspector.style.display="none";
         }.bind(this))
       );
-  this.elementInspector.hideClickSensor = SC.tools.m.systemEvent(SC_ClientTools.elementInspector.children[0].children[0],"click")
+  this.elementInspector.hideClickSensor
+            = SC.sensorize({name:"hideClickSensor"
+                         , dom_targets:[
+                               {target:SC_ClientTools.elementInspector
+                                          .children[0].children[0], evt:"click"}
+                                       ]
+                         });
   this.elementInspector.children[0].children[0].addEventListener("mousedown", function(evt){
     evt.preventDefault();
     });
@@ -2091,8 +2136,22 @@ SC_ClientTools.initInspector = function(){
   for(var i in propTable){
     table.children[0].appendChild(pilot(propTable[i]));
     }
-  this.elementInspector.panel_mdSensor = this.m.systemEvent(this.elementInspector.children[0],"mousedown");
-  this.elementInspector.panel_tsSensor = this.m.systemEvent(this.elementInspector.children[0],"touchstart");
+  this.elementInspector.panel_mdSensor = SC.sensorize({name:"panel_mdSensor"
+                         , dom_targets:[
+                               {
+                                 target:this.elementInspector.children[0]
+                               , evt:"mousedown"
+                               }
+                                       ]
+                         });
+  this.elementInspector.panel_tsSensor = SC.sensorize({name:"panel_tsSensor"
+                         , dom_targets:[
+                               {
+                                 target:this.elementInspector.children[0]
+                               , evt:"touchstart"
+                               }
+                                       ]
+                         });
   this.elementInspector.children[0].addEventListener("mousedown", function(evt){
     evt.preventDefault();
     });
@@ -2102,14 +2161,49 @@ SC_ClientTools.initInspector = function(){
   this.elementInspector.onMousePanelMove = function(vals){
     var pos = vals[0];
     if(undefined != pos){
-      return {x : pos.cx, y: pos.cy};
+      return {x : pos.clientX, y: pos.clientY};
       }
     }
-  this.touchStart = this.m.systemEvent(document, "touchstart");
-  this.touchMove = this.m.systemEvent(document, "touchmove");
-  this.touchEnd = this.m.systemEvent(document, "touchend");
-  this.mmSensor = this.m.systemEvent(window, "mousemove");
-  this.muSensor = this.m.systemEvent(window, "mouseup");
+  this.touchStart = SC.sensorize({name:"touchStart"
+                         , dom_targets:[
+                               {
+                                 target:document
+                               , evt:"touchstart"
+                               }
+                                       ]
+                         });
+  this.touchMove = SC.sensorize({name:"touchMove"
+                         , dom_targets:[
+                               {
+                                 target:document
+                               , evt:"touchmove"
+                               }
+                                       ]
+                         });
+  this.touchEnd = SC.sensorize({name:"touchEnd"
+                         , dom_targets:[
+                               {
+                                 target:document
+                               , evt:"touchend"
+                               }
+                                       ]
+                         });
+  this.mmSensor = SC.sensorize({name:"mmSensor"
+                         , dom_targets:[
+                               {
+                                 target:document
+                               , evt:"mousemove"
+                               }
+                                       ]
+                         });
+  this.muSensor = SC.sensorize({name:"muSensor"
+                         , dom_targets:[
+                               {
+                                 target:document
+                               , evt:"mouseup"
+                               }
+                                       ]
+                         });
   SC.tools.addProgram(SC.par(
       SC.repeat(SC.forever
               , SC.await(SC.or(this.elementInspector.panel_mdSensor, this.elementInspector.panel_tsSensor))

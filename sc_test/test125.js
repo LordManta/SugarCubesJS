@@ -17,7 +17,5 @@
              return v[0];
              }
    , init: function(){ window.called1 = this.fun1; }
-   , async: function(){
-              m.generateEvent(sens1, "Hello World !");
-              }
+   , async: function(){ sens1.newValue("Hello World !"); }
   }

@@ -1,15 +1,15 @@
 CACHE MANIFEST
 
-# Version: 76
+# Version: 86
 
 CACHE:
 # Main page
 TestTools.html
 # Javascript files
-SugarCubes.js
-SC_Tools.js
+#SugarCubes.js
+#SC_Tools.js
 # CSS files
-SC_Panel.css
+#SC_Panel.css
 # Images files
 images/png/bg-test.png
 
@@ -20,5 +20,5 @@ NETWORK:
 *
 
 FALLBACK:
-/ /TestTools.html
+#/ /TestTools.html
 

@@ -398,12 +398,19 @@ var vues = [
 var animable1 = document.getElementById("animation1");
 animable1.style.display="table";
 //animable1.style.border="1px solid";
-JFS.anim1_clickSensor = JFS.m.systemEvent(animable1, "click");
+JFS.anim1_clickSensor = SC.sensorize({name:"SC_evt_touch_cancel"
+                         , dom_targets:[
+                               {
+				 target:animable1
+			       , evt:"click"
+			       }
+                                       ]
+                         });
 animable1.prevBuild = SC.evt("prevBuild");
 animable1.nextBuild = SC.evt("nextBuild");
 animable1.build = 0;
 animable1.my_width = parseInt(window.getComputedStyle(animable1).width);
-JFS.m.addProgram(
+JFS.m.addToOwnProgram(
   SC.cube(animable1
     , SC.par(
         SC.actionOn(JFS.anim1_clickSensor
@@ -413,14 +420,14 @@ JFS.m.addProgram(
                 var tmp = evt[i].cx-this.offsetLeft;
                 /*if(tmp < this.my_width/4){
 		  console.log("prevBuild "+tmp+"/"+this.my_width);
-                  JFS.m.generateEvent(this.prevBuild);
+                  JFS.m.addToOwnEntry(this.prevBuild);
                   }
                 if(tmp > this.my_width*3/4){*/
 		  console.log("nextBuild");
 		  this.build++;
 		  this.build %= vues.length;
 		  this.innerHTML = vues[this.build];
-                  JFS.m.generateEvent(this.prevBuild);
+                  JFS.m.addToOwnEntry(this.prevBuild);
                 //  }
 	        }
               }.bind(animable1)

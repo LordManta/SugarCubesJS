@@ -7,9 +7,45 @@
    <script type="text/javascript" src="SC_Tools.js">
    </script>
    <script type="text/javascript">
+var primitive_systemKeyDown = SC.sensorize({name:"primitive_systemKeyDown"
+                                 , dom_targets:[
+                                       {target:window, evt:"keydown"}
+                                       ]
+                                 });
+
+primitive_systemKeyDown.setOwn();
+var primitive_systemKeyUp = SC.sensorize({name:"primitive_systemKeyUp"
+                                 , dom_targets:[
+                                       {target:window, evt:"keyup"}
+                                       ]
+                                 });
+primitive_systemKeyUp.setOwn();
+let systemKeyDown = SC.sensor("systemKeyDown");
+let systemKeyUp = SC.sensor("systemKeyUp");
+primitive_systemKeyDown.addToOwnProgram(
+  SC.repeatForever(
+    SC.action( (m) => {
+      systemKeyDown.newValue(m.sensorValueOf(primitive_systemKeyDown));
+      })
+    )
+  );
+primitive_systemKeyUp.addToOwnProgram(
+  SC.repeatForever(
+    SC.action( (m) => {
+      systemKeyUp.newValue(m.sensorValueOf(primitive_systemKeyUp));
+      })
+    )
+  );
+
 var SC_App_Config = {
-  tickTime: 30
-  , machineConfig:{init: SC.pauseForever()}
+  //tickTime: 30
+    machineConfig:{
+        init: SC.pauseForever()
+      , dom_targets:[
+            {target:window, evt:"keydown"}
+          , {target:window, evt:"keyup"}
+            ]
+	}
   , viewport:{
       width:"device-width"
       , height:"device-height"
@@ -93,10 +129,6 @@ body{
  <body>
   <script type="text/javascript" >
   SC.tools.displaySplash();
-var systemKeyDown = SC.tools.systemEvent(window, "keydown");
-var systemKeyUp = SC.tools.systemEvent(window, "keyup");
-  </script>
-  <script type="text/javascript">
   (function(){
     const screenRZ=1.375;
     const taille_touche=1.5;
