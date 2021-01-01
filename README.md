@@ -1,5 +1,5 @@
 # SugarCubesJS
-##### Author : Jean-Ferdy Susini, Olivier Pons & Claude Lion
+##### Author : Jean-Ferdy Susini, Olivier Pons, Claude Lion
 ##### Created : 2/12/2014 9:23 PM
 ##### version : 5.0 alpha
 ##### implantation : 0.9.8
@@ -126,7 +126,7 @@ This section is intend to clarify some definitions before learning mor about the
  - **reactive program**: defines the actions to perform during the reactions of the reactive system. The program is made of a tree of instructions defining a so called AST. The reactive program is interpreted by a reactive execution machine.
  - **reactive execution machine**: is the interpretor which traverses the AST at each reactions to execute reactive instructions for the current reaction according to their semantics.
  - **execution engine**: is responsible of making the bridge between external informations and environment and triggering reactions of the reactive system.
- - **instant [of execution]**: often synonym of reactions (one instant = one reaction), in *SuagarCubesJS*, instants can be triggered in burst mode as a finite sequence in a single reaction. Instants take no time, so consecutive execution of a finite series of instants takes no time and all are part of the same reaction. During the whole reaction the external environment is sampled only one and doesn't evolve during the whole reaction. Hence the whole environment is static only during one instant but can evolve form one instant to the other. Note that also means that output are only produced in the external environment only at the end of the whole reaction.
+ - **instant [of execution]**: often synonym of reaction (one instant = one reaction), in *SuagarCubesJS*, instants can be triggered in burst mode as a finite sequence in a single reaction. Instants take no time, so consecutive execution of a finite series of instants takes no time and all are parts of the same reaction. During the whole reaction the external environment is sampled only once and doesn't evolve during the whole reaction. Hence the whole environment is static only during one instant but can evolve form one instant to the other (the external part cannot evolve but the internal part can from an instant to the next). Note that also means that output are only produced in the external environment only at the end of the whole reaction.
 
 One word about reactive objects of the *SugarCubes* *API*
 ---------------------------------------------------------
