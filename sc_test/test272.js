@@ -28,11 +28,11 @@
                )
            )
        )
-   , init: function(){
-             }
-   , async: function(){
-              }
-   , maxI: 20
-   , expected :
-       "\n1 -: a b c d \n2 -: a e b c d \n3 -: a b \n4 -: a e b \n5 -: a b \n6 -: a e b \n7 -: a b c d \n8 -: a e b c d \n9 -: a b \n10 -: a e b \n11 -: a b \n12 -: a e b \n13 -: a b c d \n14 -: a e b c d \n15 -: a b \n16 -: a e b \n17 -: a b \n18 -: a e b \n19 -: \n20 -: "
+ , init: function(){
+           }
+ , async: function(){
+            }
+ , maxI: 20
+ , expected:
+     "\n1 -: a b c d \n2 -: a e b c d \n3 -: a b \n4 -: a e b \n5 -: a b \n6 -: a e b \n7 -: a b c d \n8 -: a e b c d \n9 -: a b \n10 -: a e b \n11 -: a b \n12 -: a e b \n13 -: a b c d \n14 -: a e b c d \n15 -: a b \n16 -: a e b \n17 -: a b \n18 -: a e b "
   }

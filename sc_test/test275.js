@@ -28,11 +28,11 @@
                )
            )
        )
-   , init: function(){
-             }
-   , async: function(){
-              }
-   , maxI: 20
-   , expected :
-       "\n1 -: a b c d \n2 -: a e b c d \n3 -: a b \n4 -: a e b \n5 -: b \n6 -: b \n7 -: a b c d \n8 -: a e b c d \n9 -: a b \n10 -: a e b \n11 -: b \n12 -: b \n13 -: \n14 -: \n15 -: \n16 -: \n17 -: \n18 -: \n19 -: \n20 -: "
+ , init: function(){
+           }
+ , async: function(){
+            }
+ , maxI: 20
+ , expected:
+     "\n1 -: a b c d \n2 -: a e b c d \n3 -: a b \n4 -: a e b \n5 -: b \n6 -: b \n7 -: a b c d \n8 -: a e b c d \n9 -: a b \n10 -: a e b \n11 -: b \n12 -: b "
   }

@@ -14,6 +14,6 @@
            , SC.write("Hello World !")
            )
        )
-   , expected :
-       "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+ , expected:
+       "\n1 -: Hello World !\n2 -: Hello World !\n3 -: Hello World !\n4 -: \n5 -: "
   }

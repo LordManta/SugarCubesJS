@@ -22,18 +22,18 @@
               )
           )
       )
-   , fun1: function(v){
-             console.log("filter");
-             return 1;
-             }
-   , init: function(){ window.called1 = this.fun1; window.myCount = 0;}
-   , async: function(){ 
-       window.myCount++;
-       if(window.myCount == 10){
-         sens1.newValue("Hello World !");
-         }
+ , fun1: function(v){
+           console.log("filter");
+           return 1;
+           }
+ , init: function(){ window.called1 = this.fun1; window.myCount = 0;}
+ , async: function(){ 
+     window.myCount++;
+     if(window.myCount == 10){
+       sens1.newValue("Hello World !");
        }
-   , maxI: 20
-   , expected :
-       "\n1 -: start\n2 -: \n3 -: \n4 -: go\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: g\n11 -: fin\n12 -: \n13 -: \n14 -: \n15 -: \n16 -: \n17 -: \n18 -: \n19 -: \n20 -: "
+     }
+ , maxI: 20
+ , expected:
+     "\n1 -: start\n2 -: \n3 -: \n4 -: go\n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: g\n11 -: fin"
   }

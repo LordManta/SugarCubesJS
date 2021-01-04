@@ -15,8 +15,8 @@
              , SC.generate(e, "Hello World!")
              )
          )
-   , init: function(){}
-   , async: function(){}
-   , expected :
-       "\n1 -: Hello World!\n2 -: \n3 -: \n4 -: \n5 -: \n6 -: \n7 -: \n8 -: \n9 -: \n10 -: "
+ , init: function(){}
+ , async: function(){}
+ , expected:
+     "\n1 -: Hello World!\n2 -: \n3 -: \n4 -: \n5 -: "
   }
