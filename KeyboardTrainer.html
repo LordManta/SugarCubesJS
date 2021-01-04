@@ -11,15 +11,15 @@ var primitive_systemKeyDown = SC.sensorize({name:"primitive_systemKeyDown"
                                  , dom_targets:[
                                        {target:window, evt:"keydown"}
                                        ]
+				 , owned:true
                                  });
 
-primitive_systemKeyDown.setOwn();
 var primitive_systemKeyUp = SC.sensorize({name:"primitive_systemKeyUp"
                                  , dom_targets:[
                                        {target:window, evt:"keyup"}
                                        ]
+				 , owned:true
                                  });
-primitive_systemKeyUp.setOwn();
 let systemKeyDown = SC.sensor("systemKeyDown");
 let systemKeyUp = SC.sensor("systemKeyUp");
 primitive_systemKeyDown.addToOwnProgram(

@@ -414,7 +414,12 @@ SC.tools = (function(){
       }
     if(undefined !== elt.beh){
       //console.log("adding beh to machine ", elt.beh);
-      ((undefined === p.m)?SC_ClientTools:p).m.addToOwnProgram(elt.beh);
+      if(p.m){
+	p.m.addToOwnProgram(elt.beh);
+        }
+      else{
+	SC_ClientTools.addProgram(elt.beh);
+        }
       }
     return elt;
     }
@@ -687,18 +692,23 @@ SC_ClientTools = {
       //console.log("loading data tool", resEvt);
       var xmlHttpReq = new XMLHttpRequest();
       xmlHttpReq.open("GET", url, true);
-      xmlHttpReq.onload= (function(machine, me, act){ return function(){
-              //console.log("onload", me.status);
-              if(200 == me.status || 0 == me.status){
-                SC.tools.addProgram(SC.send(machine, act, me.responseText));
-                }
-              }
-          })(((undefined != engine)?engine:this.m), xmlHttpReq, resEvt)
-          ;
+      //console.log("*** ask for loading data", url);
+      xmlHttpReq.onload= (function(sensor){
+          //console.log("on load data :", this.status);
+          if(200 == this.status || 0 == this.status){
+            sensor.newValue(this.responseText);
+            console.log("data loaded:", sensor);
+            }
+          }).bind(xmlHttpReq, resEvt);
       xmlHttpReq.send(null);
       return resEvt;
       }
   , m : null
+  , react: function(){
+      if(this.m){
+	this.m.newValue();
+        }
+      }
   , initPanel: function(){
       if(undefined === this.m){
         throw "initialize tools first";
@@ -1500,7 +1510,7 @@ SC_ClientTools = {
       bubble_view.stopItEvt = stopItEvt;
       bubble_view.talkOKEvt = talkOKEvt;
       bubble_view.activeTalk = function(){
-        this.talkMachine.reactASAP();
+        setTimeout(this.talkMachine.newValue);
         };
       bubble_view.waitClick = function(){
         /*console.log("waitClick ?", this._wc);*/

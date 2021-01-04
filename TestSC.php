@@ -150,17 +150,22 @@ m.setStdOut(writeInConsole);
       }
 ?>
 
-if(undefined != testBehavior.init){
+if("function" == typeof(testBehavior.init)){
   testBehavior.init();
   }
+
+var maxInstants = (undefined == testBehavior.maxI)?10:testBehavior.maxI;
+
 var test_prg = testBehavior.prg;
 if("string" == typeof(test_prg)){
   test_prg = eval(test_prg);
   }
 source.innerHTML = testBehavior.prg;
+if(testBehavior.persist){
+  m.addToOwnProgram(SC.pause(maxInstants));
+  }
 m.addToOwnProgram(test_prg);
 
-var maxInstants = (undefined == testBehavior.maxI)?10:testBehavior.maxI;
 for(var i = 0 ; i < maxInstants; i++){
   if(undefined !== testBehavior.async){
     testBehavior.async();
