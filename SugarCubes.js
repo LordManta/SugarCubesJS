@@ -114,6 +114,7 @@ const SC_Global_Manager = {
   registeredMachines: []
 , pendingSensors:[]
 , pendingReactions:[]
+, pendingEmissions:{}
 , cctx: false
 , addToRegisteredMachines: function(m){
     this.registeredMachines.push(m);
@@ -129,16 +130,20 @@ const SC_Global_Manager = {
       machine.sampleSensor(sensorId);
       }
     }
-, registerSensor: function(s, ps){
-    const idx = this.pendingSensors.indexOf(s);
-    if(idx<0){
-      this.pendingSensors.push(s);
-      }
+, registerSensor: function(s, val, ps){
     if(ps){
       const reaction_idx = this.pendingReactions.indexOf(ps);
       if(reaction_idx < 0){
         this.pendingReactions.push(ps);
+        this.pendingEmissions[s] = val;        
         }
+      }
+    else{
+      const idx = this.pendingSensors.indexOf(s);
+      if(idx<0){
+        this.pendingSensors.push(s);
+        }
+      this.pendingEmissions[s] = val;
       }
     }
 , enterReaction: function(m){
@@ -146,12 +151,24 @@ const SC_Global_Manager = {
     }
 , closeReaction: function(m){
     this.cctx = false;
-    for(var sensor of this.pendingSensors){
+    var sensor;
+    while(sensor = this.pendingSensors.pop()){
+    //for(var sensor of this.pendingSensors){
+      sensor.currentVal = this.pendingEmissions[sensor];
+      //delete(this.pendingSensors[sensor]);
       this.updateSensor(sensor);
       }
+    if(this.pendingSensors.length !=0){
+      console.error("***> Not all treated", this.pendingSensors);
+      }
     this.pendingSensors = [];
+    this.pendingEmissions = {};
     if(this.pendingReactions.length > 0){
-      console.error("***> pending reactions not triggered", this.pendingReactions);
+      var machine;
+      while(machine = this.pendingReactions.pop()){
+        setTimeout(machine);
+        console.error("***> pending reactions not triggered", machine);
+        }
       }
     this.pendingReactions = [];
     }
@@ -864,11 +881,16 @@ SC_SensorId.prototype ={
       return false;
       }.bind(this, ownMachine);
     const newValue = function(ownMachine, value){
-      this.currentVal = value;
       if(SC_Global_Manager.cctx){
-        SC_Global_Manager.registerSensor(this, reactMultiple);
+        SC_Global_Manager.registerSensor(this, value
+           , function(){
+               this.currentVal = value;
+               SC_Global_Manager.updateSensor(this);
+               reactMultiple();
+               }.bind(this));
         }
       else{
+        this.currentVal = value;
         SC_Global_Manager.updateSensor(this);
         return reactMultiple();
         }
@@ -960,11 +982,11 @@ SC_SensorId.prototype ={
 , setStdOut: NO_FUN
 , setKeepRunningTo: NO_FUN
 , newValue: function(value){
-    this.currentVal = value;
     if(SC_Global_Manager.cctx){
-      SC_Global_Manager.registerSensor(this);
+      SC_Global_Manager.registerSensor(this, value);
       }
     else{
+      this.currentVal = value;
       SC_Global_Manager.updateSensor(this);
       }
     }
