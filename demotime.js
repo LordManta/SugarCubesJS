@@ -6,10 +6,11 @@ var workspace = document.getElementById("workspace");
 var tt_video = document.getElementById("anim_vid");
 var hack_btn = document.getElementById("hack");
 var ttt_slider = document.getElementById("slider");
-var talkMachine = SC.reactiveMachine({init:SC.pauseForever()});
+var talkMachine = SC.tools.m;//SC.reactiveMachine({init:SC.pauseForever()});
 var writting = SC.evt("writting");
-var zone1t = SC.evt("zone1");
-var zone2t = SC.evt("zone1");
+const zone1t = SC.evt("zone1");
+const zone2t = SC.evt("zone1");
+const typeEndedEvt = SC.sensor("typeEndedEvt");
 
 /* on cache le tableau de bord */
 SC.tools.addProgram(SC.action(function(){
@@ -29,8 +30,10 @@ var bubble_view = SC.tools.makeDiv({
               , SC.action(SC.my("progressiveText"))
               , SC.pause(3)
                 )
+              , SC.action(() => {typeEndedEvt.newValue();})
               , SC.await(writting)
               )
+        , SC.action(()=>{console.log("abort text type")})
           )
       , SC.action(SC.my("reset"))
         )
@@ -41,6 +44,8 @@ var bubble_view = SC.tools.makeDiv({
         )
       )
   });
+console.log("console", console);
+console.log("speech ?", window.speechSynthesis);
 bubble_view.text = "";
 bubble_view.toWriteTxt = "";
 bubble_view.toWriteTxtIdx = 0;
@@ -48,83 +53,95 @@ bubble_view.textSize = function(){
   console.log("new Text Size ", this.toWriteTxt.length);
   return this.toWriteTxt.length;
   };
-bubble_view.setNewText = function(val){
+bubble_view.setNewText = function(val, engine){
   function _(data){
     if(typeof data == "function"){
       return data();
       }
     return data;
     }
-  var msg = val[writting][0];
-  console.log("setNewText ",msg);
-  if(undefined == msg){
-    return;
-    }
-  this.toWriteTxt = msg.txt;
-  switch(msg.dir){
-    case 0:{
-      this.dir = 0;
-      this.classList.remove(this.classList[0]);
-      this.classList.add("JFSCSS_text_bubble");
-      this.style.bottom = "";
-      this.style.right = "";
-      this.style.left = msg.x;
-      this.style.top = msg.y;
-      break;
+  const vals = engine.getValuesOf(writting);
+  if(vals){
+    const msg = vals[0];
+    console.log("setNewText ", msg, msg.txt);
+    if(undefined == msg){
+      return;
       }
-    case 1:{
-      this.dir = 1;
-      this.classList.remove(this.classList[0]);
-      this.classList.add("JFSCSS_text_bubble_1");
-      this.style.bottom = "";
-      this.style.right = "";
-      this.style.left = msg.x;
-      this.style.top = msg.y;
-      break;
-      }
-    case 2:{
-      this.dir = 2;
-      this.classList.remove(this.classList[0]);
-      this.classList.add("JFSCSS_text_bubble_2");
-      this.style.bottom = "";
-      this.style.right = "";
-      this.style.left = msg.x;
-      this.style.top = msg.y;
-      break;
-      }
-    case 3:{
-      this.dir = 3;
-      this.classList.remove(this.classList[0]);
-      this.classList.add("JFSCSS_text_bubble_3");
-      this.style.top = "";
-      this.style.right = "";
-      this.style.left = msg.x;
-      this.style.bottom = _(msg.y);
-      break;
-      }
-    case 4:{
-      this.dir = 4;
-      this.classList.remove(this.classList[0]);
-      this.classList.add("JFSCSS_text_bubble_4");
-      this.style.top = "";
-      this.style.left = "";
-      this.style.right = _(msg.x);
-      this.style.bottom = _(msg.y);
-      break;
-      }
-    default: {
-      this.style.top = msg.y;
-      this.style.left = msg.x;
-      break;
+    this.toWriteTxt = msg.txt;
+    switch(msg.dir){
+      case 0:{
+        this.dir = 0;
+        this.classList.remove(this.classList[0]);
+        this.classList.add("JFSCSS_text_bubble");
+        this.style.bottom = "";
+        this.style.right = "";
+        this.style.left = msg.x;
+        this.style.top = msg.y;
+        break;
+        }
+      case 1:{
+        this.dir = 1;
+        this.classList.remove(this.classList[0]);
+        this.classList.add("JFSCSS_text_bubble_1");
+        this.style.bottom = "";
+        this.style.right = "";
+        this.style.left = msg.x;
+        this.style.top = msg.y;
+        break;
+        }
+      case 2:{
+        this.dir = 2;
+        this.classList.remove(this.classList[0]);
+        this.classList.add("JFSCSS_text_bubble_2");
+        this.style.bottom = "";
+        this.style.right = "";
+        this.style.left = msg.x;
+        this.style.top = msg.y;
+        break;
+        }
+      case 3:{
+        this.dir = 3;
+        this.classList.remove(this.classList[0]);
+        this.classList.add("JFSCSS_text_bubble_3");
+        this.style.top = "";
+        this.style.right = "";
+        this.style.left = msg.x;
+        this.style.bottom = _(msg.y);
+        break;
+        }
+      case 4:{
+        this.dir = 4;
+        this.classList.remove(this.classList[0]);
+        this.classList.add("JFSCSS_text_bubble_4");
+        this.style.top = "";
+        this.style.left = "";
+        this.style.right = _(msg.x);
+        this.style.bottom = _(msg.y);
+        break;
+        }
+      default: {
+        this.style.top = msg.y;
+        this.style.left = msg.x;
+        break;
+        }
       }
     }
   };
 bubble_view.reset = function(){
   this.toWriteTxtIdx = 0;
+  console.log("reset typping");
   };
 bubble_view.progressiveText = function(){
   if(this.toWriteTxtIdx < this.toWriteTxt.length){
-    this.toWriteTxtIdx = this.toWriteTxtIdx+1;
+    if("<" == this.toWriteTxt.charAt(this.toWriteTxtIdx)){
+      //console.error("***> je m'en bas lise :)", this.toWriteTxt);
+      while(">" != this.toWriteTxt.charAt(this.toWriteTxtIdx++)
+        && (this.toWriteTxtIdx < this.toWriteTxt.length)){}
+      //console.error("***> done");
+      }
+    else{
+      this.toWriteTxtIdx = this.toWriteTxtIdx+1;
+      }
     }
   this.innerHTML = this.toWriteTxt.substring(0,this.toWriteTxtIdx);
   }
@@ -331,17 +348,20 @@ var text = [
     res.dir = a.dir;
     res.txt = (undefined !== a.txt)?a.txt:a.speech;
     return res;
-    }
+    };
   for(var i = 0 ; i < text.length; i++){
     var tmp = SC.tools.speech(text[i]);
-    var res = SC.seq(
-       res
-       , SC.next(1)
+    res = SC.seq(
+         res
+       , SC.next()
        , SC.pause()
        , SC.generate(tmp.sc_startSpeakEvt)
-       , SC.send(SC.tools.m, writting, _(text[i]))
-       , SC.await(tmp.sc_endedEvt)
-       );
+       , SC.generate(writting, _(text[i]))
+       , SC.par(
+           SC.await(tmp.sc_endedEvt)
+         , SC.await(typeEndedEvt)
+           )
+         );
     }
   var req_txt = {
      speech: "Cliquez sur le bouton timeline1 pour activer la zone stop du haut !"
@@ -359,13 +379,16 @@ var text = [
               var btn = document.getElementById("tl1_btn");
               btn.hidden = false;
               })
-          , SC.send(SC.tools.m, writting, _(req_txt))
+          , SC.generate(writting, _(req_txt))
           , SC.par(
               SC.kill(show1t
                 , SC.repeat(10
                     , SC.generate(request.sc_startSpeakEvt)
                     , SC.pause()
-                    , SC.await(request.sc_endedEvt)
+                    , SC.par(
+                        SC.await(tmp.sc_endedEvt)
+                      , SC.await(typeEndedEvt)
+                        )
                     , SC.log('go for it')
                     )
                 )
@@ -373,9 +396,9 @@ var text = [
                   SC.await(show1t)
                   , SC.action(function(){
                         window.speechSynthesis.cancel();
-                        setTimeout(function(){
-                             talkMachine.newValue();
-                             }, 1000); 
+                        //setTimeout(function(){
+                        //     //talkMachine.newValue();
+                        //     }, 1000); 
                         })
                   )
               )
@@ -433,13 +456,18 @@ var text = [
   for(var i = 0 ; i < description.length; i++){
     var tmp = SC.tools.speech(description[i]);
     var res = SC.seq(
-       res
+         res
        , SC.next(1)
        , SC.pause()
        , SC.generate(tmp.sc_startSpeakEvt)
-       , SC.send(SC.tools.m, writting, _(description[i]))
-       , (undefined === description[i].sync)?SC.await(tmp.sc_endedEvt):description[i].sync(tmp.sc_endedEvt)
-       );
+       , SC.generate(writting, _(description[i]))
+       , (undefined === description[i].sync)
+                 ? SC.par(
+                     SC.await(tmp.sc_endedEvt)
+                   , SC.await(typeEndedEvt)
+                     )
+                 : description[i].sync(tmp.sc_endedEvt)
+         );
     }
   res = SC.seq(
           res
@@ -464,7 +492,7 @@ var text = [
           res
           , SC.par(
               SC.generate(tmp.sc_startSpeakEvt)
-              , SC.send(SC.tools.m, writting, _(request2))
+              , SC.generate(writting, _(request2))
               , SC.seq(
                   SC.par(SC.await(show2t),SC.await(show3t))
                   , SC.next(1000)
@@ -512,8 +540,14 @@ var text = [
        , SC.next(1)
        , SC.pause()
        , SC.generate(tmp.sc_startSpeakEvt)
-       , SC.send(SC.tools.m, writting, _(timeline23[i]))
-       , (undefined === timeline23[i].sync)?SC.await(tmp.sc_endedEvt):timeline23[i].sync(tmp.sc_endedEvt)
+       , SC.generate(writting, _(timeline23[i]))
+       , (undefined === timeline23[i].sync)
+                 ? SC.par(
+                     SC.await(tmp.sc_endedEvt)
+                   , SC.await(typeEndedEvt)
+                     )
+                 : timeline23[i].sync(tmp.sc_endedEvt)
+       //, (undefined === timeline23[i].sync)?SC.await(tmp.sc_endedEvt):timeline23[i].sync(tmp.sc_endedEvt)
        );
     }
   res = SC.seq(
@@ -559,8 +593,13 @@ var text = [
        , SC.next(1)
        , SC.pause()
        , SC.generate(tmp.sc_startSpeakEvt)
-       , SC.send(SC.tools.m, writting, _(slider[i]))
-       , (undefined === slider[i].sync)?SC.await(tmp.sc_endedEvt):slider[i].sync(tmp.sc_endedEvt)
+       , SC.generate(writting, _(slider[i]))
+       , (undefined === slider[i].sync)
+                 ? SC.par(
+                     SC.await(tmp.sc_endedEvt)
+                   , SC.await(typeEndedEvt)
+                     )
+                 : slider[i].sync(tmp.sc_endedEvt)
        );
     }
   return res;
@@ -630,65 +669,65 @@ var zeConfig = SC.and(zone1, zone2)
 SC_evt_mouse_click = SC.sensorize({name:"SC_evt_mouse_click"
                          , dom_targets:[
                                {
-				 target:workspace
-			       , evt:"click"
-			       }
+                                 target:workspace
+                               , evt:"click"
+                               }
                                        ]
                          });
 SC_evt_mouse_down = SC.sensorize({name:"SC_evt_mouse_down"
                          , dom_targets:[
                                {
-				 target:workspace
-			       , evt:"mousedown"
-			       }
+                                 target:workspace
+                               , evt:"mousedown"
+                               }
                                        ]
                          });
 SC_evt_mouse_up = SC.sensorize({name:"SC_evt_mouse_up"
                          , dom_targets:[
                                {
-				 target:workspace
-			       , evt:"mouseup"
-			       }
+                                 target:workspace
+                               , evt:"mouseup"
+                               }
                                        ]
                          });
 SC_evt_mouse_move = SC.sensorize({name:"SC_evt_mouse_move"
                          , dom_targets:[
                                {
-				 target:workspace
-			       , evt:"mousemove"
-			       }
+                                 target:workspace
+                               , evt:"mousemove"
+                               }
                                        ]
                          });
 SC_evt_touch_start = SC.sensorize({name:"SC_evt_touch_start"
                          , dom_targets:[
                                {
-				 target:workspace
-			       , evt:"touchstart"
-			       }
+                                 target:workspace
+                               , evt:"touchstart"
+                               }
                                        ]
                          });
 SC_evt_touch_end = SC.sensorize({name:"SC_evt_touch_end"
                          , dom_targets:[
                                {
-				 target:workspace
-			       , evt:"touchend"
-			       }
+                                 target:workspace
+                               , evt:"touchend"
+                               }
                                        ]
                          });
 SC_evt_touch_cancel = SC.sensorize({name:"SC_evt_touch_cancel"
                          , dom_targets:[
                                {
-				 target:workspace
-			       , evt:"touchcancel"
-			       }
+                                 target:workspace
+                               , evt:"touchcancel"
+                               }
                                        ]
                          });
 SC_evt_touch_move = SC.sensorize({name:"SC_evt_touch_move"
                          , dom_targets:[
                                {
-				 target:workspace
-			       , evt:"touchmove"
-			       }
+                                 target:workspace
+                               , evt:"touchmove"
+                               }
                                        ]
                          });
 graph_mouse_click = SC_evt_mouse_click;
@@ -1318,7 +1357,7 @@ SC.tools.addProgram(
         , SC.actionOn(show1, SC.my("actVisible"), undefined, SC.forever)
         , SC.repeat(SC.forever, SC.await(zone1C2), SC.action(function(){
             talkMachine.addToOwnEntry(zone1t, null);
-            talkMachine.react();
+            //talkMachine.react();
             }))
         , SC.repeat(SC.forever
             , SC.kill(graph_reset
@@ -1338,7 +1377,7 @@ SC.tools.addProgram(
         , SC.actionOn(show2, SC.my("actVisible"), undefined, SC.forever)
         , SC.repeat(SC.forever, SC.await(zone2C2), SC.action(function(){
             talkMachine.addToOwnEntry(zone2t, null);
-            talkMachine.react();
+            //talkMachine.react();
             }))
         , SC.repeat(SC.forever
             , SC.kill(graph_reset
@@ -1370,19 +1409,19 @@ function z1(){
   SC.tools.generateEvent(show1,true);
   graphMachine.addToOwnEntry(show1g,true);
   talkMachine.addToOwnEntry(show1t,true);
-  talkMachine.react();
+  //talkMachine.react();
   }
 function z2(){
   SC.tools.generateEvent(show2,true);
   graphMachine.addToOwnEntry(show2g,true);
   talkMachine.addToOwnEntry(show2t,true);
-  talkMachine.react();
+  //talkMachine.react();
   }
 function z3(){
   SC.tools.generateEvent(show3,true);
   graphMachine.addToOwnEntry(show3g,true);
   talkMachine.addToOwnEntry(show3t,true);
-  talkMachine.react();
+  //talkMachine.react();
   tt_video.load();
   //video.play();
   //video.pause();

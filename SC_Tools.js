@@ -1387,9 +1387,9 @@ SC_ClientTools = {
         return (undefined !== this[field])?this[field]:d;
         }
       var speeckable = new SpeechSynthesisUtterance(params.get("speech",""));
-      speeckable.sc_startSpeakEvt = params.get("start_evt",SC.evt("start"));
-      speeckable.sc_endedEvt = params.get("end_evt",SC.evt("stop"));
-      speeckable.sc_delay = params.get("r_delay",0);
+      speeckable.sc_startSpeakEvt = params.get("start_evt", SC.evt("start"));
+      speeckable.sc_endedEvt = params.get("end_evt", SC.evt("stop"));
+      speeckable.sc_delay = params.get("r_delay", 0);
       speeckable.sc_m = params.get("rm",null);
       //console.log("speeckable.sc_m", speeckable.sc_m);
       speeckable.sc_speak = function(){
@@ -1401,6 +1401,7 @@ SC_ClientTools = {
           return;
           }
         this.sc_m.addToOwnEntry(this.sc_endedEvt);
+	console.log("on speakable end", this.sc_delay, this.sc_m.postpone);
         this.sc_m.postpone(this.sc_delay); 
         }.bind(speeckable);
       if(null !== speeckable.sc_m){
