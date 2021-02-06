@@ -3,8 +3,8 @@
  * Author : Jean-Ferdy Susini
  * Created : 2/12/2014 9:23 PM
  * version : 5.0 alpha
- * implantation : 0.9.2
- * Copyright 2014-2018.
+ * implantation : 0.9.8
+ * Copyright 2014-2021.
  */
 ;
 (function(){
@@ -19,6 +19,9 @@ const SC_Instruction_state_str = [
   , "TERM"
   ];
 Object.freeze(SC_Instruction_state_str);
+for(var key of Object.keys(SC_Instruction_state_str)){
+  Object.freeze(SC_Instruction_state_str[key]);
+  }
 const SC_Instruction_State = {
   SUSP:1
   , WEOI:2
@@ -76,27 +79,22 @@ const SC_Global_Manager = {
     var sensor;
     while(sensor = this.pendingSensors.pop()){
       sensor.currentVal = this.pendingEmissions[sensor];
+      delete(this.pendingEmissions[sensor]);
       this.updateSensor(sensor);
       }
-    if(this.pendingSensors.length !=0){
-      console.error("***> Not all treated", this.pendingSensors);
-      }
-    this.pendingSensors = [];
-    this.pendingEmissions = {};
     if(this.pendingReactions.length > 0){
       var machine;
       while(machine = this.pendingReactions.pop()){
         setTimeout(machine);
-        console.error("***> pending reactions not triggered", machine);
         }
       }
-    this.pendingReactions = [];
     }
   };
+Object.freeze(SC_Global_Manager);
 function NO_FUN(){}
 function SC_CubeBinding(name){
   if((undefined == name)||(typeof(name)!= "string")||(name == "")){
-    throw "invalid binding name "+name;
+    throw new Error("invalid binding name "+name);
     }
   this.name = name; 
   this.cube = null; 
@@ -104,41 +102,41 @@ function SC_CubeBinding(name){
   }
 SC_CubeBinding.prototype = {
   constructor: SC_CubeBinding
-  , resolve : function(){
-      if(null == this.cube){
-        throw "cube is null or undefined !";
-        }
-      var tgt = this.cube[this.name];
-      if(undefined === tgt){
-        console.log("target not found");
-        return this;
-        }
-      else if("function" == typeof(tgt)){
-        if(null != this.args){
-          tgt = tgt.bind(this.cube, this.args);
-          }
-        else{
-          tgt = tgt.bind(this.cube);
-          }
-        }
-      return tgt;
+, resolve : function(){
+    if(undefined == this.cube){
+      throw new Error("cube is null or undefined !");
       }
-  , setArgs : function(a){
-      this.args = a;
+    var tgt = this.cube[this.name];
+    if(undefined === tgt){
+      console.log("target not found");
+      return this;
       }
-  , setCube : function(aCube){
-      this.cube = aCube;
-      }
-  , toString : function(){
-      return "@."+this.name+"";
-      }
-  , clone : function(){
-        var copy = new SC_CubeBinding(this.name);
-        if(null !== this.args){
-          copy.setArgs(this.args);
-          }
-        return copy;
+    else if("function" == typeof(tgt)){
+      if(this.args){
+        tgt = tgt.bind(this.cube, this.args);
         }
+      else{
+        tgt = tgt.bind(this.cube);
+        }
+      }
+    return tgt;
+    }
+, setArgs : function(a){
+    this.args = a;
+    }
+, setCube : function(aCube){
+    this.cube = aCube;
+    }
+, toString : function(){
+    return "@."+this.name+"";
+    }
+, clone : function(){
+    const copy = new SC_CubeBinding(this.name);
+    if(this.args){
+      copy.setArgs(this.args);
+      }
+    return copy;
+    }
   };
 Object.defineProperty(SC_CubeBinding.prototype, "isBinding"
                           , {enumerable:false
@@ -167,20 +165,19 @@ var _SC = {
     return p;
     }
   , b__ : function(p, args){
-      if(typeof p == "string"){
-        var tmp = new SC_CubeBinding(p);
+      if("string" == typeof p){
+        const tmp = new SC_CubeBinding(p);
         tmp.setArgs(args);
         return tmp;
         }
-      throw "not a valid binding";
+      throw new Error("not a valid binding");
       }
   , _b : function(cube){
       return function(o){
            if(o instanceof SC_CubeBinding){
              o = o.clone();
              o.setCube(this);
-             var res = o.resolve();
-             return res;
+             return o.resolve();
              }
            return o;
            }.bind(cube);
@@ -249,7 +246,7 @@ var _SC = {
   , lateBindProperty : function(copy, name, param){
       if(param instanceof SC_CubeBinding){
         delete copy[name];
-        Object.defineProperty(copy, name,{get : param.resolve.bind(param.o)});
+        Object.defineProperty(copy, name, {get : param.resolve.bind(param.o)});
         }
       else if("function" == typeof param){
         delete copy[name];
@@ -660,6 +657,16 @@ SC_SensorId.prototype ={
           }
         }.bind(this, ownMachine, newValue);
       ownMachine.timer = setInterval(ownMachine.timer_handler, params.delay);
+      this.setRunningDelay = function(delay){
+        if(isNaN(delay) || delay < 1){
+          return;
+          }
+        this.delay = delay;
+        if(this.timer){
+          clearInterval(this.timer);
+          }
+        this.timer = setInterval(this.timer_handler, delay);
+        }.bind(ownMachine);
       this.setKeepRunningTo = function(b){
         if(this.timer != 0){
           if(b){
@@ -730,6 +737,7 @@ SC_SensorId.prototype ={
 , enablePrompt: NO_FUN
 , setStdOut: NO_FUN
 , setKeepRunningTo: NO_FUN
+, setRunningDelay: NO_FUN
 , newValue: function(value){
     if(SC_Global_Manager.cctx){
       SC_Global_Manager.registerSensor(this, value);
@@ -1723,25 +1731,24 @@ SC_RelativeJump.prototype = {
 function SC_IfRepeatPoint(cond){
   this.condition = cond; 
   this.end = 0;
-  this.label="";
-  }
+  };
 SC_IfRepeatPoint.prototype = {
   constructor : SC_IfRepeatPoint
-  , isAnSCProgram : true
-  , toString : function(){
-      return "while "+this.condition+" repeat ";
-      }
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
-      var copy = new SC_Instruction(SC_Opcodes.IF_REPEAT_INIT);
-      copy.condition = this.condition;
-      copy.end = parseInt(this.end);
-      copy.label = this.label;
-      copy.seq = seq;
-      return copy;
-      }
-  }
+, isAnSCProgram : true
+, toString : function(){
+    return "while "+this.condition+" repeat ";
+    }
+, bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
+    const copy = new SC_Instruction(SC_Opcodes.IF_REPEAT_INIT);
+    const binder = _SC._b(cube);
+    copy.condition = binder(this.condition);
+    copy._condition = this.condition;
+    copy.end = parseInt(this.end);
+    copy.seq = seq;
+    return copy;
+    }
+  };
 function SC_RepeatPointForever(){
-  this.label="";
   }
 SC_RepeatPointForever.prototype = {
   constructor : SC_RepeatPointForever
@@ -1752,7 +1759,6 @@ SC_RepeatPointForever.prototype = {
   , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var copy = new SC_Instruction(SC_Opcodes.REPEAT_FOREVER);
       copy.seq = seq;
-      copy.label = this.label;
       return copy;
       }
   }
@@ -1764,7 +1770,6 @@ function SC_RepeatPoint(times){
   this.stopped = true;
   this.seq = null;
   this.end = 0;
-  this.label="";
   }
 SC_RepeatPoint.prototype = {
   constructor : SC_RepeatPoint
@@ -1795,7 +1800,6 @@ SC_RepeatPoint.prototype = {
       copy.count = copy.it;
       copy._it = this.it;
       copy.seq = seq;
-      copy.label = this.label;
       return copy;
       }
   }
@@ -2072,7 +2076,7 @@ SC_Generate.prototype = {
                    .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
         }
       else if(0 === tmp_times){
-        return SC_Nothing;
+        return SC_nothing;
         }
       else if((undefined === tmp_times)||(1 == tmp_times)){
         return new SC_GenerateOne(tmp_evt, tmp_val)
@@ -2123,7 +2127,7 @@ SC_GenerateNoVal.prototype = {
                .bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
         }
       else if(0 === tmp_times){
-        return SC_Nothing;
+        return SC_nothing;
         }
       else if((undefined === tmp_times)||(1 == tmp_times)){
         return new SC_GenerateOneNoVal(tmp_evt)
@@ -2389,7 +2393,7 @@ SC_FilterNoSens.prototype = {
       var copy = null;
       bound_fun = _SC.bindIt(bound_fun);
       if(0 == bound_times){
-        return SC_Nothing;
+        return SC_nothing;
         }
       if((undefined === bound_times) || (1 == bound_times)){
         return new SC_FilterOneNoSens(bound_sensor, bound_fun, bound_evt
@@ -2457,7 +2461,7 @@ SC_Filter.prototype = {
       var copy = null;
       bound_fun = _SC.bindIt(bound_fun);
       if(0 == bound_times){
-        return SC_Nothing;
+        return SC_nothing;
         }
       if((undefined === bound_times) || (1 == bound_times)){
         return SC_FilterOne(bound_sensor, bound_fun, bound_evt, bound_noSens_evt)
@@ -2515,7 +2519,7 @@ SC_Send.prototype = {
       var bound_val = binder(this.value);
       var copy = null;
       if(0 === bound_times){
-        return SC_Nothing;
+        return SC_nothing;
         }
       if((undefined === bound_times) || (1 == bound_times)){
         return SC_SendOne(bound_evt, bound_val)
@@ -2581,16 +2585,12 @@ SC_SendForever.prototype = {
                +" forever ";
       }
   }
-const SC_Nothing = new SC_Instruction(SC_Opcodes.NOTHING);
-const SC_Nothing_inlined = new SC_Instruction(SC_Opcodes.NOTHING_INLINED);
+const SC_Nothing = {};
+const SC_nothing = new SC_Instruction(SC_Opcodes.NOTHING);
+const SC_nothing_inlined = new SC_Instruction(SC_Opcodes.NOTHING_INLINED);
 SC_Nothing.isAnSCProgram = true;
-SC_Nothing_inlined.isAnSCProgram = true;
-SC_Nothing_inlined.bindTo = function(engine, parbranch, seq, masterSeq, path
-                                   , cube, cinst){
-    return this;
-  }
-SC_Nothing.bindTo = function(engine, parbranch, seq, masterSeq, path, cube, cinst){
-    return this;
+SC_Nothing.bindTo = function(){
+  return SC_nothing;
   }
 const SC_Next = new SC_Instruction(SC_Opcodes.NEXT);
 const SC_Next_inlined = new SC_Instruction(SC_Opcodes.NEXT_INLINED);
@@ -2646,7 +2646,7 @@ SC_Pause.prototype = {
         return SC_PauseForever;
         }
       else if(0 === bound_times){
-        return SC_Nothing;
+        return SC_nothing;
         }
       else if(1 === bound_times){
         return new SC_PauseOne().bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst);
@@ -2705,9 +2705,20 @@ SC_PauseUntil.prototype = {
   };
 function SC_Seq(seqElements){
   this.seqElements = [];
-  var targetIDx = 0;
   for(var i = 0; i < seqElements.length; i++){
-    this.add(seqElements[i])
+    const prg = seqElements[i];
+    if(SC_Nothing == prg){
+      continue;
+      }
+    if(prg instanceof SC_Seq){
+      const len = prg.seqElements.length;
+      for(var j = 0; j < len; j++){
+        this.seqElements.push(prg.seqElements[j]);
+        }
+      }
+    else{
+      this.seqElements.push(prg);
+      }
     }
   };
 SC_Seq.prototype = {
@@ -2730,20 +2741,20 @@ SC_Seq.prototype = {
 , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
       var copy = new SC_Instruction(SC_Opcodes.SEQ_INIT);
       copy.seqElements = [];
-      var targetIDx = 0;
       for(var i = 0; i < this.seqElements.length; i++){
         var prg = this.seqElements[i];
-        if(prg === SC_Nothing){
-          prg = SC_Nothing_inlined;
+        if(prg === SC_nothing){
+          throw new Error("Seq binding : encountered nothing !");
+          prg = SC_nothing_inlined;
           }
         if(prg instanceof SC_Seq){
           throw "Seq : binding while seq is in !"
           for(var j = 0; j < prg.seqElements.length; j++){
-            copy.seqElements[targetIDx++] = prg.seqElements[j];
+            copy.seqElements.push(prg.seqElements[j]);
             }
           }
         else{
-          copy.seqElements[targetIDx++] = prg;
+          copy.seqElements.push(prg);
           }
         }
       copy.idx = 0;
@@ -2857,7 +2868,7 @@ SC_Action.prototype = {
     var binder = _SC._b(cube);
     var times = binder(this.times);
     if(0 == times){
-      return SC_Nothing;
+      return SC_nothing;
       }
     if((undefined === times)||(1 == times)){
       return new SC_SimpleAction(this.action)
@@ -3219,7 +3230,7 @@ SC_Par.prototype = {
       copy.mseq = masterSeq;
       copy.cube = cube;
       for(var tmp of this.branches){
-        var b = new SC_ParBranch(parbranch, copy, SC_Nothing);
+        var b = new SC_ParBranch(parbranch, copy, SC_nothing);
         b.prg = tmp.prg.bindTo(engine, b, null, masterSeq, b, cube, cinst);
         b.path = copy;
         copy.branches.push(b);
@@ -3285,7 +3296,7 @@ SC_ParDyn.prototype = {
       copy.prodBranches = [];
       copy.originalBranches = [];
       for(var i of this.branches){
-        var b = new SC_ParBranch(parbranch, copy, SC_Nothing);
+        var b = new SC_ParBranch(parbranch, copy, SC_nothing);
         b.prg = i.prg.bindTo(engine, b, null, masterSeq, b, cube, cinst);
         b.path = copy;
         copy.branches.push(b);
@@ -3867,7 +3878,7 @@ SC_CubeAction.prototype = {
     var binder = _SC._b(cube);
     var times = binder(this.times);
     if(0 == times){
-      return SC_Nothing;
+      return SC_nothing;
       }
     if((undefined === times)||(1 == times)){
       return new SC_CubeSimpleAction(this.action)
@@ -4032,7 +4043,7 @@ function SC_Machine(params){
                       }.bind(this)
              }
            );
-  Object.defineProperty(this.reactInterface, "this.burstMode"
+  Object.defineProperty(this.reactInterface, "burstMode"
            , {get: function(){
                       return this.this.burstMode;
                       }.bind(this)
@@ -6235,7 +6246,7 @@ ACT:    switch(inst.oc){
                                    ?eval(inst.v.f):inst.v.t[inst.v.f]);
             inst.choice = inst.cases[val];
             if(undefined == inst.choice){
-              inst.choice = SC_Nothing;
+              inst.choice = SC_nothing;
               }
             }
           case SC_Opcodes.MATCH_CHOOSEN:{
@@ -7351,17 +7362,17 @@ SC = {
     if(undefined == initParams.name){
       initParams.name = "unanmed_machine";
       }
-    initParams.owned=true;
+    initParams.owned = true;
     return new SC_SensorId(initParams);
     }
 , machine: function(delay, initParams){
     if(undefined == initParams){
-      initParams = (undefined != delay)?{ delay : delay }:{};
+      initParams = (delay)?{ delay : delay }:{};
       }
-    else if(undefined == initParams.delay){
+    else if(delay && undefined == initParams.delay){
       initParams.delay = delay;
       }
-    initParams.owned=true;
+    initParams.owned = true;
     return new SC_SensorId(initParams);
     },
   pauseForever: function(){
@@ -7371,7 +7382,7 @@ SC = {
     return SC_Nothing;
     },
   purge: function(prg){
-    return (undefined == prg)?this.nothing():prg;
+    return (prg)?prg:this.nothing();
     },
   nop: function(){
     return SC_Nothing;
@@ -7417,7 +7428,7 @@ SC = {
     },
   seq: function(){
     return new SC_Seq(arguments);
-  },
+    },
   action: function(fun, times){
     return new SC_Action(_SC.b_(fun), _SC.b_(times));
   },
@@ -7469,32 +7480,30 @@ SC = {
     var jump = 1;
     prgs[0] = new SC_RepeatPoint(n);
     for(var i = 1 ; i < arguments.length; i++){
-      prgs[i] = arguments[i];
-      if(prgs[i] instanceof SC_Seq){
-        jump+= prgs[i].seqElements.length;
+      const p = arguments[i];
+      if(p == SC_Nothing){ continue; }
+      prgs.push(p);
+      if(p instanceof SC_Seq){
+        jump += p.seqElements.length;
         }
       else{
         jump++;
         }
-    }
-    var end = new SC_RelativeJump(-jump);
+      }
+    const end = new SC_RelativeJump(-jump);
     prgs.push(end);
     prgs[0].end = jump+1;
     var t = new SC_Seq(prgs);
     return t;
-  },
-  ifRepeatLabel: function(l, c){
-    var label = Array.prototype.shift.apply(arguments);
-    var tmp = this.ifRepeat.apply(this, arguments);
-    tmp.seqElements[0].label = label;
-    return tmp;
-    },
-  ifRepeat: function(c){
+  }
+, repeatIf: function(c){
     var prgs = [];
     var jump = 1;
     prgs[0] = new SC_IfRepeatPoint(c);
     for(var i = 1 ; i < arguments.length; i++){
-      prgs[i] = arguments[i];
+      const p = arguments[i];
+      if(p == SC_Nothing){ continue; }
+      prgs.push(p);
       if(prgs[i] instanceof SC_Seq){
         jump+= prgs[i].seqElements.length;
         }
@@ -7507,8 +7516,8 @@ SC = {
     prgs[0].end = jump+1;
     var t = new SC_Seq(prgs);
     return t;
-  },
-  and: function(){
+  }
+, and: function(){
     var tmp = [];
     for(var i in arguments){
       tmp.push(_SC.b_(arguments[i]));
@@ -7525,7 +7534,7 @@ SC = {
   kill: function(c,p,h){
     _SC.checkConfig(c);
     var prgs = [new SC_Kill(c,p,1)];
-    if(undefined != h){
+    if(h && h != SC_Nothing){
       prgs.push(h);
       if(h instanceof SC_Seq){
         prgs[0].end += h.seqElements.length;
@@ -7550,7 +7559,7 @@ SC = {
     var prgs = [new SC_When(c)];    
     var elsJ = 2;
     var end = 1;
-    if(undefined != t){
+    if(t && t != SC_Nothing){
       prgs.push(t);
       if(t instanceof SC_Seq){
         elsJ += t.seqElements.length;
@@ -7563,18 +7572,20 @@ SC = {
     if(e instanceof SC_Seq){
       end += e.seqElements.length;
       }
-    else if(undefined != e){
+    else if(e && e != SC_Nothing){
       end++;
       }
     prgs.push(new SC_RelativeJump(end));
-    if(undefined != e){prgs.push(e);}
+    if(e && e != SC_Nothing){
+      prgs.push(e);
+      }
     return new SC_Seq(prgs);
     },
   test: function(b,t,e){
     var prgs = [new SC_Test(b)];    
     var elsJ = 2;
     var end = 1;
-    if(undefined != t){
+    if(t && t != SC_Nothing){
       prgs.push(t);
       if(t instanceof SC_Seq){
         elsJ += t.seqElements.length;
@@ -7587,30 +7598,32 @@ SC = {
     if(e instanceof SC_Seq){
       end += e.seqElements.length;
       }
-    else if(undefined != e){
+    else if(e && e != SC_Nothing){
       end++;
       }
     prgs.push(new SC_RelativeJump(end));
-    if(undefined != e){prgs.push(e);}
+    if(e && e != SC_Nothing){
+      prgs.push(e);
+      }
     return new SC_Seq(prgs);
   },
   match: function(val){
     var prgs = [];
     for(var i = 1 ; i < arguments.length; i++){
-      prgs[i-1] = arguments[i];
-    }
+      prgs.push(arguments[i]);
+      }
     return new SC_Match(val, prgs);
-  },
-  matches: function(val,branches){
+    },
+  matches: function(val, branches){
     return new SC_Match(val, branches);
-  },
+    },
   filter: function(s,e,f,t,n){
     return new SC_Filter(_SC.b_(s)
                        , _SC.b_(e)
                        , _SC.b_(f)
                        , _SC.b_(t)
                        , _SC.b_(n));
-  }
+    }
 , me : new SC_CubeExposedState()
 , cubify: function(params){
   if(undefined == params){
@@ -8428,6 +8441,4 @@ SC.lang.parse = function(aSource, aReactiveWorld){
   this.pendingParsing.push(aSource);
   }
   this.SC = SC;
-}).call(function() {
-  return this || (typeof window !== 'undefined' ? window : global);
-}());
+}).call(this);

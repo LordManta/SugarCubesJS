@@ -1,7 +1,7 @@
   {
    prg:
      "SC.par(\n"
-   + "  SC.ifRepeatLabel('toto',fun, SC.write('hello'))\n"
+   + "  SC.repeatIf(fun, SC.write('hello'))\n"
    + "  , SC.seq(SC.pause(5), SC.action(go))\n"
    + "  )"
  , fun: function(){
