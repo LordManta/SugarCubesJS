@@ -589,13 +589,16 @@ bubble_view_setNewText = function(msg){
   this.style.maxWidth = (msg.max_w)?msg.max_w:"";
   this.style.minWidth = (msg.min_w)?msg.min_w:"";
   //this.frame.onresize = undefined;
+  this.frame.style.transform = "";
+  this.frame.style.bottom = "";
+  this.frame.style.right = "";
+  this.frame.style.left = "";
+  this.frame.style.top = "";
   switch(msg.dir){
     case 0:{ // no dir
       this.dir = 0;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_0");;
-      this.frame.style.bottom = "";
-      this.frame.style.right = "";
       this.frame.style.left = msg.x;
       this.frame.style.top = msg.y;
       break;
@@ -604,8 +607,6 @@ bubble_view_setNewText = function(msg){
       this.dir = 1;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_1");
-      this.frame.style.bottom = "";
-      this.frame.style.right = "";
       this.frame.style.left = msg.x;
       this.frame.style.top = msg.y;
       break;
@@ -614,9 +615,7 @@ bubble_view_setNewText = function(msg){
       this.dir = 2;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_2");
-      this.frame.style.bottom = "";
       this.frame.style.left = _(msg.x);
-      this.frame.style.right = "";
       this.frame.style.top = _(msg.y);
       break;
       }
@@ -624,28 +623,23 @@ bubble_view_setNewText = function(msg){
       this.dir = 3;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_3");
-      this.frame.style.bottom = "";
-      this.frame.style.left = "";
       this.frame.style.right = _(msg.x);
       this.frame.style.top = _(msg.y);
       break;
       }
     case 4:{ // bottom left
       this.dir = 4;
+      console.log("bottom left");
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_4");
-      this.frame.style.top = "";
-      this.frame.style.right = "";
       this.frame.style.left = msg.x;
       this.frame.style.bottom = _(msg.y);
       break;
       }
-    case 5:{ // bottom left
+    case 5:{ // bottom middle
       this.dir = 5;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_5");
-      this.frame.style.top = "";
-      this.frame.style.right = "";
       this.frame.style.left = msg.x;
       this.frame.style.bottom = _(msg.y);
       break;
@@ -654,8 +648,6 @@ bubble_view_setNewText = function(msg){
       this.dir = 6;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_6");
-      this.frame.style.top = "";
-      this.frame.style.left = "";
       this.frame.style.right = _(msg.x);
       this.frame.style.bottom = _(msg.y);
       break;
@@ -664,8 +656,6 @@ bubble_view_setNewText = function(msg){
       this.dir = 7;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_7");
-      this.frame.style.bottom = "";
-      this.frame.style.right = "";
       this.frame.style.left = msg.x;
       this.frame.style.top = msg.y;
       break;
@@ -674,11 +664,11 @@ bubble_view_setNewText = function(msg){
       this.dir = 8;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_8");
-      this.frame.style.bottom = "";
-      this.frame.style.right = "";
+      //this.frame.style.left = msg.x;
       this.frame.style.left = msg.x;
+      //this.frame.style.top = "calc("+msg.y+"-50%)";
       this.frame.style.top = msg.y;
-      //this.frame.style.transform = 'translate(0, -50%)';
+      this.frame.style.transform = 'translate(0, -50%)';
       //this.onchange = function(y){
       //  console.log('need reflow ?');
       //  this.frame.style.top = "clac("+msg.y+"-50%)";
@@ -689,8 +679,6 @@ bubble_view_setNewText = function(msg){
       this.dir = 9;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_9");
-      this.frame.style.bottom = "";
-      this.frame.style.right = "";
       this.frame.style.left = msg.x;
       this.frame.style.bottom = msg.y;
       break;
@@ -699,8 +687,6 @@ bubble_view_setNewText = function(msg){
       this.dir = 10;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_10");
-      this.frame.style.top = "";
-      this.frame.style.left = "";
       this.frame.style.right = _(msg.x);
       this.frame.style.bottom = _(msg.y);
       break;
@@ -709,22 +695,15 @@ bubble_view_setNewText = function(msg){
       this.dir = 11;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_11");
-      this.frame.style.bottom = "";
-      this.frame.style.right = "";
       this.frame.style.left = msg.x;
       this.frame.style.top = msg.y;
-      //this.frame.style.transform = 'translate(0, -50%)';
-      //this.frame.onresize = function(y){
-      //  this.frame.style.top = "clac("+msg.y+"-50%)";
-      //  }.bind(this, msg.y);
+      this.frame.style.transform = 'translate(0, -50%)';
       break;
       }
     case 12:{ //right bottom
       this.dir = 12;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_12");
-      this.frame.style.bottom = "";
-      this.frame.style.right = "";
       this.frame.style.left = msg.x;
       this.frame.style.top = msg.y;
       break;
@@ -733,8 +712,6 @@ bubble_view_setNewText = function(msg){
       this.dir = 0;      
       this.frame.style.top = msg.y;
       this.frame.style.left = msg.x;
-      this.frame.style.bottom = "";
-      this.frame.style.right = "";
       break;
       }
     }
@@ -1608,18 +1585,18 @@ SC_ClientTools = {
                         , SC.pause()
                           )
                       , SC.generate(Evt_writeFinished)
-                      , SC.log("typewritting finished")
+                      , SC.nop("typewritting finished")
                       , SC.test(SC.my(hasToWaitClick)
-                        , SC.seq(SC.log("wait ok")
+                        , SC.seq(SC.nop("wait ok")
                           , SC.action(SC.my(displayNextBtn))
                           , SC.await(Sns_talkOK)
                             )
-                        , SC.seq(SC.log("no wait")
+                        , SC.seq(SC.nop("no wait")
                           , SC.pause(SC.my(getPauseAfterEnd))
                             )
                           )
                         )
-                      , SC.log("anim killed")
+                      , SC.nop("anim killed")
                       )
                   , SC.action(SC.my(RESET))
                   , SC.await(Evt_newWritting)
@@ -1695,7 +1672,7 @@ SC_ClientTools = {
        * - end_evt : événement SC de fin du talk
        * - speech : texte du talk
        */
-      bubble_view.display = function(data){
+      bubble_view.display = function(Evt_ka, data){
         if(data.talk){
           const text = data.speech?data.speech:data.text;
           const tmp = SC.tools.speech({ speech: text , cancel_evt: data.kill});
@@ -1704,7 +1681,7 @@ SC_ClientTools = {
               SC.purge(data.pre)
             , SC.generate(tmp.Evt_startSpeak)
             , SC.generate(this.Evt_newWritting, data)
-            , SC.await(tmp.Sns_ended)
+            , SC.await(SC.or(tmp.Sns_ended, Evt_ka))
             , SC.purge(data.post)
               ));
           return { evt_cancel: tmp.Evt_cancel };
@@ -1719,7 +1696,7 @@ SC_ClientTools = {
             }
           }
         return {};
-        };
+        }.bind(bubble_view, params.killAnim);
       bubble_view.hidden = true;
       bubble_frame.style.position="absolute";
       bubble_view.frame = bubble_frame;
