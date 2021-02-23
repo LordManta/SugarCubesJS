@@ -3441,9 +3441,10 @@ function SC_Or(configsArray){
     return new SC_OrBin(configsArray[0], configsArray[1])
     }
   this.c = configsArray;
-  }
+  };
 SC_Or.prototype = {
-  isPresent : function(m){
+  constructor: SC_Or
+, isPresent : function(m){
     for(var i in this.c){
       if(this.c[i].isPresent(m)){
         return true
@@ -3451,26 +3452,26 @@ SC_Or.prototype = {
       }
     return false;
     }
-  , getAllValues : SC_And.prototype.getAllValues
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
-      var binder = _SC._b(cube);
-      var tmp_configs = [];
-      for(var i in this.c){
-        tmp_configs.push(binder(this.c[i]).bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst));
-        }
-      var copy = new SC_Or(tmp_configs);
-      return copy;
-      }
-  , toString : function(){
-    var res ="("+this.c[0].toString();
+, getAllValues : SC_And.prototype.getAllValues
+, bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
+    const binder = _SC._b(cube);
+    const tmp_configs = [];
     for(var i in this.c){
-      res += " \\/ "+this.c[i].toString()
+      tmp_configs.push(binder(this.c[i]).bindTo(engine, parbranch, seq, masterSeq, path, cube, cinst));
       }
-    return res+") ";
+    const copy = new SC_Or(tmp_configs);
+    return copy;
     }
-  , unregister : SC_And.prototype.unregister
-  , registerInst : SC_And.prototype.registerInst
+, toString : function(){
+  var res ="("+this.c[0].toString();
+  for(var i in this.c){
+    res += " \\/ "+this.c[i].toString()
+    }
+  return res+") ";
   }
+, unregister : SC_And.prototype.unregister
+, registerInst : SC_And.prototype.registerInst
+  };
 function SC_Cell(params){
   if(undefined == params){
     throw new Error("undefined params for SC_Cell");
@@ -3556,27 +3557,27 @@ function SC_Kill(c, p, end){
   this.c = c;
   this.p = p;
   this.end = end;
-}
+  };
 SC_Kill.prototype = {
-  constructor : SC_Kill
-  , isAnSCProgram : true
-  , bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
-      var binder = _SC._b(cube);  
-      var copy = new SC_Instruction(SC_Opcodes.KILL_SUSP_INIT);
-      copy.c = binder(this.c)
-                  .bindTo(engine, parbranch, null, masterSeq, copy, cube, cinst);
-      copy.p = this.p.bindTo(engine, parbranch, null, masterSeq, copy, cube, cinst);
-      copy.end = parseInt(this.end);
-      copy.path = path;
-      copy.seq = seq;
-      return copy;
-      }
-  , toString : function(){
-      return "kill "+this.p.toString()
-              +" on "+this.c.toString()
-              +((null != this.h)?"handle "+this.h:"")
-              +" end kill ";
+  constructor: SC_Kill
+, isAnSCProgram: true
+, bindTo: function(engine, parbranch, seq, masterSeq, path, cube, cinst){
+    const binder = _SC._b(cube);  
+    const copy = new SC_Instruction(SC_Opcodes.KILL_SUSP_INIT);
+    copy.c = binder(this.c)
+                .bindTo(engine, parbranch, null, masterSeq, copy, cube, cinst);
+    copy.p = this.p.bindTo(engine, parbranch, null, masterSeq, copy, cube, cinst);
+    copy.end = parseInt(this.end);
+    copy.path = path;
+    copy.seq = seq;
+    return copy;
     }
+, toString: function(){
+    return "kill "+this.p.toString()
+            +" on "+this.c.toString()
+            +((null != this.h)?"handle "+this.h:"")
+            +" end kill ";
+  }
   };
 function SC_Control(c, p){
   this.c = c;
@@ -6853,10 +6854,10 @@ RST:    switch(oldInstOC = inst.oc){
             }
           case SC_Opcodes.KILL_BACK:{
             inst.c.unregister(inst);
+            caller = inst.resetCaller;
             }
           case SC_Opcodes.KILLED:{
             inst.oc = SC_Opcodes.KILL_SUSP;
-            caller = inst.resetCaller;
             }
           case SC_Opcodes.KILL_SUSP:{
             inst = caller;
@@ -7525,7 +7526,7 @@ SC = {
     return new SC_And(tmp);
   },
   or: function(){
-    var tmp = [];
+    const tmp = [];
     for(var i in arguments){
       tmp.push(_SC.b_(arguments[i]));
       }

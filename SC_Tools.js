@@ -475,7 +475,7 @@ if(null !== sharedContext){
     this.buffer = null;
     this.source = null;
     this.log = "";
-    this.endedEvt=SC.sensor("ended");
+    this.endedEvt = SC.sensor("ended");
     this.loadedEvt = SC.sensor("AC_"+this.idx+"_loaded");
     this.data = data;
     this.playEvt = SC.evt("play");
@@ -688,14 +688,14 @@ bubble_view_setNewText = function(msg){
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_10");
       this.frame.style.right = _(msg.x);
-      this.frame.style.bottom = _(msg.y);
+      this.frame.style.top = _(msg.y);
       break;
       }
     case 11:{ //right middle
       this.dir = 11;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_11");
-      this.frame.style.left = msg.x;
+      this.frame.style.right = msg.x;
       this.frame.style.top = msg.y;
       this.frame.style.transform = 'translate(0, -50%)';
       break;
@@ -704,8 +704,8 @@ bubble_view_setNewText = function(msg){
       this.dir = 12;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_12");
-      this.frame.style.left = msg.x;
-      this.frame.style.top = msg.y;
+      this.frame.style.right = msg.x;
+      this.frame.style.bottom = msg.y;
       break;
       }
     default: {
@@ -1319,6 +1319,48 @@ SC_ClientTools = {
       , altextension:""
       , waittingLoad:SC.par()
       , sFXs:[]
+      , loadAudioFile: function(url, ticks){
+          const audio = new Audio(url);
+          audio.load();
+          const Evt_loaded = SC.sensor("Evt_loaded");
+          const Evt_ended = SC.sensor("Evt_ended");
+          const res = {
+               a: audio
+             , loadedEvt: Evt_loaded
+             , endedEvt: Evt_ended
+             , playing:false
+             , rt:ticks
+             , src: url
+               };
+          audio.addEventListener("loadeddata", function(evt){
+            this.loadedEvt.newValue();
+            }.bind(res));
+          audio.addEventListener("ended", function(evt){
+            this.endedEvt.newValue();
+            this.rt_count = this.rt;
+            this.playing=false;
+            }.bind(res));
+          res.play = function(){
+            if(this.rt<0){
+              this.a.play();
+              }
+            else if(this.rt_count>0){
+              this.rt_count--;
+              }
+            else if(!this.playing){
+              this.playing = true;
+              this.a.play();
+              }
+            };
+          res.stop = function(){
+            if(this.playing){
+              this.playing = false;
+              this.a.pause();
+              this.a.currentTime = 0;
+              }
+            };
+          return res;
+          }
       , addAudioFile: function(url, ticks){
           var res ;
           this.sFXs.push(res = {a:new Audio()
@@ -1350,7 +1392,7 @@ SC_ClientTools = {
               res.playing = true;
               res.a.play();
               }
-          }
+            }
           return res;
         }
       , init:function(){
@@ -1556,6 +1598,7 @@ SC_ClientTools = {
        * Bulle de commentaire.
        */
       const Evt_newWritting = SC.evt("Evt_newWritting");
+      const Evt_talkEnded = SC.evt("Evt_talkEnded");
       const Sns_talkOK = SC.sensor("Sns_talkOK");
       const Evt_writeFinished = SC.evt("Evt_writeFinished");
       const getPauseAfterEnd = "getPauseAfterEnd";
@@ -1576,34 +1619,38 @@ SC_ClientTools = {
             , SC.repeat(SC.forever
               , SC.kill(Evt_newWritting
                 , SC.seq(
-                    SC.kill(params.killAnim?params.killAnim
-                                           :SC.evt("Evt_killAnim")
-                    , SC.seq(
-                        SC.nop("starting new anim")
-                      , SC.repeatIf(SC.my(textRemains)
-                        , SC.action(SC.my(progressiveText))
-                        , SC.pause()
-                          )
-                      , SC.generate(Evt_writeFinished)
-                      , SC.nop("typewritting finished")
-                      , SC.test(SC.my(hasToWaitClick)
-                        , SC.seq(SC.nop("wait ok")
-                          , SC.action(SC.my(displayNextBtn))
-                          , SC.await(Sns_talkOK)
+                    SC.par(
+                      SC.await(Evt_talkEnded)
+                    , SC.kill(params.killAnim?params.killAnim
+                                             :SC.evt("Evt_killAnim")
+                      , SC.seq(
+                          SC.nop("starting new anim")
+                        , SC.repeatIf(SC.my(textRemains)
+                          , SC.action(SC.my(progressiveText))
+                          , SC.pause()
                             )
-                        , SC.seq(SC.nop("no wait")
-                          , SC.pause(SC.my(getPauseAfterEnd))
+                        , SC.generate(Evt_writeFinished)
+                        , SC.nop("typewritting finished")
+                        , SC.test(SC.my(hasToWaitClick)
+                          , SC.seq(SC.nop("wait ok")
+                            , SC.action(SC.my(displayNextBtn))
+                            , SC.await(Sns_talkOK)
+                              )
+                          , SC.seq(SC.nop("no wait")
+                            , SC.pause(SC.my(getPauseAfterEnd))
+                              )
                             )
                           )
+                        , SC.nop("anim killed")
                         )
-                      , SC.nop("anim killed")
                       )
+                  , SC.pause(2)
+		  , SC.nop("refulling")
                   , SC.action(SC.my(RESET))
                   , SC.await(Evt_newWritting)
                     )
                 , SC.action(SC.my(RESET))
                   )
-              , SC.pause()
                 )
               )
           , SC.actionOn(Evt_newWritting
@@ -1639,8 +1686,9 @@ SC_ClientTools = {
       bubble_view.setNewText = function(val, m){
         const data = m.getValuesOf(this.Evt_newWritting);
         if(data){
+	  //console.log("setting new text");
           const msg = data[0];
-          this.reset();
+          this.reset(m);
           this.hidden = false;
           this.toWriteTxt = msg.text;
           this.updateAppearance(msg);
@@ -1648,8 +1696,12 @@ SC_ClientTools = {
           this.pauseAfterEnd = (msg.pauseAfterEnd)? msg.pauseAfterEnd:0;
           }
         };
-      bubble_view.reset = function(){
-        this.toWriteTxtIdx = this.no_anim?this.toWriteTxt.length:0;
+      bubble_view.reset = function(m){
+	//console.log("resetting at", m.getInstantNumber());
+	if(0 == this.toWriteTxtIdx && ! this.hidden){
+	  return;
+	  }
+        this.toWriteTxtIdx = 0;
         this.innerHTML = "";
         this.hidden = true;
         };
@@ -1665,6 +1717,11 @@ SC_ClientTools = {
         this.toWriteTxtIdx++;
         this.innerHTML = this.toWriteTxt.substring(0,this.toWriteTxtIdx);
         };
+      bubble_view.gotoEnd = function(){
+        //console.log("gte");
+        this.toWriteTxtIdx = this.toWriteTxt.length;
+        this.innerHTML = this.toWriteTxtIdx;
+        }
       /**
        * Liste des paramètres :
        * { start_evt:null, end_evt:null, speech:"" }
@@ -1681,7 +1738,9 @@ SC_ClientTools = {
               SC.purge(data.pre)
             , SC.generate(tmp.Evt_startSpeak)
             , SC.generate(this.Evt_newWritting, data)
+            , (data.nTA)?SC.seq(SC.pause(2), SC.action({t:this, f:"gotoEnd"})):SC.nothing()
             , SC.await(SC.or(tmp.Sns_ended, Evt_ka))
+            , SC.generate(Evt_talkEnded)
             , SC.purge(data.post)
               ));
           return { evt_cancel: tmp.Evt_cancel };
@@ -1691,6 +1750,8 @@ SC_ClientTools = {
             SC.tools.addProgram(SC.seq(
                 SC.purge(data.pre)
               , SC.generate(this.Evt_newWritting, data)
+              , (data.nTA)?SC.seq(SC.pause(2), SC.log("force ending"), SC.action({t:this, f:"gotoEnd"})):SC.pause(3)
+              , SC.generate(Evt_talkEnded)
               , SC.purge(data.post)
                 ));
             }
