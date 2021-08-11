@@ -1,15 +1,18 @@
 # SugarCubesJS
-##### Author : Jean-Ferdy Susini, Olivier Pons, Claude Lion
+##### Authors : Jean-Ferdy Susini, Olivier Pons, Claude Lion
 ##### Created : 2/12/2014 9:23 PM
 ##### version : 5.0 alpha
 ##### implantation : 0.9.8
-##### Copyright 2014-2020.
+##### Copyright 2014-2021.
 
 A *Javascript* implementation of the reactive programming framework *SugarCubes* v5 originally designed on top of *Java*.
 It uses Frederic Boussinot's *synchronous/reactive paradigm* proposed in the early 90's by Frédéric BOUSSINOT[Bo1], and allows one to write *reactive parallel/concurrent programs* on top of sequential *Javascript*.
 
 Quick start:
 ------------
+We developed SugarCubesJS first to ease the build of WebApps deployed on smartphones and tablets in a scientific study : DanceDoigt.
+So the primary environment for SugarCubesJS is a Web page.
+
 1. load the library SugarCubes.js by adding :
    ```HTML
    <script type="text/javascript" src="http://jeanferdysusini.free.fr/SugarCubes.js">

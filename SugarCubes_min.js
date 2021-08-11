@@ -7,34 +7,38 @@
  * Copyright 2014-2021.
  */
 ;
-(function(){
+(function(){ 
 const SC_Instruction_state_str = [
-  "undefined !"
-  , "SUSP"
-  , "WEOI"
-  , "OEOI"
-  , "STOP"
-  , "WAIT"
-  , "HALT"
-  , "TERM"
+  "UNDF" 
+, "SUSP" 
+, "WEOI" 
+, "OEOI" 
+, "STOP"
+, "WAIT"
+, "HALT"
+, "TERM"
   ];
 Object.freeze(SC_Instruction_state_str);
 for(var key of Object.keys(SC_Instruction_state_str)){
   Object.freeze(SC_Instruction_state_str[key]);
   }
 const SC_Instruction_State = {
-  SUSP:1
-  , WEOI:2
-  , OEOI:3
-  , STOP:4
-  , WAIT:5
-  , HALT:6
-  , TERM:7
-  , toString: function(state){
-      return SC_Instruction_state_str[state]+":"+state;
-      }
+  UNDF:0
+, SUSP:1
+, WEOI:2
+, OEOI:3
+, STOP:4
+, WAIT:5
+, HALT:6
+, TERM:7
+, toString: function(state){
+    return SC_Instruction_state_str[state]+":"+state;
+    }
   };
 Object.freeze(SC_Instruction_State);
+for(var key of Object.keys(SC_Instruction_State)){
+  Object.freeze(SC_Instruction_State[key]);
+  }
 const SC_Global_Manager = {
   registeredMachines: []
 , pendingSensors:[]
@@ -1026,6 +1030,12 @@ const SC_OpcodesNames = [
   , "CUBE_ACTION_FOREVER_CONTROLED"
   , "PAR_BRANCH"
   , "LOG"
+  , "RESET_ON_INIT"
+  , "RESET_ON"
+  , "RESET_ON_BACK"
+  , "RESET_ON_OEOI"
+  , "RESET_ON_WEOI"
+  , "RESET_ON_WAIT"
   ];
 Object.freeze(SC_OpcodesNames);
 const SC_Opcodes = {
@@ -1067,6 +1077,12 @@ SC_Instruction.prototype = {
         case SC_Opcodes.SEQ_BACK:
         case SC_Opcodes.SEQ:{
           return this.path.awake(m, flag, toEOI);
+          }
+        case SC_Opcodes.RESET_ON:
+        case SC_Opcodes.RESET_ON_WAIT:
+        case SC_Opcodes.RESET_ON_WEOI:{
+          this.path.awake(m, flag, toEOI);
+          return true;
           }
         case SC_Opcodes.KILL_SUSP_REGISTERED:
         case SC_Opcodes.KILL_BACK:{
@@ -1161,6 +1177,12 @@ SC_Instruction.prototype = {
           }
         case SC_Opcodes.WHEN_REGISTERED:{
           return this.path.awake(m, flag);
+          }
+        case SC_Opcodes.RESET_ON:
+        case SC_Opcodes.RESET_ON_WAIT:
+        case SC_Opcodes.RESET_ON_WEOI:{
+          this.awake(m, flag);
+          return false;
           }
         case SC_Opcodes.CONTROL_REGISTERED_CHECK:
         case SC_Opcodes.CONTROL_REGISTERED_EOI:
@@ -2827,6 +2849,24 @@ SC_Seq.prototype = {
         }
       return res+"] ";
       }
+  };
+function SC_ResetOn(config, prog){
+  this.config = config;
+  this.prog = prog;
+  };
+SC_ResetOn.prototype = {
+  constructor : SC_ResetOn
+, isAnSCProgram : true
+, bindTo : function(engine, parbranch, seq, masterSeq, path, cube, cinst){
+    var binder = _SC._b(cube);
+    var copy = new SC_Instruction(SC_Opcodes.RESET_ON_INIT);
+    copy.config = binder(this.config)
+                .bindTo(engine, parbranch, null, masterSeq, copy, cube, cinst);
+    copy.prog = this.prog
+                .bindTo(engine, parbranch, null, masterSeq, copy, cube, cinst);
+    copy.path = path;
+    return copy;
+    }
   };
 function SC_ActionForever(f){
   this.action = f;
@@ -5565,6 +5605,68 @@ ACT:    switch(inst.oc){
             inst = seq.seqElements[++seq.idx];
             break;
             }
+          case SC_Opcodes.RESET_ON_INIT:{
+            inst.caller = caller;
+            inst.config.registerInst(this, inst);
+            }
+          case SC_Opcodes.RESET_ON:{
+            caller = inst;
+            inst.oc = SC_Opcodes.RESET_ON_BACK;
+            inst = inst.prog;
+            break;
+            }
+          case SC_Opcodes.RESET_ON_BACK:{
+            switch(st){
+              case SC_Instruction_State.TERM:{
+                caller = inst.caller;
+                inst.oc = SC_Opcodes.RESET_ON_INIT;
+                inst.config.unregister(inst);
+		inst = caller;
+                break ACT;
+                }
+              case SC_Instruction_State.SUSP:{
+                caller = inst;
+                inst = inst.prog;
+                break;
+                }
+              case SC_Instruction_State.WEOI:{
+                caller = inst.caller;
+                inst.oc = SC_Opcodes.RESET_ON_WEOI;
+                inst = inst.caller;
+                break;
+                }
+              case SC_Instruction_State.STOP:{
+                caller = inst.caller;
+		st = SC_Instruction_State.OEOI;
+                inst.oc = SC_Opcodes.RESET_ON_OEOI;
+                inst = inst.caller;
+                break;
+                }
+              case SC_Instruction_State.OEOI:{
+                caller = inst.caller;
+                inst.oc = SC_Opcodes.RESET_ON_OEOI;
+                inst = inst.caller;
+                break;
+                }
+              case SC_Instruction_State.HALT:{
+                caller = inst.caller;
+		st = SC_Instruction_State.WAIT;
+                inst.oc = SC_Opcodes.RESET_ON_WAIT;
+                inst = inst.caller;
+                break;
+                }
+              case SC_Instruction_State.WAIT:{
+                caller = inst.caller;
+                inst.oc = SC_Opcodes.RESET_ON_WAIT;
+                inst = inst.caller;
+                break;
+                }
+              default:{
+                throw "*** RESET_ON state pb !"
+                }
+              }
+            break;
+            }
           case SC_Opcodes.CONTROL_INIT:{
             inst.caller = caller;
             inst.activ_cb = control_body;
@@ -6358,6 +6460,29 @@ EOI:    switch(inst.oc){
             inst = caller;
             break;
             }
+          case SC_Opcodes.RESET_ON_OEOI:
+          case SC_Opcodes.RESET_ON_WEOI:{
+            inst.oc = SC_Opcodes.RESET_ON_BACK;
+            caller = inst;
+            inst = inst.prog;
+            break;
+            }
+          case SC_Opcodes.RESET_ON_BACK:{
+            inst.oc = SC_Opcodes.RESET_ON;
+            if(inst.config.isPresent(this)){
+              this.reset(inst.prog);
+              }
+            inst = caller = inst.caller;
+            break;
+            }
+          case SC_Opcodes.RESET_ON_WAIT:{
+            if(inst.config.isPresent(this)){
+              inst.oc = SC_Opcodes.RESET_ON;
+              this.reset(inst.prog);
+              }
+            inst = caller = inst.caller;
+            break;
+            }
           case SC_Opcodes.KILL_SUSP_REGISTERED:
           case SC_Opcodes.KILL_OEOI:
           case SC_Opcodes.KILL_WEOI:{
@@ -6425,6 +6550,10 @@ EOI:    switch(inst.oc){
             inst = caller;
             break;
             }
+          case SC_Opcodes.PAUSE_N_TIMES_INLINE:{
+            inst = caller;
+            break;
+	    }
           case SC_Opcodes.PAUSE_UNTIL:{
             if(inst.cond(this.reactInterface)){
               inst.oc = SC_Opcodes.PAUSE_UNTIL_DONE;
@@ -6838,6 +6967,24 @@ RST:    switch(oldInstOC = inst.oc){
             inst.oc = SC_Opcodes.WHEN;
             inst.c.unregister(inst);
             inst = caller;
+            break;
+            }
+          case SC_Opcodes.RESET_ON:
+          case SC_Opcodes.RESET_ON_OEOI:
+          case SC_Opcodes.RESET_ON_WEOI:
+          case SC_Opcodes.RESET_ON_WAIT:{
+            inst.resetCaller = caller;
+            caller = inst;
+            inst.oc = SC_Opcodes.RESET_ON_BACK;
+            inst = inst.prog;
+            }
+          case SC_Opcodes.RESET_ON_BACK:{
+            inst.config.unregister(inst);
+            inst.oc = SC_Opcodes.RESET_ON_INIT;
+	    caller = inst.resetCaller;
+	    }
+          case SC_Opcodes.RESET_ON_INIT:{
+	    inst = caller;
             break;
             }
           case SC_Opcodes.KILL_SUSP_REGISTERED:
@@ -7375,8 +7522,18 @@ SC = {
       }
     initParams.owned = true;
     return new SC_SensorId(initParams);
-    },
-  pauseForever: function(){
+    }
+, resetOn(config){
+    var prgs = [];
+    for(var i = 1 ; i < arguments.length; i++){
+      const p = arguments[i];
+      if(p == SC_Nothing){ continue; }
+      prgs.push(p);
+      }
+    var t = new SC_Seq(prgs);
+    return new SC_ResetOn(config, t);
+    }
+, pauseForever: function(){
     return SC_PauseForever;
   },
   nothing: function(){

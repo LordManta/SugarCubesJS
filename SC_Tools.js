@@ -312,8 +312,9 @@ SC.tools = (function(){
     tmp.addEventListener('click', function(evt){
       if(undefined !== SC_ClientTools.elementInspector){
         if((SC_ClientTools.elementInspector.sc_vis) || (4 === evt.detail)){
-            SC.tools.generateEvent(SC_ClientTools.elementInspector.setIcobjUnderInspectionEvt
-                                                    , this);
+            SC.tools.generateEvent(
+	            SC_ClientTools.elementInspector.setIcobjUnderInspectionEvt
+                  , this);
             }
         }
     }.bind(tmp));
