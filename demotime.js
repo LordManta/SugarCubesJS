@@ -947,15 +947,12 @@ Zone.prototype = {
     SC.tools.generateEvent(this.com);
     this.clicked = false;
     }
-, filterStartBase : function(t){
-    for(var n in t){
-      const touch = t[n];
-      const rx = this.x - touch.x;
-      const ry = this.y - touch.y;
-      const r = Math.sqrt(rx*rx + ry*ry);
-      if(r < this.r){
-        return touch;
-        }
+, filterStartBase : function(touch){
+    const rx = this.x - touch.x;
+    const ry = this.y - touch.y;
+    const r = Math.sqrt(rx*rx + ry*ry);
+    if(r < this.r){
+      return touch;
       }
     return;
     }
@@ -977,20 +974,17 @@ Zone.prototype = {
     this.click = false;
     return "exit";
     }
-, filterMoveMouse : function(t){
-    for(var n in t){
-      var touch = t[n];
-      if(0 >= touch.btn){
-        return null;
-        }
-      var rx = this.x - touch.x;
-      var ry = this.y - touch.y;
-      var r = Math.sqrt(rx*rx + ry*ry);
-      if(r > this.r){
-        return "exit";
-        }
+, filterMoveMouse : function(touch){
+    if(0 >= touch.btn){
+      return null;
       }
-      return;
+    var rx = this.x - touch.x;
+    var ry = this.y - touch.y;
+    var r = Math.sqrt(rx*rx + ry*ry);
+    if(r > this.r){
+      return "exit";
+      }
+    return;
     }
 , draw : function(ctx){
     if(this.hidden){

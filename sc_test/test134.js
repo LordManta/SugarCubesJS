@@ -23,7 +23,7 @@
    , expected :
        "\n1 -: Hello World !1_1\n2 -: \n3 -: Hello World !3_2\n4 -: \n5 -: Hello World !5_3\n6 -: \n7 -: Hello World !7_4\n8 -: \n9 -: Hello World !9_5\n10 -: "
    , fun1: function(v){
-             return v[0]+"_"+(window.myCount2++);
+             return v+"_"+(window.myCount2++);
              }
    , init: function(){
              window.called1 = this.fun1;

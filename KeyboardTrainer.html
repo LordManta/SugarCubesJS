@@ -178,19 +178,17 @@ body{
           }
           );
 	key.code = data.code;
-	key.filter_key = function(vals){
+	key.filter_key = function(key){
 	  var filtered = [];
-	  for(var key of vals){
-	  //console.log(key, key.code, this.code, key.code == this.code);
-	    if(key.code == this.code){
-	      filtered.push(key);
-	      }
+	  console.log(key, key.code, this.code, key.code == this.code);
+	  if(key.code == this.code){
+	    filtered.push(key);
 	    }
 	  return (filtered.length > 0)?filtered:undefined;
 	  }
-        key.filter_display_group = function(my_group,m){
+        key.filter_display_group = function(my_group, m){
            var vals = m.getValuesOf(groupViewEvt);
-           if((undefined !== vals)
+           if(vals
                && (0 != vals.length)){
              SC.tools.generateEvent(this.css_displayEvt,(vals[0]>=my_group)?"":"none");
              }
@@ -323,7 +321,7 @@ body{
       beh:SC.repeat(SC.forever
               , SC.action(function(m){
                   var vals = m.getValuesOf(keyEvt);
-                  if((undefined === vals)
+                  if((undefined == vals)
                      ||(0 == vals.length)){
                     div_res.innerHTML="";
                     return;

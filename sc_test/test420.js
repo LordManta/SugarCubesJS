@@ -1,6 +1,7 @@
   {
-   prg: 
-     `SC.cube(
+   prg:
+     `SC.kill(e
+, SC.cube(
     {
       x:0
     , dump: function(){
@@ -13,11 +14,13 @@
   , SC.seq(
       SC.write('hello')
     , SC.action('inc')
+    , SC.killSelf()
     , SC.pause()
     , SC.action('dump')
+      )
     )
   )`
  , expected:
-     "\n1 -: hello\n2 -: 1"
+     "\n1 -: hello\n2 -: "
   }
 

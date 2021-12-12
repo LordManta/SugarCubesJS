@@ -313,7 +313,7 @@ SC.tools = (function(){
       if(undefined !== SC_ClientTools.elementInspector){
         if((SC_ClientTools.elementInspector.sc_vis) || (4 === evt.detail)){
             SC.tools.generateEvent(
-	            SC_ClientTools.elementInspector.setIcobjUnderInspectionEvt
+                    SC_ClientTools.elementInspector.setIcobjUnderInspectionEvt
                   , this);
             }
         }
@@ -630,7 +630,7 @@ bubble_view_setNewText = function(msg){
       }
     case 4:{ // bottom left
       this.dir = 4;
-      console.log("bottom left");
+      //console.log("bottom left");
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_4");
       this.frame.style.left = msg.x;
@@ -1006,20 +1006,20 @@ SC_ClientTools = {
       function trackEvent(theEvt){
         var res = SC.repeat(SC.forever
             , SC.await(theEvt)
-            , SC.act(function(evt, m){
-                 var vals = [m.sensorValueOf(evt)];
-                 SC_evt_mouse_client_x.innerHTML = (0 == vals.length)?"--"
-                                                          :Math.floor(vals[0].clientX);
-                 SC_evt_mouse_client_y.innerHTML = (0 == vals.length)?"--"
-                                                          :Math.floor(vals[0].clientY);
-                 SC_evt_mouse_page_x.innerHTML = (0 == vals.length)?"--"
-                                                          :Math.floor(vals[0].x);
-                 SC_evt_mouse_page_y.innerHTML = (0 == vals.length)?"--"
-                                                          :Math.floor(vals[0].y);
-                 SC_evt_mouse_screen_x.innerHTML = (0 == vals.length)?"--"
-                                                          :Math.floor(vals[0].screenX);
-                 SC_evt_mouse_screen_y.innerHTML = (0 == vals.length)?"--"
-                                                          :Math.floor(vals[0].screenY);
+            , SC.action(function(evt, m){
+                 var val = m.sensorValueOf(evt);
+                 SC_evt_mouse_client_x.innerHTML = (undefined == val)?"--"
+                                                          :Math.floor(val.clientX);
+                 SC_evt_mouse_client_y.innerHTML = (undefined == val)?"--"
+                                                          :Math.floor(val.clientY);
+                 SC_evt_mouse_page_x.innerHTML = (undefined == val)?"--"
+                                                          :Math.floor(val.x);
+                 SC_evt_mouse_page_y.innerHTML = (undefined == val)?"--"
+                                                          :Math.floor(val.y);
+                 SC_evt_mouse_screen_x.innerHTML = (undefined == val)?"--"
+                                                          :Math.floor(val.screenX);
+                 SC_evt_mouse_screen_y.innerHTML = (undefined == val)?"--"
+                                                          :Math.floor(val.screenY);
                }.bind(undefined, theEvt))
             );
         return res;
@@ -1600,6 +1600,7 @@ SC_ClientTools = {
        */
       const Evt_newWritting = SC.evt("Evt_newWritting");
       const Evt_talkEnded = SC.evt("Evt_talkEnded");
+      const Evt_bubbleFinish = SC.evt("Evt_bubbleFinish");
       const Sns_talkOK = SC.sensor("Sns_talkOK");
       const Evt_writeFinished = SC.evt("Evt_writeFinished");
       const getPauseAfterEnd = "getPauseAfterEnd";
@@ -1645,8 +1646,9 @@ SC_ClientTools = {
                         , SC.nop("anim killed")
                         )
                       )
+                  , SC.generate(Evt_bubbleFinish)
                   , SC.pause(2)
-		  , SC.nop("refulling")
+                  , SC.nop("refulling")
                   , SC.action(SC.my(RESET))
                   , SC.await(Evt_newWritting)
                     )
@@ -1661,6 +1663,8 @@ SC_ClientTools = {
               )
             )
       });
+      bubble_view.jfs_shadow = document.createElement("div");
+      bubble_view.jfs_shadow.style.display = "none";
       bubble_view.Evt_newWritting = Evt_newWritting;
       bubble_view.Sns_talkOK = Sns_talkOK;
       bubble_view.hasToWaitClick = function(){
@@ -1679,7 +1683,7 @@ SC_ClientTools = {
         };
       bubble_view.textRemains = function(){
         return this.toWriteTxtIdx < this.toWriteTxt.length;
-      };
+        };
       bubble_view.updateAppearance = bubble_view_setNewText;
       bubble_view.getPauseAfterEnd = function(){
         return this.pauseAfterEnd;
@@ -1687,21 +1691,23 @@ SC_ClientTools = {
       bubble_view.setNewText = function(val, m){
         const data = m.getValuesOf(this.Evt_newWritting);
         if(data){
-	  //console.log("setting new text");
+          //console.log("setting new text");
           const msg = data[0];
           this.reset(m);
           this.hidden = false;
-          this.toWriteTxt = msg.text;
+          this.jfs_shadow.innerHTML = msg.text;
+          JFS.postTreatmentOfDOM(this.jfs_shadow);
+          this.toWriteTxt = this.jfs_shadow.innerHTML;
           this.updateAppearance(msg);
           this._wc = (msg.waitClick)?msg.waitClick:false;
           this.pauseAfterEnd = (msg.pauseAfterEnd)? msg.pauseAfterEnd:0;
           }
         };
       bubble_view.reset = function(m){
-	//console.log("resetting at", m.getInstantNumber());
-	if(0 == this.toWriteTxtIdx && ! this.hidden){
-	  return;
-	  }
+        //console.log("resetting at", m.getInstantNumber());
+        if(0 == this.toWriteTxtIdx && ! this.hidden){
+          return;
+          }
         this.toWriteTxtIdx = 0;
         this.innerHTML = "";
         this.hidden = true;
@@ -1711,7 +1717,7 @@ SC_ClientTools = {
           return;
           }
         if("<" == this.toWriteTxt.charAt(this.toWriteTxtIdx)){
-          while(">" != this.toWriteTxt.charAt(this.toWriteTxtIdx)){
+          while(">" != this.toWriteTxt.charAt(this.toWriteTxtIdx) && (this.toWriteTxtIdx < this.toWriteTxt.length)){
             this.toWriteTxtIdx++;
             }
           }
@@ -1731,6 +1737,14 @@ SC_ClientTools = {
        * - speech : texte du talk
        */
       bubble_view.display = function(Evt_ka, data){
+        data.pre = (data.icn)?(SC.seq(SC.action(function(icn){
+                                           this.frame.appendChild(icn);
+                                           }.bind(this, data.icn)), SC.purge(data.post)))
+                             :data.pre;
+        data.post = (data.icn)?(SC.seq(SC.action(function(icn){
+                                           this.frame.removeChild(icn);
+                                           }.bind(this, data.icn)), SC.purge(data.post)))
+                             :data.post;
         if(data.talk){
           const text = data.speech?data.speech:data.text;
           const tmp = SC.tools.speech({ speech: text , cancel_evt: data.kill});
@@ -1742,6 +1756,7 @@ SC_ClientTools = {
             , (data.nTA)?SC.seq(SC.pause(2), SC.action({t:this, f:"gotoEnd"})):SC.nothing()
             , SC.await(SC.or(tmp.Sns_ended, Evt_ka))
             , SC.generate(Evt_talkEnded)
+            , SC.await(Evt_bubbleFinish)
             , SC.purge(data.post)
               ));
           return { evt_cancel: tmp.Evt_cancel };
@@ -1753,6 +1768,7 @@ SC_ClientTools = {
               , SC.generate(this.Evt_newWritting, data)
               , (data.nTA)?SC.seq(SC.pause(2), SC.log("force ending"), SC.action({t:this, f:"gotoEnd"})):SC.pause(3)
               , SC.generate(Evt_talkEnded)
+              , SC.await(Evt_bubbleFinish)
               , SC.purge(data.post)
                 ));
             }
@@ -1767,6 +1783,7 @@ SC_ClientTools = {
         params.prt.appendChild(bubble_frame);
         }  
       bubble_frame.appendChild(bubble_view);
+      bubble_frame.appendChild(bubble_view.jfs_shadow);
       return bubble_view;
       }
   , simpleCommentBubble: function(params){
@@ -1790,6 +1807,7 @@ SC_ClientTools = {
           return data;
           };
         this.innerHTML = msg.text;
+        JFS.postTreatmentOfDOM(this);
         this.updateAppearance(msg);
         };
       /**
@@ -1870,6 +1888,134 @@ SC_ClientTools = {
       const canvas = document.createElement("canvas")
       return div;
       }
+, signal_ft: function(signal , threshold = 1e-8){
+    const N = signal.length;
+    const DE_PI_N = 2*Math.PI/N;
+    const ft = [];
+    for(var f = 0; f < N; f++){
+      const freq = {re: 0, im: 0};
+      for(var t = 0; t < N; t++){
+        const st = signal[t];
+        const amp = (undefined !== st.re && undefined !== st.im)?Math.sqrt(st.re*st.re+st.im*st.im):st;
+        if(isNaN(amp)){
+          console.error("DFT error", amp, st);
+          }
+        const alpha = -DE_PI_N*f*t;
+        const part = {
+            re: amp*Math.cos(alpha)
+          , im: amp*Math.sin(alpha)
+          };
+        freq.re += part.re;
+        freq.im += part.im;
+      }
+      freq.re = (Math.abs(freq.re) < threshold)?0:freq.re;
+      freq.im = (Math.abs(freq.im) < threshold)?0:freq.im;
+      ft[f] = freq;
+      }
+    return ft;
+    }
+, spectrum_ft: function(spectrum , threshold = 1e-8){
+    const N = spectrum.length;
+    const DE_PI_N = 2*Math.PI/N;
+    const s = [];
+    for(var t = 0; t < N; t++){
+      const sig = {re: 0, im: 0};
+      for(var f = 0; f < N; f++){
+        const sf = spectrum[f];
+        const alpha = DE_PI_N*f*t;
+        const part = {
+            re: Math.cos(alpha)
+          , im: Math.sin(alpha)
+          };
+        sig.re += part.re*sf.re-part.im*sf.im;
+        sig.im += part.re*sf.im+part.im*sf.re;
+        }
+      sig.re /= N;
+      sig.im /= N;
+      sig.re = (Math.abs(sig.re) < threshold)?0:sig.re;
+      sig.im = (Math.abs(sig.im) < threshold)?0:sig.im;
+      s[t] = sig;
+      }
+    return s;
+    }
+, getRealParts: function(complex, mul){
+    const N = complex.length;
+    const mu = (mul)?mul:1;
+    const norms = [];
+    for(var i = 0; i < N; i++){
+      const c = complex[i];
+      norms[i] = c.re*mu;
+      }
+    return norms;
+    }
+, getNormsOf: function(complex, mul){
+    const N = complex.length;
+    const mu = (mul)?mul:1;
+    const norms = [];
+    for(var i = 0; i < N; i++){
+      const c = complex[i];
+      norms[i] = mu*Math.sqrt(c.re*c.re+c.im*c.im);
+      }
+    return norms;
+    }
+, applyFilter: function(complex, filter){
+    const N = complex.length;
+    const norms = [];
+    for(var i = 0; i < N; i++){
+      const c = complex[i];
+      const filtered = filter(i, c);
+      norms[i] = filtered;
+      }
+    return norms;
+    }
+, getUnSymNormsOf: function(complex, mul, disp0){
+    const N = complex.length;
+    const N2 = Math.floor(N/2);
+    const mu = (mul)?mul:1;
+    const norms = [];
+    for(var i = 0; i < N; i++){
+      const c = complex[i];
+      if(disp0 || (i != 0)){
+        norms[(i <= N2)?(N2+i):i-N2] = mu*Math.sqrt(c.re*c.re+c.im*c.im);
+        }
+      }
+    return norms;
+    }
+, ranRange: function(max, min){
+    min = (undefined === min)?0:min;
+    const range = max-min;
+    return Math.random()*range+min;
+    }
+, ranRange_i: function(max, min){
+    return parseInt(this.ranRange(parseInt(max), parseInt(min)));
+    }
+, ran: function(amp, base){
+    return Math.random()*amp+(base?base:0);
+    }
+, rani: function(face, base){
+    return parseInt(this.ran(parseInt(face), parseInt(base)));
+    }
+, gauss: function(min, max, skew){
+    let u = 0.0, v = 0.0;
+    while(0 === u){
+      u = Math.random();
+      }
+    while(0 === v){
+      v = Math.random();
+      }
+    let num = Math.sqrt(-2.0*Math.log(u))*Math.cos(2.0*Math.PI*v);
+    num = num/10.0+0.5; // Translate to 0 -> 1
+    if((num > 1) || (num < 0)){
+      num = this.gauss(min, max, skew); // resample between 0 and 1 if out of range
+      }
+    num = Math.pow(num, skew); // Skew
+    num *= max - min; // Stretch to fill range
+    num += min; // offset to min
+    return num;
+    }
+, gaussi: function(min, max, skew){
+    return parseInt(this.gauss(parseInt(min), parseInt(max), skew));
+    }
   };
 /**/
 /* DOM Element Inspector */
@@ -2302,8 +2448,8 @@ SC_ClientTools.initInspector = function(){
   this.elementInspector.children[0].addEventListener("touchstart", function(evt){
     evt.preventDefault();
     });
-  this.elementInspector.onMousePanelMove = function(vals){
-    var pos = vals[0];
+  this.elementInspector.onMousePanelMove = function(val){
+    var pos = val;
     if(undefined != pos){
       return {x : pos.clientX, y: pos.clientY};
       }
