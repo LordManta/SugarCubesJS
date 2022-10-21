@@ -51,6 +51,7 @@ SC.tools.appInit(SC_App_Config);
  <body>
   <script type="text/javascript" >
   SC.tools.displaySplash();
+  SC.tools.m.setStdOut(console.log.bind(console));
   </script>
    <script type="text/javascript">
 var imgClick = SC.sensor('image_click');
@@ -89,8 +90,8 @@ var voiceSnd = SC.tools.audioToolbox.newAudioChunck(audioData.voice);
 SC.tools.addProgram(
    SC.repeat(SC.forever
      , SC.await(imgClick)
-     , SC.log("click")
      , SC.generate(windSnd.playEvt)
+     , SC.log("click")
      , SC.pause()
      , SC.kill(imgClick, SC.await(windSnd.endedEvt), SC.generate(windSnd.stopEvt))
      )

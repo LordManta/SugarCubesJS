@@ -66,48 +66,37 @@ SC.tools = (function(){
     var ry = Math.abs(this.y - y/z+workspace.offsetTop);
     return (rx < this.r)&&(ry < this.r);
     }
-  Zone.prototype.filterStart= function(t){
-    if(this.hidden){
-      return;
-      }
+  Zone.prototype.filterStart= function(touch){
     var z = workspace.style.zoom;
-    for(var n in t){
-      var touch = t[n];
-      //var rx = this.x - touch.cx/z+workspace.offsetLeft;
-      //var ry = this.y - touch.cy/z+workspace.offsetTop;
-      //var r = Math.sqrt(rx*rx + ry*ry);
-      if(this.inside(touch.cx, touch.cy)){
-        this.id = touch.id;
-        this.touched = true;
-        return {
-                ts:window.performance.now()
-                , x:touch.cx/z+workspace.offsetLeft
-                , y:touch.cy/z+workspace.offsetTop
-                };
-      }
+    //var rx = this.x - touch.cx/z+workspace.offsetLeft;
+    //var ry = this.y - touch.cy/z+workspace.offsetTop;
+    //var r = Math.sqrt(rx*rx + ry*ry);
+    if(this.inside(touch.cx, touch.cy)){
+      this.id = touch.id;
+      this.touched = true;
+      return {
+              ts:window.performance.now()
+              , x:touch.cx/z+workspace.offsetLeft
+              , y:touch.cy/z+workspace.offsetTop
+              };
     }
   }
-  Zone.prototype.filterMove= function(t){
+  Zone.prototype.filterMove= function(touch){
     var z = workspace.style.zoom;
-    for(var n in t){
-      var touch = t[n];
-      if( this.id != touch.id ){
-        continue;
+    if( this.id != touch.id ){
+      return false;
       }
-      if(!this.inside(touch.cx, touch.cy)){
-        this.touched = false;
-        return "zone1";
+    if(!this.inside(touch.cx, touch.cy)){
+      this.touched = false;
+      return "zone1";
       }
     }
-  }
-  Zone.prototype.filterEnd= function(t){
-    for(var n in t){
-      if(t[n].id == this.id){
-        this.touched = false;
-        return "zone1";
+  Zone.prototype.filterEnd= function(touch){
+    if(touch.id == this.id){
+      this.touched = false;
+      return "zone1";
       }
     }
-  }
   Zone.prototype.draw = function(ctx){
     if(this.hidden){
       return;
@@ -467,12 +456,6 @@ if(null !== sharedContext){
       return;
       }
     this.audioContext = sharedContext;
-    if('webkitAudioContext' in window){
-      this.start = "start";
-      }
-    else{
-      this.start = "start";
-      }
     this.buffer = null;
     this.source = null;
     this.log = "";
@@ -491,6 +474,7 @@ if(null !== sharedContext){
         , SC.kill(this.stopEvt
             , SC.seq(
                 SC.await(this.playEvt)
+                , SC.log("play audio chunck")
                 , SC.action(this.play.bind(this))
                 , SC.par(
                     SC.seq(
@@ -510,7 +494,8 @@ if(null !== sharedContext){
       );
     }
   AudioChunk.prototype = {
-    load : function(){
+    constructor: AudioChunk
+  , load : function(){
       var decodedStr = atob(this.data);
       var len = decodedStr.length;
       var arrayBuff = new Uint8Array(len);
@@ -520,7 +505,7 @@ if(null !== sharedContext){
       this.audioContext.decodeAudioData(arrayBuff.buffer, (function (me){ return function(audioData){
         me.buffer = audioData;
         me.loadedEvt.newValue();
-        SC.writeInConsole("loaded"+me.idx+"\n");
+        SC.writeInConsole("sound "+me.idx+" loaded\n");
         }})(this));
       }
     , toString : function(){
@@ -547,7 +532,7 @@ if(null !== sharedContext){
     , i : function(msg){
         return this.log += msg;
         }
-    , play : function(){
+    , play: function(){
         if(null != this.source){
           return;
           }
@@ -559,7 +544,13 @@ if(null !== sharedContext){
         else{
           this.source.connect(this.audioContext.destination);
           }
-        this.source[this.start](0);
+        //console.error("play", this.source);
+        if('webkitAudioContext' in window){
+          this.source.start(0);
+          }
+        else{
+          this.source.start(0);
+          }
         this.source.onended = (function(me) { return function(evt){
             me.endedEvt.newValue();
             if(me.dbg){
@@ -868,7 +859,7 @@ SC_ClientTools = {
           }.bind(this)
           );
       var tmp = new Image(30,30);
-      tmp.setAttribute("src","images/png/Close.png");
+      tmp.setAttribute("src", "images/png/Close.png");
       tmp.onclick = this.controlPanel.toggle;
       tmp.style.margin="0";
       tmp.style.padding="0";
@@ -1364,12 +1355,14 @@ SC_ClientTools = {
           }
       , addAudioFile: function(url, ticks){
           var res ;
-          this.sFXs.push(res = {a:new Audio()
-                                    , loadedEvt:SC.sensor("loaded")
-                                    , endedEvt:SC.sensor("ended")
-                                    , playing:false
-                                    , rt:ticks
-                                    });
+          this.sFXs.push(res = {
+              a: new Audio()
+            , loadedEvt: SC.sensor("loaded")
+            , endedEvt: SC.sensor("ended")
+            , playing: false
+            , rt: ticks
+              }
+            );
           res.a.addEventListener("loadeddata", function(m, evt){
             this.loadedEvt.newValue();
             }.bind(res, SC_ClientTools.m));
@@ -1395,7 +1388,7 @@ SC_ClientTools = {
               }
             }
           return res;
-        }
+          }
       , init:function(){
           if(undefined === SC_ClientTools.m){
             throw "initialize tools first";
@@ -1633,6 +1626,7 @@ SC_ClientTools = {
                             )
                         , SC.generate(Evt_writeFinished)
                         , SC.nop("typewritting finished")
+                        , SC.action(SC.my("postTyped"))
                         , SC.test(SC.my(hasToWaitClick)
                           , SC.seq(SC.nop("wait ok")
                             , SC.action(SC.my(displayNextBtn))
@@ -1703,6 +1697,10 @@ SC_ClientTools = {
           this.pauseAfterEnd = (msg.pauseAfterEnd)? msg.pauseAfterEnd:0;
           }
         };
+      bubble_view.postTyped = function(m){
+        //console.log("post typing ?");
+        setTimeout(function(){JFS.postTreatmentOfDOM(this)}.bind(this), 100);
+        }
       bubble_view.reset = function(m){
         //console.log("resetting at", m.getInstantNumber());
         if(0 == this.toWriteTxtIdx && ! this.hidden){
@@ -1747,26 +1745,44 @@ SC_ClientTools = {
                              :data.post;
         if(data.talk){
           const text = data.speech?data.speech:data.text;
-          const tmp = SC.tools.speech({ speech: text , cancel_evt: data.kill});
-          SC.tools.addProgram(tmp.sc_speech_beh);
+          //const tmp = SC.tools.speech({ speech: text , cancel_evt: data.kill});
+          //SC.tools.addProgram(tmp.sc_speech_beh);
+          const Sns_ended= SC.sensor("Sns_ended");
           SC.tools.addProgram(SC.seq(
               SC.purge(data.pre)
-            , SC.generate(tmp.Evt_startSpeak)
+            //, SC.generate(tmp.Evt_startSpeak)
             , SC.generate(this.Evt_newWritting, data)
+            , SC.pause()
+            , SC.action(function(re){
+                  const textToSpeak= (data.speech?data.speech:this.jfs_shadow.innerText);
+                  const tmp = SC.tools.speech({ speech: textToSpeak
+                                              , cancel_evt: data.kill
+                                              , stop_evt: Sns_ended
+                                              });
+                  SC.tools.addProgram(
+                    SC.seq(
+                      SC.generate(tmp.Evt_startSpeak)
+                    , tmp.sc_speech_beh
+                      )
+                    );
+                  console.log("textToSpeak", textToSpeak);
+                  this.Sns_ended= tmp.Sns_ended;
+                }.bind(this))
             , (data.nTA)?SC.seq(SC.pause(2), SC.action({t:this, f:"gotoEnd"})):SC.nothing()
-            , SC.await(SC.or(tmp.Sns_ended, Evt_ka))
+            , SC.await(SC.or(Sns_ended, Evt_ka))
             , SC.generate(Evt_talkEnded)
             , SC.await(Evt_bubbleFinish)
             , SC.purge(data.post)
               ));
-          return { evt_cancel: tmp.Evt_cancel };
+          return { evt_cancel: data.kill };
           }
         else{
           if(data.text){
             SC.tools.addProgram(SC.seq(
                 SC.purge(data.pre)
               , SC.generate(this.Evt_newWritting, data)
-              , (data.nTA)?SC.seq(SC.pause(2), SC.log("force ending"), SC.action({t:this, f:"gotoEnd"})):SC.pause(3)
+              , (data.nTA)?SC.seq(SC.pause(2), SC.nop("force ending"), SC.action({t:this, f:"gotoEnd"})):SC.pause(3)
+              //, SC.action({t:this, f:"postTyped"})
               , SC.generate(Evt_talkEnded)
               , SC.await(Evt_bubbleFinish)
               , SC.purge(data.post)
@@ -1822,11 +1838,17 @@ SC_ClientTools = {
        * - repeat : nombre de répétition du talk (SC.forever : répétition infinie)
        */
       bubble_view.display = function(data){
+        data.pre = (data.icn)?(SC.seq(SC.action(function(icn){
+                                           this.frame.appendChild(icn);
+                                           }.bind(this, data.icn)), SC.purge(data.post)))
+                             :data.pre;
+        /*data.post = (data.icn)?(SC.seq(SC.action(function(icn){
+                                           this.frame.removeChild(icn);
+                                           }.bind(this, data.icn)), SC.purge(data.post)))
+                             :data.post;*/
         if(data.talk){
           const text = data.speech?data.speech:data.text;
-          const tmp = SC.tools.speech({
-            speech: text
-            });
+          const tmp = SC.tools.speech({ speech: text });
           SC.tools.addProgram(tmp.sc_speech_beh);
           SC.tools.addProgram(SC.seq(
               SC.purge(data.pre)
@@ -1888,6 +1910,23 @@ SC_ClientTools = {
       const canvas = document.createElement("canvas")
       return div;
       }
+, crc32_bin: function(bytes){
+    const crc= new Uint32Array(3);
+    crc[0]= 0xFFFFFFFF;
+    const n= input.length;
+    for(var i= 0; i<n; i++){// On extrait caractère par caractère
+      crc[1]= (bytes[i]&0xFF);
+      for(var j= 0; j < 8; j++){// puis bit à bit
+        crc[2]= ((crc[1]>>j)^crc[0])&0x1;      
+        crc[0]>>>= 1;
+        if(crc[2]){
+          crc[0]^= 0xEDB88320; //polynom in the exact reverse order
+          }
+        }
+      }
+    crc[0]= ~crc[0];
+    return crc[0];
+    }
 , signal_ft: function(signal , threshold = 1e-8){
     const N = signal.length;
     const DE_PI_N = 2*Math.PI/N;
@@ -2448,9 +2487,8 @@ SC_ClientTools.initInspector = function(){
   this.elementInspector.children[0].addEventListener("touchstart", function(evt){
     evt.preventDefault();
     });
-  this.elementInspector.onMousePanelMove = function(val){
-    var pos = val;
-    if(undefined != pos){
+  this.elementInspector.onMousePanelMove = function(pos){
+    if(pos){
       return {x : pos.clientX, y: pos.clientY};
       }
     }
