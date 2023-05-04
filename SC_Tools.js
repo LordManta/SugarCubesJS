@@ -1,11 +1,11 @@
 /*
  * SC_Tools.js
- * Author : Jean-Ferdy Susini
+ * Author : Jean-Ferdy Susini (MNF)
  * Created : 20/12/2014 18:46
  * Part of the SugarCubes Project
  * version : 5.0 alpha
  * implantation : 0.5
- * Copyright 2014-2021.
+ * Copyleft 2014-2023.
  */
 
 SC.tools = (function(){
@@ -780,9 +780,9 @@ SC_ClientTools = {
         //this.systemEvent = function(evt, val){
         //  return this.m.systemEvent.apply(this.m, arguments);
         //  };
-        console.log("ready to load");
+        //console.log("ready to load");
         window.addEventListener("load", function(){
-            console.log("loading");
+            //console.log("loading");
             this.m.addToOwnProgram(SC.seq(
                     (this.appInited)?SC.await(this.appStartedEvt):SC.nothing()
                   , SC.action(function(){
@@ -1540,22 +1540,23 @@ SC_ClientTools = {
       * - speech : texte du talk
       * - repeat : nombre de répétition du talk (SC.forever : répétition infinie)
       */
-  , speech : function(params){
-      params.get = function(field, d){
+  , speech: function(params){
+      params.get=function(field, d){
         return (this[field])?this[field]:d;
         }
-      const speeckable = new SpeechSynthesisUtterance(params.get("speech",""));
-      speeckable.lang = params.get("lang", "fr-FR");
-      speeckable.Evt_startSpeak = params.get("start_evt"
-                                           , SC.evt("Evt_startSpeak"));
-      speeckable.Sns_ended = params.get("stop_evt", SC.sensor("Sns_ended"));
-      speeckable.Evt_cancel = params.get("cancel_evt", SC.evt("Evt_cancel"));
-      speeckable.onend = speeckable.Sns_ended.newValue.bind(speeckable.Sns_ended);
-      speeckable.sc_speech_beh =
+      const speeckable=new SpeechSynthesisUtterance(params.get("speech",""));
+      speeckable.lang=params.get("lang", "fr-FR");
+      speeckable.Evt_startSpeak=params.get("start_evt"
+                                         , SC.evt("Evt_startSpeak"));
+      speeckable.Sns_ended=params.get("stop_evt", SC.sensor("Sns_ended"));
+      speeckable.Evt_cancel=params.get("cancel_evt", SC.evt("Evt_cancel"));
+      speeckable.onend=speeckable.Sns_ended.newValue.bind(speeckable.Sns_ended);
+      speeckable.sc_speech_beh=
         SC.kill(speeckable.Evt_cancel
         , SC.par(
             SC.seq(
               SC.await(speeckable.Evt_startSpeak)
+	    //, SC.log("Start speaking")
             , SC.action(
                 window.speechSynthesis.speak.bind(window.speechSynthesis
                                                 , speeckable))
@@ -1563,6 +1564,7 @@ SC_ClientTools = {
               )
           , SC.seq(
               SC.await(speeckable.Evt_cancel)
+	    //, SC.log("Cancel speaking")
             , SC.action(
                 window.speechSynthesis.cancel.bind(window.speechSynthesis))
               )
@@ -1686,12 +1688,17 @@ SC_ClientTools = {
         const data = m.getValuesOf(this.Evt_newWritting);
         if(data){
           //console.log("setting new text");
-          const msg = data[0];
+          const msg=data[0];
           this.reset(m);
-          this.hidden = false;
-          this.jfs_shadow.innerHTML = msg.text;
+          this.style.color=(msg.clr)?msg.clr:"black";
+          //const zs=window.getComputedStyle(this,':before')
+          //zs.background=msg.clr;
+          this.style.background=(msg.bgclr)?msg.bgclr:"yellow";
+          this.hidden=false;
+          this.jfs_shadow.jfs_rawMsg=msg.text;
+          this.jfs_shadow.innerHTML=msg.text;
           JFS.postTreatmentOfDOM(this.jfs_shadow);
-          this.toWriteTxt = this.jfs_shadow.innerHTML;
+          this.toWriteTxt=this.jfs_shadow.innerHTML;
           this.updateAppearance(msg);
           this._wc = (msg.waitClick)?msg.waitClick:false;
           this.pauseAfterEnd = (msg.pauseAfterEnd)? msg.pauseAfterEnd:0;
@@ -1699,6 +1706,7 @@ SC_ClientTools = {
         };
       bubble_view.postTyped = function(m){
         //console.log("post typing ?");
+        this.innerHTML=this.jfs_shadow.jfs_rawMsg;
         setTimeout(function(){JFS.postTreatmentOfDOM(this)}.bind(this), 100);
         }
       bubble_view.reset = function(m){
@@ -1716,6 +1724,11 @@ SC_ClientTools = {
           }
         if("<" == this.toWriteTxt.charAt(this.toWriteTxtIdx)){
           while(">" != this.toWriteTxt.charAt(this.toWriteTxtIdx) && (this.toWriteTxtIdx < this.toWriteTxt.length)){
+            this.toWriteTxtIdx++;
+            }
+          }
+        if("&" == this.toWriteTxt.charAt(this.toWriteTxtIdx)){
+          while(";" != this.toWriteTxt.charAt(this.toWriteTxtIdx) && (this.toWriteTxtIdx < this.toWriteTxt.length)){
             this.toWriteTxtIdx++;
             }
           }
@@ -1744,7 +1757,7 @@ SC_ClientTools = {
                                            }.bind(this, data.icn)), SC.purge(data.post)))
                              :data.post;
         if(data.talk){
-          const text = data.speech?data.speech:data.text;
+          //const text = data.speech?data.speech:data.text;
           //const tmp = SC.tools.speech({ speech: text , cancel_evt: data.kill});
           //SC.tools.addProgram(tmp.sc_speech_beh);
           const Sns_ended= SC.sensor("Sns_ended");
@@ -1754,7 +1767,13 @@ SC_ClientTools = {
             , SC.generate(this.Evt_newWritting, data)
             , SC.pause()
             , SC.action(function(re){
-                  const textToSpeak= (data.speech?data.speech:this.jfs_shadow.innerText);
+		  const raw=this.jfs_shadow.innerHTML;
+		  const speech_shadow=document.createElement("div");
+		  speech_shadow.innerHTML=raw;
+		  JFS.postTreatmentOfDOM(speech_shadow);
+		  JFS.speechAlternative(speech_shadow);
+                  const textToSpeak=(data.speech?data.speech:speech_shadow.innerText);
+		  //console.log(textToSpeak);
                   const tmp = SC.tools.speech({ speech: textToSpeak
                                               , cancel_evt: data.kill
                                               , stop_evt: Sns_ended
@@ -1765,7 +1784,7 @@ SC_ClientTools = {
                     , tmp.sc_speech_beh
                       )
                     );
-                  console.log("textToSpeak", textToSpeak);
+                  //console.log("textToSpeak", textToSpeak);
                   this.Sns_ended= tmp.Sns_ended;
                 }.bind(this))
             , (data.nTA)?SC.seq(SC.pause(2), SC.action({t:this, f:"gotoEnd"})):SC.nothing()
