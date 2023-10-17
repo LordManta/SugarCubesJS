@@ -90,15 +90,21 @@ Here is the full code far that simple web page.
 </head>
 <body>
 <script type="text/javascript">
+/* Clock declaration */
 var main=SC.clock();
 main.setStdOut(SC.writeInConsole);
+/* Events declaration */
 var e=SC.evt("e");
+/* Programs declaration */
 var program1=SC.repeat(4, SC.await(e), SC.write("event &e is generated !"));
 var program2=SC.repeat(5, SC.pause(5), SC.generate(e));
 main.addProgram(program1);
 main.addProgram(program2);
+/* Sensor declaration */
 var period=SC.periodic({ delay: 100 });
+/* binding clock to sensor */
 main.bindTo(period);
+/* display management */
 main.enablePrompt(true);
 var output=document.createElement("pre");
 document.body.appendChild(output);
@@ -113,13 +119,19 @@ main.setStdOut(function(msg){
 One word about Reactive Synchronous Programming Model « à la » Boussinot:
 -------------------------------------------------------------------------
 
-F. Boussinot's reactive synchronous programming model derives from reactive synchronous paradigms such as the one of the *Esterel* programming language[Es82, Es84] (G. Berry, G. Gontier, J.-P. Marmorat, J.-P. Rigault). The execution of a whole program is split into small steps which are executed one after the other in sequence. Such a sequence is then called a *logical clock* and peaces of execution are called reactions (and often instants of execution). That way the computation model defines an abstract notion of time. Here an important choice have been made in modeling such systems : synchronous/reactive models have chosen to refer to a discrete notion of time. This is an important difference compared to other reactive paradigms such as the one of function reactive programming[FRP94] (C. Elliott).
+F. Boussinot's reactive synchronous programming model derives from reactive synchronous paradigms such as the one of the *Esterel* programming language[Es82, Es84] (G. Berry, G. Gontier, J.-P. Marmorat, J.-P. Rigault).
 
-In *reactive/synchronous paradigm*, programs and more precisely instructions that define programs, are referring to that abstract notion of logical discrete time. This computational model mandates that reactions *takes virtually no time* to complete and that *physical time* (external to the system) only flow in between reactions (i.e. when no computation actually takes place). On a model point of view, execution of one instant takes no time at all. This enforces strong mathematical properties of the pure reactive/synchronous approach. Computations at one instant are considered as infinitely quick. One of the main implication of that model is that at each instant, the environment of execution of the whole system is fully determined (seems that like taking a snapshot, everything are in perfectly unique and in a stable state). Inputs, outputs and the state of the system itself are determined. One cannot talk about any beginning or duration or end of instant as all go in no time. Wired ?!
+The execution of a whole program is split into a sequence of small steps which are executed one after the other. Such a sequence is then called a *logical clock* and peaces of execution are called reactions. Every steps of execution of the whole reactive system are called instants of execution.
+
+That way the computation model defines an abstract notion of time. An important choice have been made in modeling such systems : synchronous/reactive models have chosen to refer to a discrete notion of time. This is an important difference compared to other reactive paradigms such as the one of functional reactive programming[FRP94] (C. Elliott).
+
+In *reactive/synchronous paradigm*, programs and more precisely instructions that define programs, are referring to that abstract notion of logical discrete time. This computational model mandates that reactions *takes virtually no time* to complete and that *physical time* (external to the system) only flow in between reactions (i.e. when no computation actually takes place). So, on a model point of view, execution of one instant takes no time at all. This enforces strong mathematical properties of the pure reactive/synchronous approach...
+
+One of the main implication of that model is that at each instant, the environment of execution of the whole system is fully determined (seems like that taking a snapshot, everything is unique and in a stable state i.e. a quasi static state like quasi-static process in thermodynamics). Inputs, outputs and the state of the system itself are fully determined. One cannot talk about any beginning or duration or end of instant as all go in no time. Wired ?!
 
 Well let's try to understand why this point can be so interesting even if it is clearly counterintuitive.
 
-In such a model : a reaction of a program can be reduced as just a way to connect entries (informations that come from the external environment of the system) to outputs (informations that are sent back to the environment of the system) and transformation of the own program internal state. Well... Then look, that sounds like automaton!
+In such a model : a reaction of a program can be reduced to just a way to connect entries (informations that come from the external environment of the system) to outputs (informations that are sent back to the environment of the system) and transformation of the own program internal state. Well... Then look, that sounds like automaton!
 To give an intuition of how the *reactive/synchronous model* can relate to automaton, we consider this : we will use FSM as automata to compare to, and more precisely a Mealy Machine[MeaM55].
 A MM is the given of :
  - a finite set of states
