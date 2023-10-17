@@ -43,7 +43,7 @@ One can use that reactive event to build reactive programs :
    and then instantaneously generates the reactive event e.
 */
 const program1=SC.repeat(3, SC.await(e)
-                              , SC.log("event &e is generated !\n"));
+                              , SC.write("event &e is generated !\n"));
 const program2=SC.repeat(3, SC.pause(5)
                               , SC.generate(e));
 /*
@@ -75,7 +75,7 @@ var Sens_mouse_click=SC.sensor("Sens_mouse_click"
 clck.addProgram(
   SC.repeatForever(
     SC.await(Sens_mouse_click)
-  , SC.log('click!')
+  , SC.write('click!')
     )
   );
 clck.bindTo(Sens_mouse_click);

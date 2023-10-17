@@ -19,15 +19,15 @@ So the primary environment for SugarCubesJS is a Web page.
    <script type="text/javascript" src="SugarCubes.js">
    </script>
    ```
-   to your HTML page. One can use the following url to access online version of the library : `http://jeanferdysusini.free.fr/_2024/SugarCubes.js`.
+   to your HTML page. One can use the following url to access online version of the library at : `[http://jeanferdysusini.free.fr/_2024/SugarCubes.js](http://jeanferdysusini.free.fr/_2024/SugarCubes.js)`.
 
 2. then in a script node, one builds a reactive execution environment to execute reactive programs :
    ```javascript
    var main=SC.clock();
    ```
-   In SugarCubesJS this a reactive execution environment is called a clock, because it paces the execution of a reactive system. So, the execution of the reactive system is split into a sequence of logical steps. Steps of execution are called instants. The execution of the reactive system progresses from instant to instant. And so, every times, one refers to instantaneity, it is in regard to that precise notion of instants.
+   In SugarCubesJS, this reactive execution environment is called *a clock*, because it paces the execution of a reactive system. So, the execution of the reactive system is split into **a sequence of logical steps**. Steps of execution are called *instants*. The execution of the reactive system progresses from instant to instant driven by the clock. And so, every times, one refers to instantaneity, it is in regard to that precise notion of instants.
 
-3. declare *SugarCubes* events :
+3. declares reactive events :
    ```javascript
    var e=SC.evt("e");
    ```
@@ -35,14 +35,14 @@ So the primary environment for SugarCubesJS is a Web page.
 
 4. write programs using events previously declared :
    ```javascript
-   var program1=SC.repeatForever(SC.await(e), SC.log("event &e is generated !"));
+   var program1=SC.repeatForever(SC.await(e), SC.write("event &e is generated !"));
    var program2=SC.repeatForever(SC.pause(5), SC.generate(e));
    ```
 
 5. add each program to the execution environment (each program will be added to execute in parallel each with the others) :
    ```javascript
-   machine.addToOwnProgram(program1);
-   machine.addToOwnProgram(program2);
+   main.addProgram(program1);
+   main.addProgram(program2);
    ```
 
 6. cyclically activate the execution environment :

@@ -1868,54 +1868,57 @@ SC_GenerateOneNoVal.prototype = {
     }
   };
 function SC_GenerateOne(evt, val){
-  if(undefined === val){
+  if(undefined===val){
     return new SC_GenerateOneNoVal(evt);
     }
-  this.evt = evt;
-  this.val = val;
-  this.itsParent = null;
+  this.evt=evt;
+  this.val=val;
+  this.itsParent=null;
   };
-SC_GenerateOne.prototype = {
+SC_GenerateOne.prototype={
   constructor: SC_GenerateOne
 , isAnSCProgram: true
 , bindTo: function(engine, parbranch, seq, path, cube, cinst){
-    var binder = _SC._b(cube);
-    var copy = null;
-    if(null === this.evt){
-      this.evt = engine.traceEvt;
+    var binder=_SC._b(cube);
+    var copy=null;
+    if(null===this.evt){
+      this.evt=engine.traceEvt;
       }
-    var tmp_evt = binder(this.evt).bindTo(engine);
-    var tmp_val = binder(this.val);
-    if(undefined === tmp_val){
+    else if(SC_WRITE_ID===this.evt){
+      this.evt=engine.writeEvt;
+      }
+    var tmp_evt=binder(this.evt).bindTo(engine);
+    var tmp_val=binder(this.val);
+    if(undefined===tmp_val){
       return new SC_GenerateOneNoVal(tmp_evt)
               .bindTo(engine, parbranch, seq, path, cube, cinst);
       }
-    copy = new SC_Instruction(SC_Opcodes.GENERATE_ONE);
-    copy.evt = tmp_evt;
-    copy.val = tmp_val;
+    copy=new SC_Instruction(SC_Opcodes.GENERATE_ONE);
+    copy.evt=tmp_evt;
+    copy.val=tmp_val;
     if(copy.val instanceof SC_CubeExposedState){
-      copy.val = cinst;
-      copy.oc = SC_Opcodes.GENERATE_ONE_EXPOSE;
+      copy.val=cinst;
+      copy.oc=SC_Opcodes.GENERATE_ONE_EXPOSE;
       }
-    else if("function" == typeof(copy.val)){
+    else if("function"==typeof(copy.val)){
       copy.oc = SC_Opcodes.GENERATE_ONE_FUN;
       }
     else if(copy.val instanceof SC_Instruction
-            && copy.val.oc == SC_Opcodes.CELL){
-      copy.oc = SC_Opcodes.GENERATE_ONE_CELL;
+            && copy.val.oc==SC_Opcodes.CELL){
+      copy.oc=SC_Opcodes.GENERATE_ONE_CELL;
       }
-    copy.itsParent = parbranch;
-    copy._evt = this.evt;
-    copy._val = this.val;
+    copy.itsParent=parbranch;
+    copy._evt=this.evt;
+    copy._val=this.val;
     parbranch.declarePotential();
     return copy;
     }
 , toString: function(){
-    if(null == this.evt){
+    if(null==this.evt){
       return "tarce("+this.val.toString()+");"
       }
     return "generate "+this.evt.toString()
-           +((null != this.val)?"("+this.val.toString()+") ":"");
+           +((null!=this.val)?"("+this.val.toString()+") ":"");
     }
   };
 function SC_Generate(evt, val, times){
@@ -3960,6 +3963,7 @@ SC_ValueWrapper.prototype.getVal = function(){
   return this.tgt[this.n];
   }
 var nextMachineID = 0;
+const SC_WRITE_ID=new SC_EventId("SC_WRITE_ID");
 function SC_ReactiveInterface(){
   };
 SC_ReactiveInterface.prototype = {
@@ -4018,6 +4022,7 @@ function SC_Machine(params){
   this.setStdOut(params.fun_stdout);
   this.setStdErr(params.fun_stderr);
   this.traceEvt=new SC_Event({ name: "traceEvt" });
+  this.writeEvt=new SC_Event({ name: "writeEvt" });
   if(params.init && params.init.isAnSCProgram){
     this.addProgram(params.init);
     }
@@ -4124,6 +4129,7 @@ SC_Machine.prototype = {
     this.parActions = null;
     this.stdOut = NO_FUN;
     this.traceEvt=null;
+    this.writeEvt=null;
     this.environment=null;
     if(this.timer != 0){
       clearInterval(this.timer);
@@ -4431,6 +4437,11 @@ SC_Machine.prototype = {
       }
     for(var will of this.lastWills){
       will(this.reactInterface);
+      }
+    if(this.writeEvt.isPresent(this)){
+      for(var msg of this.writeEvt.getValues(this)){
+        this.stdOut(msg);
+        }
       }
     if(this.traceEvt.isPresent(this)){
       if(this.dumpTraceFun){
@@ -7972,9 +7983,12 @@ var SC={
     }
 , traceEvent: function(msg){
     return new SC_GenerateOne(null, msg);
-    },
-  trace: function(msg){
+    }
+, trace: function(msg){
     return new SC_GenerateOne(null, msg);
+    }
+, write: function(msg){
+    return new SC_GenerateOne(SC_WRITE_ID, msg);
     }
 , log: function(msg){
     return new SC_Log(msg);
