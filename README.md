@@ -19,7 +19,7 @@ So the primary environment for *SugarCubesJS* is a Web page.
    <script type="text/javascript" src="SugarCubes.js">
    </script>
    ```
-   to your HTML page. One can use the following url to access online version of the library at : `[http://jeanferdysusini.free.fr/_2024/SugarCubes.js](http://jeanferdysusini.free.fr/_2024/SugarCubes.js)`.
+   to your HTML page. One can use the following url to access online version of the library at : `http://jeanferdysusini.free.fr/_2024/SugarCubes.js`.
 
 2. In a script node, build a reactive execution environment to execute reactive programs :
    ```javascript
@@ -38,8 +38,8 @@ So the primary environment for *SugarCubesJS* is a Web page.
 
 4. write programs using events previously declared :
    ```javascript
-   var program1=SC.repeatForever(SC.await(e), SC.write("event &e is generated !"));
-   var program2=SC.repeatForever(SC.pause(5), SC.generate(e));
+   var program1=SC.repeat(4, SC.await(e), SC.write("event &e is generated !"));
+   var program2=SC.repeat(5, SC.pause(5), SC.generate(e));
    ```
 
 5. add each program to the execution environment (each program will be added to execute in parallel each with the others) :
@@ -50,7 +50,7 @@ So the primary environment for *SugarCubesJS* is a Web page.
 
 6. build a sensor which is an interface in between classic Javascript execution model and SugarCubes execution model.
    ```javascript
-   var period=SC.periodic({ delay: 1000 });
+   var period=SC.periodic({ delay: 100 });
    ```
    The sensor period will produce a new value about every seconds.
 
@@ -59,25 +59,56 @@ So the primary environment for *SugarCubesJS* is a Web page.
    main.bindTo(period);
    ```
 
-8. The result of such execution goes to the debugging console, so it doesn't provide anything observable to the user in the document page. To redirect output to the content of a *HTML* document, you can for example declare a *HTML* element in your document : for example a `PRE` element :
+8. For a better understanding of what is going on you can activate a prompt indicating each new instant of the reactive execution environment :
+   ```javascript
+   main.enablePrompt(true);
+   ```
+
+9. The result of such execution goes to the debugging console, so it doesn't provide anything observable to the user in the document page. To redirect output to the content of a *HTML* document, you can for example declare a *HTML* element in your document : for example a `PRE` element :
    ```javascript
    var output=document.createElement("pre");
    document.body.appendChild(output);
    ```
    Then set a closure to capture and redirect standard *SugarCubesJS* output :
    ```javascript
-   machine.setStdOut(function(msg){
+   main.setStdOut(function(msg){
      output.innerText += msg;
      });
    ```
 
-9. For a better understanding of what is going on you can activate a prompt indicating each new instant of the reactive execution environment :
-   ```javascript
-   machine.enablePrompt(true);
-   ```
+Full code
+---------
+Here is the full code far that simple web page.
 
-   In SugarCubesJS, this reactive execution environment is called *a clock*, because it paces the execution of a reactive system. So, the execution of the reactive system is split into **a sequence of logical steps**. Steps of execution are called *instants*. The execution of the reactive system progresses from instant to instant driven by the clock. And so, every times, one refers to instantaneity, it is in regard to that precise notion of instants.
-Look at the source of `SC_Demo0.html` *HTML* file to see the big picture of this very first example.
+```HTML
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>QuickStrat</title>
+<script type="text/javascript" src="SugarCubes.js"></script>
+</head>
+<body>
+<script type="text/javascript">
+var main=SC.clock();
+main.setStdOut(SC.writeInConsole);
+var e=SC.evt("e");
+var program1=SC.repeat(4, SC.await(e), SC.write("event &e is generated !"));
+var program2=SC.repeat(5, SC.pause(5), SC.generate(e));
+main.addProgram(program1);
+main.addProgram(program2);
+var period=SC.periodic({ delay: 100 });
+main.bindTo(period);
+main.enablePrompt(true);
+var output=document.createElement("pre");
+document.body.appendChild(output);
+main.setStdOut(function(msg){
+  output.innerText+=msg;
+  });
+</script>
+</body>
+</html>
+```
 
 One word about Reactive Synchronous Programming Model « à la » Boussinot:
 -------------------------------------------------------------------------
