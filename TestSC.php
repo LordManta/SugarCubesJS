@@ -88,27 +88,21 @@ catch(e){
   window.location.search='?n=1';
   }
 function writeInConsole(msg){
-  testPanel.value += msg;
+  testPanel.value+=msg;
   }
-SC.log = function(){return SC.nothing()};
-
-SC.write = function(msg){
-  return SC.trace(
-/*     function(){
-      testPanel.value += msg;
-      }*/
-    msg
-    );
+SC.log=function(){return SC.nothing()};
+SC.write=function(msg){
+  return SC.trace(msg);
   }
-SC.dump = function(msg){
+SC.dump=function(msg){
   return SC.action(
      function(m){
-      testPanel.value += m.msg;
+      testPanel.value+=m.msg;
       }
     );
   }
 
-var m = SC.reactiveMachine({
+var m=SC.clock({
   dumpTraceFun: function(msgs){
     for(var i in msgs){
       testPanel.value += msgs[i];
@@ -116,23 +110,22 @@ var m = SC.reactiveMachine({
     }
   });
 m.enablePrompt(true);
-
-var e = SC.evt("e");
-var f = SC.evt("f");
-var g = SC.evt("g");
-var e1 = SC.evt("e1");
-var e2 = SC.evt("e2");
-var e3 = SC.evt("e3");
-var e4 = SC.evt("e4");
-var sens1 = SC.sensor("sens1");
-var called1 = function(v){};
-var fun1 = function(v){ return called1(v); };
-
-var sens2 = SC.sensor("sens2");
-var called2 = function(v){};
-var fun2 = function(v){ return called2(v); };
-
 m.setStdOut(writeInConsole);
+
+var e=SC.evt("e");
+var f=SC.evt("f");
+var g=SC.evt("g");
+var e1=SC.evt("e1");
+var e2=SC.evt("e2");
+var e3=SC.evt("e3");
+var e4=SC.evt("e4");
+var sens1=SC.sampled("sens1");
+var called1=function(v){};
+var fun1=function(v){ return called1(v); };
+var sens2=SC.sampled("sens2");
+var called2=function(v){};
+var fun2=function(v){ return called2(v); };
+
 <?php
   echo "testBehavior =";
   if(isset($_GET['n'])
@@ -150,28 +143,27 @@ m.setStdOut(writeInConsole);
       }
 ?>
 
-if("function" == typeof(testBehavior.init)){
+if("function"==typeof(testBehavior.init)){
   testBehavior.init();
   }
-
-var maxInstants = (undefined == testBehavior.maxI)?10:testBehavior.maxI;
-
-var test_prg = testBehavior.prg;
-if("string" == typeof(test_prg)){
+var maxInstants=(undefined==testBehavior.maxI)?10:testBehavior.maxI;
+var test_prg=testBehavior.prg;
+if("string"==typeof(test_prg)){
   test_prg = eval(test_prg);
   }
-source.innerHTML = testBehavior.prg;
+source.innerHTML=testBehavior.prg;
 if(testBehavior.persist){
-  m.addToOwnProgram(SC.pause(maxInstants));
+  console.log("persist");
+  m.addProgram(SC.pause(maxInstants));
   }
-m.addToOwnProgram(test_prg);
+m.addProgram(test_prg);
 
-for(var i = 0 ; i < maxInstants; i++){
-  if(undefined !== testBehavior.async){
-    testBehavior.async();
-    }
-  m.newValue();
+if("function"==typeof(testBehavior.async)){
+  testBehavior.async=testBehavior.async.bind(testBehavior);
   }
+const power=SC.processor({ n: maxInstants , async: testBehavior.async });
+m.bindTo(power);
+power.run();
 
 if(testPanel.value == testBehavior.expected){
   testNum++;

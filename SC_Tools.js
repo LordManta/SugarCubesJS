@@ -4,22 +4,18 @@
  * Created : 20/12/2014 18:46
  * Part of the SugarCubes Project
  * version : 5.0 alpha
- * implantation : 0.5
+ * implantation : 0.6
  * Copyleft 2014-2023.
  */
-
 SC.tools = (function(){
-  /************************
-   * Zone de control
-   ************************/
   function Zone(conf){
     if(undefined != conf.zoneID){
       this.num = conf.zoneID;
     }
     this.x = 0;
     this.y = 0;
-    this.r = 0; // rayon du cercle tactile
-    this.img_zoom = conf.img_zoom; // image associée
+    this.r = 0; 
+    this.img_zoom = conf.img_zoom; 
     this.hidden = false;
     this.zoneVisible = conf.zoneVisible;
     this.bgcolor = conf.bg_color;
@@ -68,9 +64,6 @@ SC.tools = (function(){
     }
   Zone.prototype.filterStart= function(touch){
     var z = workspace.style.zoom;
-    //var rx = this.x - touch.cx/z+workspace.offsetLeft;
-    //var ry = this.y - touch.cy/z+workspace.offsetTop;
-    //var r = Math.sqrt(rx*rx + ry*ry);
     if(this.inside(touch.cx, touch.cy)){
       this.id = touch.id;
       this.touched = true;
@@ -104,14 +97,10 @@ SC.tools = (function(){
     var theCtx = ctx.save();
     ctx.translate(this.x, this.y);
     if(this.zoneVisible){
-      //ctx.strokeStyle = (this.touched)?"red":"black";
-      //ctx.translate(this.x, this.y);
       ctx.fillStyle = this.bgcolor;
       ctx.beginPath();
       ctx.arc(0,0,this.r, 0,2*Math.PI, false);
       ctx.fill();    
-      //ctx.arc(this.x,this.y,this.r, 0,2*Math.PI, false);
-      //ctx.stroke();    
       ctx.closePath();
     }
     if(undefined != this.img){
@@ -167,10 +156,6 @@ SC.tools = (function(){
       this.updateZonePos(0);
       }
     }
-
-  /*
-   * Gestion du cache local
-   */
   var css_properties = [
     "width"
     , "minWidth"
@@ -215,7 +200,7 @@ SC.tools = (function(){
   var WebAppcache = window.applicationCache;
   var manifest = document.documentElement.manifest;
   function activateElement(tmp){
-    tmp.beh =  SC.cube(tmp, SC.nothing());
+    tmp.beh = SC.cube(tmp, SC.nothing());
     tmp.addIn_classListEvt = SC.evt("addIn_classList");
     tmp.removeIn_classListEvt = SC.evt("removeIn_classList");
     SC.cellify(tmp, "classList", function(addEvt, removeEvt, val, evts){
@@ -407,6 +392,15 @@ SC.tools = (function(){
       if(undefined == p){
         p = {};
         }
+      const meths=p.actions;
+      if(meths && typeof(meths)=="object"){
+        for(var met of Object.keys(meths)){
+          if(typeof(meths[met])!="function"){
+            throw new Error("cubify fun "+meths[met]+" not valid");
+            }
+          tmp[met]=meths[met];
+          }
+        }
       if(p.sc_cubeInit){
         p.sc_cubeInit.call(tmp);
         }
@@ -414,10 +408,6 @@ SC.tools = (function(){
       return finishElement.call(this, tmp, p);
       }
     }
-/*
- **** Support audio.
- * On crée un AudioContext commun à tous les players.
- */
 var sharedContext = null;
 var webKitAPI = false;
 if('AudioContext' in window){
@@ -433,25 +423,15 @@ else if('webkitAudioContext' in window){
     }
   }
 else{
-  //alert('Your browser does not support yet Web Audio API');
-  //throw "no Web Audio API";
   console.log("no Web Audio API");
   }
 if(null !== sharedContext){
-  /*
-   * Mic not yet implemented
-   */
   var microPhoneManager = sharedContext.createScriptProcessor(512);
   microPhoneManager.connect(sharedContext.destination);
   microPhoneManager.onaudioprocess = function(evt){
   };
-  /*
-   * jouer des sons grace aux objets AudioChunk
-   */
   function AudioChunk(data){
     if(undefined === sharedContext){
-      //alert('Your browser does not support yet Web Audio API');
-      //throw "no Web Audio API";
       console.log("no Web Audio API");
       return;
       }
@@ -544,7 +524,6 @@ if(null !== sharedContext){
         else{
           this.source.connect(this.audioContext.destination);
           }
-        //console.error("play", this.source);
         if('webkitAudioContext' in window){
           this.source.start(0);
           }
@@ -567,27 +546,22 @@ if(null !== sharedContext){
         }
     }
   }
-/*
- * Bubble view utility funs
- */
-
-bubble_view_setNewText = function(msg){
+bubble_view_setNewText=function(msg){
   function _(data){
-    if('function' == typeof data){
+    if('function'==typeof data){
       return data();
       }
     return data;
     };
-  this.style.maxWidth = (msg.max_w)?msg.max_w:"";
-  this.style.minWidth = (msg.min_w)?msg.min_w:"";
-  //this.frame.onresize = undefined;
+  this.style.maxWidth=(msg.max_w)?msg.max_w:"";
+  this.style.minWidth=(msg.min_w)?msg.min_w:"";
   this.frame.style.transform = "";
   this.frame.style.bottom = "";
   this.frame.style.right = "";
   this.frame.style.left = "";
   this.frame.style.top = "";
   switch(msg.dir){
-    case 0:{ // no dir
+    case 0:{ 
       this.dir = 0;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_0");;
@@ -595,7 +569,7 @@ bubble_view_setNewText = function(msg){
       this.frame.style.top = msg.y;
       break;
       }
-    case 1:{ // top left
+    case 1:{ 
       this.dir = 1;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_1");
@@ -603,7 +577,7 @@ bubble_view_setNewText = function(msg){
       this.frame.style.top = msg.y;
       break;
       }
-    case 2:{ // top middle
+    case 2:{ 
       this.dir = 2;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_2");
@@ -611,7 +585,7 @@ bubble_view_setNewText = function(msg){
       this.frame.style.top = _(msg.y);
       break;
       }
-    case 3:{ // top right
+    case 3:{ 
       this.dir = 3;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_3");
@@ -619,16 +593,15 @@ bubble_view_setNewText = function(msg){
       this.frame.style.top = _(msg.y);
       break;
       }
-    case 4:{ // bottom left
+    case 4:{ 
       this.dir = 4;
-      //console.log("bottom left");
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_4");
       this.frame.style.left = msg.x;
       this.frame.style.bottom = _(msg.y);
       break;
       }
-    case 5:{ // bottom middle
+    case 5:{ 
       this.dir = 5;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_5");
@@ -636,7 +609,7 @@ bubble_view_setNewText = function(msg){
       this.frame.style.bottom = _(msg.y);
       break;
       }
-    case 6:{ // bottom right
+    case 6:{ 
       this.dir = 6;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_6");
@@ -644,7 +617,7 @@ bubble_view_setNewText = function(msg){
       this.frame.style.bottom = _(msg.y);
       break;
       }
-    case 7:{ //left top
+    case 7:{ 
       this.dir = 7;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_7");
@@ -652,22 +625,16 @@ bubble_view_setNewText = function(msg){
       this.frame.style.top = msg.y;
       break;
       }
-    case 8:{ //left middle
+    case 8:{ 
       this.dir = 8;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_8");
-      //this.frame.style.left = msg.x;
       this.frame.style.left = msg.x;
-      //this.frame.style.top = "calc("+msg.y+"-50%)";
       this.frame.style.top = msg.y;
       this.frame.style.transform = 'translate(0, -50%)';
-      //this.onchange = function(y){
-      //  console.log('need reflow ?');
-      //  this.frame.style.top = "clac("+msg.y+"-50%)";
-      //  }.bind(this, msg.y);
       break;
       }
-    case 9:{ //left right
+    case 9:{ 
       this.dir = 9;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_9");
@@ -675,7 +642,7 @@ bubble_view_setNewText = function(msg){
       this.frame.style.bottom = msg.y;
       break;
       }
-    case 10:{ //right top
+    case 10:{ 
       this.dir = 10;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_10");
@@ -683,7 +650,7 @@ bubble_view_setNewText = function(msg){
       this.frame.style.top = _(msg.y);
       break;
       }
-    case 11:{ //right middle
+    case 11:{ 
       this.dir = 11;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_11");
@@ -692,7 +659,7 @@ bubble_view_setNewText = function(msg){
       this.frame.style.transform = 'translate(0, -50%)';
       break;
       }
-    case 12:{ //right bottom
+    case 12:{ 
       this.dir = 12;
       this.classList.remove(this.classList[0]);
       this.classList.add("JFSCSS_text_bubble_12");
@@ -709,11 +676,6 @@ bubble_view_setNewText = function(msg){
     }
   this.frame.style.position = ("fixed" == msg.mode)?"fixed":"absolute";
   };
-
-/*
- *
- */
-
 SC_ClientTools = {
     makeDiv: makeElement("div")
   , makeP: makeElement("p")
@@ -757,12 +719,6 @@ SC_ClientTools = {
   , addProgram : function(p){
       throw "Not well initialized !";
       }
-/*  , systemEvent : function(evt, val){
-      if(null === this.m){
-        throw "Not well initialized !";
-        }
-      this.m.systemEvent.apply(this.m, arguments);
-      }*/
   , appStartedEvt : SC.evt("appStarted")
   , appInited : false
   , init : function(m){
@@ -777,12 +733,7 @@ SC_ClientTools = {
         this.addProgram = function(p){
           this.programsToAdd.add(p);
           };
-        //this.systemEvent = function(evt, val){
-        //  return this.m.systemEvent.apply(this.m, arguments);
-        //  };
-        //console.log("ready to load");
         window.addEventListener("load", function(){
-            //console.log("loading");
             this.m.addToOwnProgram(SC.seq(
                     (this.appInited)?SC.await(this.appStartedEvt):SC.nothing()
                   , SC.action(function(){
@@ -810,7 +761,6 @@ SC_ClientTools = {
         this.m.addToOwnEntry.apply(this.m, arguments);
         }
       this.setRunningDelay = function(d){
-        //this.m.setRunningDelay.apply(this.m, arguments);
         }
       }
   , loadData : function(url, resEvt, engine){
@@ -1015,14 +965,12 @@ SC_ClientTools = {
             );
         return res;
       }
-      
       this.m.addToOwnProgram(trackEvent(SC_evt_mouse_down));
       this.m.addToOwnProgram(trackEvent(SC_evt_mouse_move));
       this.m.addToOwnProgram(trackEvent(SC_evt_mouse_up));
       this.m.addToOwnProgram(trackEvent(SC_evt_touch_start));
       this.m.addToOwnProgram(trackEvent(SC_evt_touch_move));
       this.m.addToOwnProgram(trackEvent(SC_evt_touch_end));
-      
       this.m.addToOwnProgram(
           SC.repeat(SC.forever
             , SC.act(function(m){
@@ -1063,9 +1011,6 @@ SC_ClientTools = {
                 )
             )
         );
-      /*
-       * on ajoute une instruction utilitaire
-       */
       SC.write = function(msg){
         return SC.act(function(){
                    SC.writeInConsole(msg);
@@ -1189,7 +1134,6 @@ SC_ClientTools = {
                   );
           }
         }
-      //var m = SC.machine(config.tickTime, config.machineConfig);
       let config_m = (config.machineConfig)?config.machineConfig:{delay:config.tickTime};
       if(! config_m.delay){
         config_m.delay = 30;
@@ -1254,8 +1198,7 @@ SC_ClientTools = {
             this.splashScreen.children[0].children[2].style.display="";
             this.m.addToOwnProgram(
                 SC.seq(
-                  /*SC.log("awaiting evt")
-                  , */SC.await(this.splashScreen.SCSS_allLoaded)
+SC.await(this.splashScreen.SCSS_allLoaded)
                   , SC.action(function(m){
                       this.splashScreen.parentElement.removeChild(
                                                             this.splashScreen);
@@ -1269,22 +1212,19 @@ SC_ClientTools = {
         this.m.addToOwnProgram(
           SC.seq(
             SC.await(this.splashScreen.clickStartEvt)
-            //, SC.log("start clicked")
             , SC.action(function(m){
                 this.audioToolbox.loadAll();
                 this.splashScreen.btn.innerHTML="Loading..."
                 }.bind(this)
                 )
-            //, SC.log("button reaction")
             , tmp_par
-            //, SC.log("tmp par done")
             , SC.generate(this.splashScreen.SCSS_allLoaded)
             )
           );
         }
         else{
           this.m.addToOwnProgram(
-            SC.seq(SC.pause(10),SC.generate((this.appStartedEvt)/*,SC.log("appstarted")*/))
+            SC.seq(SC.pause(10),SC.generate((this.appStartedEvt)))
             );
           }
         if(true == config.inspectorEnabled){
@@ -1299,7 +1239,6 @@ SC_ClientTools = {
       if(undefined == this.splashScreen){
         console.log("No splash Screen defined.");
         return;
-
         }
       document.body.appendChild(this.splashScreen);
       }
@@ -1366,14 +1305,13 @@ SC_ClientTools = {
           res.a.addEventListener("loadeddata", function(m, evt){
             this.loadedEvt.newValue();
             }.bind(res, SC_ClientTools.m));
-          
           res.a.addEventListener("ended", function(m, evt){
             this.endedEvt.newValue();
             this.rt_count = this.rt;
             this.playing=false;
             }.bind(res, SC_ClientTools.m));
           this.waittingLoad.add(SC.await(res.loadedEvt));
-          res.src = url;//+this.extension;
+          res.src = url;
           res.a.needToLoad = true;
           res.play=function(){
             if(res.rt<0){
@@ -1394,9 +1332,6 @@ SC_ClientTools = {
             throw "initialize tools first";
             }
           var dummy = new Audio();
-          /*
-           * détermine un format audio supporté
-           */
           for(var i in this.audioFormats){
             switch(dummy.canPlayType(this.audioFormats[i])){
               case "probably":{
@@ -1443,7 +1378,6 @@ SC_ClientTools = {
               else{
                 var audio = this.sFXs[n].a;
                 if(audio.needToLoad){
-                  /* Pour capturer le load dans une interaction */
                   audio.src = this.sFXs[n].src;
                   audio.load();
                   audio.needToLoad = false;
@@ -1529,17 +1463,6 @@ SC_ClientTools = {
             }.bind(this)
         );
       }
-    /**
-      * Liste des paramètres :
-      * { start_evt:null, end_evt:null , r_delay:0 , rm :null , speech:"" , repeat:1 }
-      * - start_evt : événement SC de début du talk
-      * - end_evt : événement SC de fin du talk
-      * - r_delay : délais d'attente de réaction de la machine reactive à la
-      *             fin du talk sur l'événement de fin du talk
-      * - rm : machine réactive gérant le comportement du talk
-      * - speech : texte du talk
-      * - repeat : nombre de répétition du talk (SC.forever : répétition infinie)
-      */
   , speech: function(params){
       params.get=function(field, d){
         return (this[field])?this[field]:d;
@@ -1556,7 +1479,6 @@ SC_ClientTools = {
         , SC.par(
             SC.seq(
               SC.await(speeckable.Evt_startSpeak)
-	    //, SC.log("Start speaking")
             , SC.action(
                 window.speechSynthesis.speak.bind(window.speechSynthesis
                                                 , speeckable))
@@ -1564,7 +1486,6 @@ SC_ClientTools = {
               )
           , SC.seq(
               SC.await(speeckable.Evt_cancel)
-	    //, SC.log("Cancel speaking")
             , SC.action(
                 window.speechSynthesis.cancel.bind(window.speechSynthesis))
               )
@@ -1578,30 +1499,21 @@ SC_ClientTools = {
            function(status){
              if(SC.tools.notificationGranted = ("granted" === status)){
                SC.tools.makeNotification = function(params){
-                 var n = new Notification(params.title, params.p); // this also shows the notification
+                 var n = new Notification(params.title, params.p); 
                  }
                }
              });
-                 //var n = new Notification("Bonjour,", {body: "Merci d'avoir autorisé les notification pour ce site. Cette focntionnalité vous permettra d'être informé rapidement des modifications et des nouveautés qui seront publiées au fur et à mesure."});
       }
-   /**
-      * Liste des paramètres :
-      * { prt:null }
-      * - prt : élément DOM parent de la bubbleView.
-      */
-  , initSpeakingBubble : function(params){
-      /*
-       * Bulle de commentaire.
-       */
+  , initSpeakingBubble: function(params){
       const Evt_newWritting = SC.evt("Evt_newWritting");
-      const Evt_talkEnded = SC.evt("Evt_talkEnded");
-      const Evt_bubbleFinish = SC.evt("Evt_bubbleFinish");
-      const Sns_talkOK = SC.sensor("Sns_talkOK");
-      const Evt_writeFinished = SC.evt("Evt_writeFinished");
+      const Evt_talkEnded=SC.evt("Evt_talkEnded");
+      const Evt_bubbleFinish=SC.evt("Evt_bubbleFinish");
+      const Sns_talkOK=SC.sensor("Sns_talkOK");
+      const Evt_shadowReady = SC.evt("Evt_shadowReady");
       const getPauseAfterEnd = "getPauseAfterEnd";
       const hasToWaitClick = "hasToWaitClick";
       const textRemains = "textRemains";
-      const RESET = "reset";
+      const RESET="reset";
       const setNewText = "setNewText";
       const progressiveText = "progressiveText";
       const displayNextBtn = "displayNextBtn";
@@ -1612,57 +1524,52 @@ SC_ClientTools = {
         , beh: SC.par(
             SC.seq(
               SC.await(Evt_newWritting)
+            , SC.action("setNewText")
             , SC.pause()
-            , SC.repeat(SC.forever
-              , SC.kill(Evt_newWritting
+            , SC.resetOn(Evt_newWritting
+              , SC.par(
+                  SC.seq(
+                    SC.await(Evt_newWritting)
+                  , SC.action("setNewText")
+                  , SC.generate(Evt_bubbleFinish)
+                  , SC.pause()
+                    )
                 , SC.seq(
                     SC.par(
-                      SC.await(Evt_talkEnded)
-                    , SC.kill(params.killAnim?params.killAnim
-                                             :SC.evt("Evt_killAnim")
+                      SC.kill(params.killAnim?params.killAnim
+                                           :SC.evt("Evt_killAnim")
                       , SC.seq(
-                          SC.nop("starting new anim")
+                          SC.await(Evt_shadowReady)
+                        , SC.pause(2)
                         , SC.repeatIf(SC.my(textRemains)
                           , SC.action(SC.my(progressiveText))
                           , SC.pause()
                             )
-                        , SC.generate(Evt_writeFinished)
-                        , SC.nop("typewritting finished")
                         , SC.action(SC.my("postTyped"))
+                        , SC.await(Evt_shadowReady)
                         , SC.test(SC.my(hasToWaitClick)
-                          , SC.seq(SC.nop("wait ok")
-                            , SC.action(SC.my(displayNextBtn))
+                          , SC.seq(
+                              SC.action(SC.my(displayNextBtn))
                             , SC.await(Sns_talkOK)
                               )
-                          , SC.seq(SC.nop("no wait")
-                            , SC.pause(SC.my(getPauseAfterEnd))
-                              )
+                          , SC.pause(SC.my(getPauseAfterEnd))
                             )
                           )
-                        , SC.nop("anim killed")
                         )
+                    , SC.await(Evt_talkEnded)
                       )
                   , SC.generate(Evt_bubbleFinish)
-                  , SC.pause(2)
-                  , SC.nop("refulling")
                   , SC.action(SC.my(RESET))
-                  , SC.await(Evt_newWritting)
                     )
-                , SC.action(SC.my(RESET))
                   )
                 )
-              )
-          , SC.actionOn(Evt_newWritting
-            , SC.my(setNewText)
-            , undefined
-            , SC.forever
               )
             )
       });
       bubble_view.jfs_shadow = document.createElement("div");
       bubble_view.jfs_shadow.style.display = "none";
       bubble_view.Evt_newWritting = Evt_newWritting;
-      bubble_view.Sns_talkOK = Sns_talkOK;
+      bubble_view.Sns_talkOK=Sns_talkOK;
       bubble_view.hasToWaitClick = function(){
         return this._wc;
         };
@@ -1670,113 +1577,116 @@ SC_ClientTools = {
       bubble_view.text = "";
       bubble_view.toWriteTxt = "";
       bubble_view.toWriteTxtIdx = 0;
-      bubble_view.displayNextBtn = function(){
+      bubble_view.displayNextBtn=function(){
         const ok = document.createElement("div");
         ok.style.textAlign="right";
-        ok.innerHTML = "<em style='font-size:10px;cursor:pointer'>OK</em>";
-        ok.onclick = this.Sns_talkOK.newValue.bind(this.Sns_talkOK);
+        ok.innerHTML="<em style='font-size:10px;cursor:pointer'>OK</em>";
+        ok.onclick=this.Sns_talkOK.newValue.bind(this.Sns_talkOK);
         this.appendChild(ok);
         };
-      bubble_view.textRemains = function(){
-        return this.toWriteTxtIdx < this.toWriteTxt.length;
+      bubble_view.textRemains=function(){
+        return this.toWriteTxtIdx<this.toWriteTxt.length;
         };
-      bubble_view.updateAppearance = bubble_view_setNewText;
-      bubble_view.getPauseAfterEnd = function(){
+      bubble_view.updateAppearance=bubble_view_setNewText;
+      bubble_view.getPauseAfterEnd=function(){
         return this.pauseAfterEnd;
         };
-      bubble_view.setNewText = function(val, m){
-        const data = m.getValuesOf(this.Evt_newWritting);
+      bubble_view.Evt_shadowReady=Evt_shadowReady;
+      bubble_view.setNewText=function(m){
+        const data=m.getValuesOf(this.Evt_newWritting);
+        this.reset(m);
         if(data){
-          //console.log("setting new text");
           const msg=data[0];
-          this.reset(m);
           this.style.color=(msg.clr)?msg.clr:"black";
-          //const zs=window.getComputedStyle(this,':before')
-          //zs.background=msg.clr;
           this.style.background=(msg.bgclr)?msg.bgclr:"yellow";
           this.hidden=false;
-          this.jfs_shadow.jfs_rawMsg=msg.text;
-          this.jfs_shadow.innerHTML=msg.text;
-          JFS.postTreatmentOfDOM(this.jfs_shadow);
-          this.toWriteTxt=this.jfs_shadow.innerHTML;
+          this.ntAMode=msg.nTA
+          this.jfs_shadow.innerHTML=this.jfs_shadow.jfs_rawMsg=msg.text;
+          setTimeout(function(){
+              JFS.postTreatmentOfDOM(this.jfs_shadow
+                               , function(){
+                                   this.toWriteTxt=this.jfs_shadow.innerHTML;
+                                   if(this.ntAMode){
+                                     this.toWriteTxtIdx=this.toWriteTxt.length;
+                                     }
+                                   SC.tools.generateEvent(this.Evt_shadowReady);
+                                   }.bind(this))
+              }.bind(this));
           this.updateAppearance(msg);
-          this._wc = (msg.waitClick)?msg.waitClick:false;
-          this.pauseAfterEnd = (msg.pauseAfterEnd)? msg.pauseAfterEnd:0;
+          this._wc=(msg.waitClick)?msg.waitClick:false;
+          this.pauseAfterEnd=(msg.pauseAfterEnd)?msg.pauseAfterEnd:0;
           }
         };
-      bubble_view.postTyped = function(m){
-        //console.log("post typing ?");
+      bubble_view.postTyped=function(m){
         this.innerHTML=this.jfs_shadow.jfs_rawMsg;
-        setTimeout(function(){JFS.postTreatmentOfDOM(this)}.bind(this), 100);
+        setTimeout(function(){
+          JFS.postTreatmentOfDOM(this
+                               , function(){
+                                   SC.tools.generateEvent(this.Evt_shadowReady);
+                                   }.bind(this))
+          }.bind(this));
         }
-      bubble_view.reset = function(m){
-        //console.log("resetting at", m.getInstantNumber());
-        if(0 == this.toWriteTxtIdx && ! this.hidden){
+      bubble_view.reset=function(m){
+        if(0==this.toWriteTxtIdx && !this.hidden){
           return;
           }
-        this.toWriteTxtIdx = 0;
-        this.innerHTML = "";
-        this.hidden = true;
+        this.toWriteTxtIdx=0;
+        this.innerHTML="";
+        this.hidden=true;
         };
-      bubble_view.progressiveText = function(){
-        if(this.toWriteTxtIdx > this.toWriteTxt.length){
+      bubble_view.progressiveText=function(){
+        if(this.toWriteTxtIdx>this.toWriteTxt.length){
           return;
           }
-        if("<" == this.toWriteTxt.charAt(this.toWriteTxtIdx)){
-          while(">" != this.toWriteTxt.charAt(this.toWriteTxtIdx) && (this.toWriteTxtIdx < this.toWriteTxt.length)){
+        if("<"==this.toWriteTxt.charAt(this.toWriteTxtIdx)){
+          while(">"!=this.toWriteTxt.charAt(this.toWriteTxtIdx)
+                && (this.toWriteTxtIdx<this.toWriteTxt.length)){
             this.toWriteTxtIdx++;
             }
           }
-        if("&" == this.toWriteTxt.charAt(this.toWriteTxtIdx)){
-          while(";" != this.toWriteTxt.charAt(this.toWriteTxtIdx) && (this.toWriteTxtIdx < this.toWriteTxt.length)){
+        if("&"==this.toWriteTxt.charAt(this.toWriteTxtIdx)){
+          while(";"!=this.toWriteTxt.charAt(this.toWriteTxtIdx)
+                && (this.toWriteTxtIdx<this.toWriteTxt.length)){
             this.toWriteTxtIdx++;
             }
           }
         this.toWriteTxtIdx++;
-        this.innerHTML = this.toWriteTxt.substring(0,this.toWriteTxtIdx);
+        this.innerHTML=this.toWriteTxt.substring(0,this.toWriteTxtIdx);
         };
-      bubble_view.gotoEnd = function(){
-        //console.log("gte");
-        this.toWriteTxtIdx = this.toWriteTxt.length;
-        this.innerHTML = this.toWriteTxtIdx;
-        }
-      /**
-       * Liste des paramètres :
-       * { start_evt:null, end_evt:null, speech:"" }
-       * - start_evt : événement SC de début du talk
-       * - end_evt : événement SC de fin du talk
-       * - speech : texte du talk
-       */
-      bubble_view.display = function(Evt_ka, data){
-        data.pre = (data.icn)?(SC.seq(SC.action(function(icn){
+      bubble_view.display=function(Evt_ka, data){
+        if(data.icn && "function"==typeof(icn)){
+          data.icn=icn();
+          }
+        data.pre=(data.icn)?(SC.seq(SC.action(function(icn){
                                            this.frame.appendChild(icn);
-                                           }.bind(this, data.icn)), SC.purge(data.post)))
+                                           this.jfs_icn=icn;
+                                           }.bind(this, data.icn)), SC.purge(data.pre)))
                              :data.pre;
-        data.post = (data.icn)?(SC.seq(SC.action(function(icn){
-                                           this.frame.removeChild(icn);
-                                           }.bind(this, data.icn)), SC.purge(data.post)))
+        data.post=(data.icn)?(SC.seq(SC.action(function(){
+                                           if(this.jfs_icn){
+                                             this.frame.removeChild(this.jfs_icn);
+                                             this.jfs_icn=undefined;
+                                             }
+                                           }.bind(this)), SC.purge(data.post)))
                              :data.post;
         if(data.talk){
-          //const text = data.speech?data.speech:data.text;
-          //const tmp = SC.tools.speech({ speech: text , cancel_evt: data.kill});
-          //SC.tools.addProgram(tmp.sc_speech_beh);
           const Sns_ended= SC.sensor("Sns_ended");
           SC.tools.addProgram(SC.seq(
               SC.purge(data.pre)
-            //, SC.generate(tmp.Evt_startSpeak)
             , SC.generate(this.Evt_newWritting, data)
             , SC.pause()
-            , SC.action(function(re){
-		  const raw=this.jfs_shadow.innerHTML;
-		  const speech_shadow=document.createElement("div");
-		  speech_shadow.innerHTML=raw;
-		  JFS.postTreatmentOfDOM(speech_shadow);
-		  JFS.speechAlternative(speech_shadow);
-                  const textToSpeak=(data.speech?data.speech:speech_shadow.innerText);
-		  //console.log(textToSpeak);
+            , SC.await(this.Evt_shadowReady)
+            , SC.pause()
+            , SC.action(function(evt, re){
+                  const raw=this.jfs_shadow.innerHTML;
+                  const speech_shadow=document.createElement("div");
+                  speech_shadow.innerHTML=raw;
+                  JFS.speechAlternative(speech_shadow);
+                  const textToSpeak=(data.speech?data.speech
+                                                :speech_shadow.innerText);
                   const tmp = SC.tools.speech({ speech: textToSpeak
                                               , cancel_evt: data.kill
-                                              , stop_evt: Sns_ended
+                                              , stop_evt: evt
                                               });
                   SC.tools.addProgram(
                     SC.seq(
@@ -1784,10 +1694,8 @@ SC_ClientTools = {
                     , tmp.sc_speech_beh
                       )
                     );
-                  //console.log("textToSpeak", textToSpeak);
-                  this.Sns_ended= tmp.Sns_ended;
-                }.bind(this))
-            , (data.nTA)?SC.seq(SC.pause(2), SC.action({t:this, f:"gotoEnd"})):SC.nothing()
+                  this.Sns_ended=tmp.Sns_ended;
+                }.bind(this, Sns_ended))
             , SC.await(SC.or(Sns_ended, Evt_ka))
             , SC.generate(Evt_talkEnded)
             , SC.await(Evt_bubbleFinish)
@@ -1800,8 +1708,7 @@ SC_ClientTools = {
             SC.tools.addProgram(SC.seq(
                 SC.purge(data.pre)
               , SC.generate(this.Evt_newWritting, data)
-              , (data.nTA)?SC.seq(SC.pause(2), SC.nop("force ending"), SC.action({t:this, f:"gotoEnd"})):SC.pause(3)
-              //, SC.action({t:this, f:"postTyped"})
+              , SC.pause()
               , SC.generate(Evt_talkEnded)
               , SC.await(Evt_bubbleFinish)
               , SC.purge(data.post)
@@ -1810,9 +1717,9 @@ SC_ClientTools = {
           }
         return {};
         }.bind(bubble_view, params.killAnim);
-      bubble_view.hidden = true;
+      bubble_view.hidden=true;
       bubble_frame.style.position="absolute";
-      bubble_view.frame = bubble_frame;
+      bubble_view.frame=bubble_frame;
       bubble_frame.style.zIndex="18";
       if(params && params.prt){
         params.prt.appendChild(bubble_frame);
@@ -1822,9 +1729,6 @@ SC_ClientTools = {
       return bubble_view;
       }
   , simpleCommentBubble: function(params){
-      /*
-       * Bulle de commentaire.
-       */
       if(params && params.anim){
         return this.initSpeakingBubble(params);
         }
@@ -1833,7 +1737,7 @@ SC_ClientTools = {
         cl : "JFSCSS_text_bubble_0"
       , inH : ""
       });
-      bubble_view.updateAppearance = bubble_view_setNewText;
+      bubble_view.updateAppearance=bubble_view_setNewText;
       bubble_view.setText = function(msg){
         function _(data){
           if('function' == typeof data){
@@ -1845,26 +1749,14 @@ SC_ClientTools = {
         JFS.postTreatmentOfDOM(this);
         this.updateAppearance(msg);
         };
-      /**
-       * Liste des paramètres :
-       * { start_evt:null, end_evt:null , r_delay:0 , rm :null , speech:"" , repeat:1 }
-       * - start_evt : événement SC de début du talk
-       * - end_evt : événement SC de fin du talk
-       * - r_delay : délais d'attente de réaction de la machine reactive à la
-       *             fin du talk sur l'événement de fin du talk
-       * - rm : machine réactive gérant le comportement du talk
-       * - speech : texte du talk
-       * - repeat : nombre de répétition du talk (SC.forever : répétition infinie)
-       */
       bubble_view.display = function(data){
+        if(data.icn && "function"==typeof(icn)){
+          data.icn=icn();
+          }
         data.pre = (data.icn)?(SC.seq(SC.action(function(icn){
                                            this.frame.appendChild(icn);
                                            }.bind(this, data.icn)), SC.purge(data.post)))
                              :data.pre;
-        /*data.post = (data.icn)?(SC.seq(SC.action(function(icn){
-                                           this.frame.removeChild(icn);
-                                           }.bind(this, data.icn)), SC.purge(data.post)))
-                             :data.post;*/
         if(data.talk){
           const text = data.speech?data.speech:data.text;
           const tmp = SC.tools.speech({ speech: text });
@@ -1919,11 +1811,8 @@ SC_ClientTools = {
       }
   , addStyleSheet : function(name,rules){
       var style = document.styleSheets[0];
-      //style.type = 'text/css';
-      //document.getElementsByTagName('head')[0].appendChild(style);
       style.addRule(name, rules);
       }
-//createClass('.whatever',"background-color: green;");
   , makeDataDrawer : function(){
       const div = document.createElement("div");
       const canvas = document.createElement("canvas")
@@ -1933,13 +1822,13 @@ SC_ClientTools = {
     const crc= new Uint32Array(3);
     crc[0]= 0xFFFFFFFF;
     const n= input.length;
-    for(var i= 0; i<n; i++){// On extrait caractère par caractère
+    for(var i= 0; i<n; i++){
       crc[1]= (bytes[i]&0xFF);
-      for(var j= 0; j < 8; j++){// puis bit à bit
+      for(var j= 0; j < 8; j++){
         crc[2]= ((crc[1]>>j)^crc[0])&0x1;      
         crc[0]>>>= 1;
         if(crc[2]){
-          crc[0]^= 0xEDB88320; //polynom in the exact reverse order
+          crc[0]^= 0xEDB88320; 
           }
         }
       }
@@ -2062,22 +1951,19 @@ SC_ClientTools = {
       v = Math.random();
       }
     let num = Math.sqrt(-2.0*Math.log(u))*Math.cos(2.0*Math.PI*v);
-    num = num/10.0+0.5; // Translate to 0 -> 1
+    num = num/10.0+0.5; 
     if((num > 1) || (num < 0)){
-      num = this.gauss(min, max, skew); // resample between 0 and 1 if out of range
+      num = this.gauss(min, max, skew); 
       }
-    num = Math.pow(num, skew); // Skew
-    num *= max - min; // Stretch to fill range
-    num += min; // offset to min
+    num = Math.pow(num, skew); 
+    num *= max - min; 
+    num += min; 
     return num;
     }
 , gaussi: function(min, max, skew){
     return parseInt(this.gauss(parseInt(min), parseInt(max), skew));
     }
   };
-/**/
-/* DOM Element Inspector */
-/* JFS Inspector */
 SC_ClientTools.initInspector = function(){
   if(undefined == this.m){
     throw "tools not initialized";
@@ -2126,7 +2012,6 @@ SC_ClientTools.initInspector = function(){
       this.style.top = "1px";
       }
     };
-/* ---- */
   this.elementInspector.icobjListener = function(nom, evt){
     return SC.repeat(SC.forever
              , SC.await(evt)
@@ -2240,10 +2125,8 @@ SC_ClientTools.initInspector = function(){
     this.panel_mid = isNaN(mid)?this.panel_mid:mid;
     return i;
     }
-  /* the icobj under inspection */
   this.elementInspector.makeCell("icobjControled", null, [this.elementInspector.setIcobjUnderInspectionEvt
                                                          , this.elementInspector.setIcobjNoMoreInspectionEvt]);
-  /* mise à jour de la position du panel */
   this.elementInspector.makeCell("updatePanel", null, [this.elementInspector.set_xyEvt]);
   this.elementInspector.sc_vis = false;
   this.elementInspector._display = function(val, evts){
@@ -2265,8 +2148,7 @@ SC_ClientTools.initInspector = function(){
            , [this.elementInspector.showEvt, this.elementInspector.hideEvt]
            , "style"
            );
-  /* fonction pour créer des entrées dans l'inspector */
-  function pilot(p/*{tr, title, ctrl_kind, lst, help}*/){
+  function pilot(p){
     if(undefined == p.title){
       throw 'no title provided';
       }
@@ -2322,13 +2204,10 @@ SC_ClientTools.initInspector = function(){
         }.bind(SC_ClientTools.elementInspector);
       }
     SC_ClientTools.elementInspector[p.title] = css_control;
-    //JFS.inspector["v_"+p.title] = tr.children[1];
     tr.title = (undefined == p.help)?"an icobj css control":p.help;
-    //tr.children[2].appendChild(css_control);
     tr.children[1].appendChild(css_control);
     return tr;
     }
-  /* on ajout l'inspecteur dans la page */
   this.elementInspector.innerHTML = "<div style='text-align:center;border-bottom:2px solid white;'>"
          +"<img src='images/png/hideBtn.png' style='float:left;width:16px;'/>Element inspector on <em> </em></div>"
          +"<table>"
@@ -2356,7 +2235,6 @@ SC_ClientTools.initInspector = function(){
     evt.preventDefault();
     });
   this.elementInspector.controlTitle = SC_ClientTools.elementInspector.children[0].children[1];
-  /* une entrée */
   var tr = table.children[0].children[0];
   pilot({tr:tr
        , ctrl_kind:1
@@ -2600,7 +2478,6 @@ SC_ClientTools.initInspector = function(){
     SC.tools.controlPanel.setInspectorBtn();
     }
   }
-/**/
   if((undefined !== WebAppcache)
       &&("" !== manifest)
       ){
@@ -2668,5 +2545,4 @@ SC_ClientTools.initInspector = function(){
     return SC.action( function(){ this.dispatchEvent(new Event("click")); }.bind(clickable));
     }
   return SC_ClientTools;
-
 })();

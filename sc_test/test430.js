@@ -12,11 +12,13 @@ SC.par(
   )
 `
 , init: function(){
-    this.altern = 0;
+    console.log("init");
+    this.altern=0;
     }
 , async: function(){
     this.altern++;
-    if(0 == this.altern%2){
+    if(0==this.altern%2){
+      console.log("trig", sens1);
       sens1.newValue();
       }
     }

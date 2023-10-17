@@ -1,3 +1,11 @@
+/*
+ * SugarCubes.pegjs
+ * Authors : Jean-Ferdy Susini (MNF)
+ * Created : 2/12/2014 9:23 PM
+ * version : 5.0 alpha
+ * implantation : 0.9.8
+ * Copyleft 2014-2023.
+ */
 start= cmt:blank def:define? cmt2:blank prg:script cmt3:blank{
   var tmp =[];
   tmp = [cmt];
@@ -7,13 +15,10 @@ start= cmt:blank def:define? cmt2:blank prg:script cmt3:blank{
   tmp.push(cmt3);
   return SC.lang.module.apply(SC.lang, tmp);
 }
-
 define= content:(DEFINE_START blank (event_def / cube_def)* DEFINE_END) {
-  //console.log('define = ', content);
   return SC.lang.define(content);
   }
 event_def = zeDef:((MAP / NEW (blank RESTRICTED)?) blank (event_ids/sensor_ids) blank (signal_val_defs)? SEMI blank) {
-  //console.log('zeDef = ', zeDef);
   return SC.lang.globalDef(zeDef);
   }
 signal_val_defs= ':' blank '{' blank val_def_entry+ '}' blank
@@ -27,7 +32,6 @@ event_id = $([&][a-z_A-Z0-9]+)
 sensor_ids = id:(sensor_id / system_sensor_id) { return SC.lang.sensorIds(id); }
 system_sensor_id = $([&][#][_][a-z_A-Z0-9]+)
 sensor_id = $([&][#][a-z_A-Z0-9]+)
-
 skipped = skp:(VOID_LINE / comment)
 comment = cmt:$(COMMENT_START ([^\"{] / ('\"'[^}]) / ('{'[^\"]) / [\\n\\r] / comment)* COMMENT_STOP) { return SC.lang.comment(cmt); }
 script= par 
@@ -44,7 +48,6 @@ PAR= skp1:skipped* '||' skp2:skipped* {
   return SC.lang.parOp(SC.lang.skip(skp1), SC.lang.skip(skp2));
   }
 seq= p1:inst p2:((SEQ inst)*){
-  //console.log('in seq parsing', p1, p2);
   if((undefined == p2)||(0 == p2.length)){ return p1; };
   var depil = [];
   for(var i in p2){
@@ -70,11 +73,8 @@ log= 'log' skp:blank msg:$string{
   return SC.lang.log(skp, msg);
   }
 repeat= rep:(REPEAT (blank times)? blank code_block_open blank script blank code_block_close) {
-  //console.log('repeat', rep);
   return SC.lang.repeat(rep);
   }
-
- 
 boolean_exp= b1:boolean_or b2:(( BOOL_AND boolean_or))* {
   console.log("bool exp ", b1, b2);
 }
@@ -82,15 +82,11 @@ BOOL_AND= skp1:skipped* '/\\' skp2:skipped* {
   return SC.lang.BoolAndOp(SC.lang.skip(skp1), SC.lang.skip(skp2));
   }
 boolean_or = TRUE_KEY / FALSE_KEY 
- 
 do_kill= kill:(KILL blank ON blank (event_ids/sensor_ids) blank code_block_open blank script blank code_block_close){
-  //console.log('kill', kill);
   return SC.lang.kill(kill);
   }
 blank=(skp:skipped*{return SC.lang.skip(skp);})
 pause= PAUSE times:( blank (FOREVER / times))?{
-  //console.log('log', skp, SC.lang.skip(skp));
-  //console.log('pause = ', times);
   return SC.lang.pause(times);
   }
 exp_b= exp_or ( blank AND_KEY blank exp_or) *

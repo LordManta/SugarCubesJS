@@ -1,6 +1,6 @@
 /*
  * SugarCubes.js
- * Author : Jean-Ferdy Susini, Olivier Pons & Claude Lion
+ * Authors : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * version : 5.0 alpha
  * implantation : 0.9.9
@@ -112,29 +112,37 @@ const SC_Instruction_state_str=[
   ];
 Object.freeze(SC_Instruction_state_str);
 const SC_Instruction_State={
-  UNDF: 0
-, SUSP: 1
-, WEOI: 2
-, OEOI: 3
-, STOP: 4
-, WAIT: 5
-, STEP: 6
-, HALT: 7
-, TERM: 8
-, toString: function(state){
+  toString: function(state){
     return SC_Instruction_state_str[state]+":"+state;
     }
   };
+for(var st in SC_Instruction_state_str){
+  SC_Instruction_State[SC_Instruction_state_str[st]]=st;
+  }
 Object.freeze(SC_Instruction_State);
-const SC_Global_Manager= {
+const SC_Global_Manager={
   registeredMachines: []
+, attachments: {}
 /*
-Ok les pending ne sont plus autorisés car ils posent différents problèmes sémantique...
+Ok les pending ne sont plus autorisés car ils posent différents problèmes
+d'ordre sémantique... On va à nouveau dissocier machine et sensor.
+  1. un sensor est un flot global unique qui définit une horloge logique.
+  2. chaque sensor à un représentant unique dans une machine réactive
+  3. la valeur du représentant d'un sensor est unique et a une seule valeur à
+     chaque réaction.
 */
-//, pendingSensors: []
-//, pendingReactions: []
-//, pendingEmissions: {}
-, cctx: undefined
+, connect: function(sid, ream){
+    var list=this.attachments[sid];
+    if(undefined==list){
+      list=this.attachments[sid]=[];
+      }
+    list.push(ream);
+    }
+, disconnect: function(sid, ream){
+    var list=this.attachments[sid];
+    var i=list.indexOf(ream);
+    list.splice(i, 1);
+    }
 , addToRegisteredMachines: function(m){
     this.registeredMachines.push(m);
     }
@@ -154,53 +162,17 @@ On parcours les machines pour enregistrer la nouvelle valeur, d'un Sensor...
 C'est pas forcément l'idée du siècle, mais le but est de faciliter
 l'échantillonnage par les machines réactives...
  */
-    const ll = this.registeredMachines.length;
-    for(var m= 0 ; m<ll; m++){
-      const machine= this.registeredMachines[m];
+    const ll=this.registeredMachines.length;
+    for(var m=0 ; m<ll; m++){
+      const machine=this.registeredMachines[m];
       machine.sampleSensor(sensorId, val);
       }
-    }
-/*, registerSensor: function(s, val, ps){
-    if(ps){
-      const reaction_idx= this.pendingReactions.indexOf(ps);
-      if(reaction_idx<0){
-        this.pendingReactions.push(ps);
-        this.pendingEmissions[s]= val;        
+    const reactions=this.attachments[sensorId];
+    if(reactions){
+      for(var m of reactions){
+        m();
         }
       }
-    else{
-      const idx= this.pendingSensors.indexOf(s);
-      if(idx<0){
-        this.pendingSensors.push(s);
-        }
-      this.pendingEmissions[s]= val;
-      }
-    }*/
-, enterReaction: function(m){
-    this.cctx= m;
-    }
-, closeReaction:
-    function(m){
-      this.cctx= false;
-//      var sensor;
-//
-//    if(this.pendingSensors.length > 0){
-//      while(sensor = this.pendingSensors.pop()){
-//        sensor.currentVal = this.pendingEmissions[sensor];
-//        delete(this.pendingEmissions[sensor]);
-//
-//        this.updateSensor(sensor);
-//        }
-//      }
-//    if(this.pendingReactions.length > 0){
-//
-//      var machine;
-//      while(machine = this.pendingReactions.pop()){
-//        setTimeout(machine);
-//        //console.error("***> pending reactions not triggered", machine);
-//        }
-//      }
-//
     }
   };
 Object.freeze(SC_Global_Manager);
@@ -261,16 +233,12 @@ SC_CubeBinding.prototype={
         tgt = tgt.bind(this.cube, this.args);
         }
       else if(undefined!==this.tp){
-        //this.args=this.cube[this.tp];
         tgt = tgt.bind(this.cube, this.cube[this.tp]);
         }
       else{
         tgt = tgt.bind(this.cube);
         }
       }
-    //if(this.name=="initOnShow"){
-    //  console.log("unbind", this.cube, this.name, tgt, this.args);
-    //  }
     return tgt;
     }
 , setArgs: function(a){
@@ -310,7 +278,7 @@ SC_CubeExposedState.prototype = {
 /*
  * Méthodes utilitaires utilisées dans l'implantation des SugarCubes.
  */
-var _SC = {
+var _SC={
 /*
  * Fonction permettant de transformer un paramètre «bindable» en un
  * SC_CubeBinding permettant une résolution tardive.
@@ -443,7 +411,7 @@ var _SC = {
         Object.defineProperty(copy, name,{value: param});
         }
       }
-  }
+  };
 /*
  * Fonction qui étend un cube pour implanter quelques fonctions de base :
  *  - ajout d'un comportemnet en parallèle (les programmes sont émis sur
@@ -453,8 +421,8 @@ var _SC = {
  * Cela n'est utile qu'à l'enregistrement...
  */
 function SC_cubify(params){
-  if(undefined == params){
-    params = {};
+  if(undefined==params){
+    params={};
     }
   Object.defineProperty(this, "SC_cubeAddBehaviorEvt"
                           , {enumerable: false
@@ -600,9 +568,9 @@ function SC_cubify(params){
  * (c'est à dire quand plus personne ne peut l'émettre et que personne ne l'a
  * émis).
  ******************************************************************************/
-const VOID_VALUES= [];
+const VOID_VALUES=[];
 Object.freeze(VOID_VALUES);
-var nextEventID= 0;
+var nextEventID=0;
 function SC_EventId(params){
 /*
  * On définit idéalement un Event par :
@@ -612,22 +580,33 @@ function SC_EventId(params){
  *  - une fonction d'affectation de valeurs dans la structure
  *  - une fonction de récupération de valeurs dans la structure
  */
-  this.makeNew = params.makeNew;
-  this.distribute = params.distribute;
+  this.makeNew=params.makeNew;
+  this.distribute=params.distribute;
 /*
  * Pour chaque identifiant, on aura une structure dédiée de type SC_Event
  * on garde un acces rapide en fonction d'une machine dans un tableau
  * associatif.
  */
-  this.registeredMachines = {};
+  const registeredMachines={};
   Object.defineProperty(this, "internalId"
-         , {value: nextEventID++, writable:false});
+         , { value: nextEventID++, writable: false });
   Object.defineProperty(this, "name"
-         , {value: "&_"+this.internalId+"_"+params.name, writable:false});
+         , { value: "&_"+this.internalId+"_"+params.name, writable: false } );
+/*
+ * On va se lier à une instruction s'exécutant dans une machine spécifique.
+ */
+  Object.defineProperty(this, "bindTo"
+         , { value: (function(registeredMachines, engine, parbranch
+                            , seq, path, cube, cinst){
+    if(!registeredMachines[engine.id]){
+      registeredMachines[engine.id]=engine.getEvent(this);
+      }
+    return registeredMachines[engine.id];
+    }).bind(this, registeredMachines), writable: false } );
   };
-SC_EventId.prototype ={
+SC_EventId.prototype={
   constructor: SC_EventId
-, isSensor:false
+, isSensor: false
 , getId: function(){
     return this.internalId;
     }
@@ -637,42 +616,33 @@ SC_EventId.prototype ={
 , getName: function(){
     return this.name;
     }
-/*
- * On va se lier à une instruction s'exécutant dans une machine spécifique.
- */
-, bindTo: function(engine, parbranch, seq, path, cube, cinst){
-    if(!this.registeredMachines[engine.id]){
-      this.registeredMachines[engine.id] = engine.getEvent(this);
-      }
-    return this.registeredMachines[engine.id];
-    }
   };
 // *** SC_Event
 function SC_Event(id, m){
-  this.lein = -1; // numéro de la l'instant de la dernière émission
-  this.name = id.name; // nom donné à l'événement (sert au debug)
-  this.eventId = id;
+  this.lein=-1; // numéro de la l'instant de la dernière émission
+  this.name=id.name; // nom donné à l'événement (sert au debug)
+  this.eventId=id;
   if(
-    (undefined != id.makeNew)
-    && (undefined != id.distribute)
+    (undefined!=id.makeNew)
+    && (undefined!=id.distribute)
     ){
     return new SC_EventDistributed(id);
     }
   // liste des valeurs associées aux emissions dans un même
   // instant.
-  this.vals = [];
-  this.permanentGenerators = [];
-  this.permanentValuatedGenerator = 0;
-  this.registeredInst = [];  // gestion des instructions intéressées par
-                             // l'événement. file d'attente.
-  this.m = null; // retient la machine d'exécution réactive utilisée par
-                 // l'événement.
+  this.vals=[];
+  this.permanentGenerators=[];
+  this.permanentValuatedGenerator=0;
+  this.registeredInst=[];  // gestion des instructions intéressées par
+                           // l'événement. file d'attente.
+  this.m=null; // retient la machine d'exécution réactive utilisée par
+               // l'événement.
   //this.internalID = nextEventID++;
   };
-SC_Event.prototype = {
+SC_Event.prototype={
   constructor: SC_Event
 , isPresent: function(m){
-    return this.lein == m.instantNumber;
+    return this.lein==m.instantNumber;
     }
 /*
  * Réveil des instructions sur liste d'attente pour l'événement. Si cela ne
@@ -697,28 +667,28 @@ SC_Event.prototype = {
  * des valeurs.
  */
 , generateInput: function(m, val){
-    if(this.lein != m.instantNumber){
-      this.lein = m.instantNumber;
-      this.vals = [];
+    if(this.lein!=m.instantNumber){
+      this.lein=m.instantNumber;
+      this.vals=[];
       this.wakeupAll(m, true);
-      if(undefined != val){
+      if(undefined!=val){
         Object.defineProperty(m.generated_values
              , this.toString()
-             , {get: function(){return this.vals; }.bind(this)});
+             , { get: function(){ return this.vals; }.bind(this) } );
         }
       }
     this.vals.push(val);
     }
 , generate: function(m, flag){
     // flag indique désormais un generate valué.
-    if(this.lein != m.instantNumber){
-      this.lein = m.instantNumber;
-      this.vals = [];
+    if(this.lein!=m.instantNumber){
+      this.lein=m.instantNumber;
+      this.vals=[];
       this.wakeupAll(m, false);
       if(flag){
         Object.defineProperty(m.generated_values
              , this.toString()
-             , {get: function(){return this.vals; }.bind(this)});
+             , { get: function(){ return this.vals; }.bind(this) } );
         }
       }
     }
@@ -726,28 +696,28 @@ SC_Event.prototype = {
     this.vals.push(val);
     }
 , unregister: function(i){
-    var t = this.registeredInst.indexOf(i);
-    if(t > -1){
-      this.registeredInst.splice(t,1);
+    var t=this.registeredInst.indexOf(i);
+    if(-1<t){
+      this.registeredInst.splice(t, 1);
       }
     }
 , registerInst: function(m, inst){
     this.registeredInst.push(inst);
     }
 , getValues: function(m){
-    if(this.lein != m.instantNumber){
-      this.vals = [];
+    if(this.lein!=m.instantNumber){
+      this.vals=[];
       }
     return this.vals;
     }
 , getAllValues: function(m, vals){
-    vals[this.eventId] = (this.lein == m.instantNumber)?this.vals:VOID_VALUES;
+    vals[this.eventId]=(this.lein==m.instantNumber)?this.vals:VOID_VALUES;
     }
 , bindTo: function(engine, parbranch, seq, path, cube, cisnt){
     if(null == this.m){
-      this.m = engine;
+      this.m=engine;
       }
-    else if(this.m !== engine){
+    else if(this.m!==engine){
       throw 'bound event ('+this.name+') problem';
       }
     return this;
@@ -757,45 +727,45 @@ SC_Event.prototype = {
     }
   };
 function SC_EventDistributed(id){
-  this.lein = -1; // numéro de la l'instant de la dernière émission
-  this.name = id.name; // nom donné à l'événement (sert au debug)
-  this.eventId = id;  
-  this.makeNew = id.makeNew;
-  this.distribute = id.distribute;
-  this.vals = this.makeNew();
-  this.permanentGenerators = [];
-  this.permanentValuatedGenerator = 0;
-  this.registeredInst = [];  // gestion des instructions intéressées par
-                             // l'événement. file d'attente.
-  this.m = null; // retient la machine d'exécution réactive utilisée par
-                 // l'événement.
-  this.internalID = nextEventID++;
+  this.lein=-1; // numéro de la l'instant de la dernière émission
+  this.name=id.name; // nom donné à l'événement (sert au debug)
+  this.eventId=id;  
+  this.makeNew=id.makeNew;
+  this.distribute=id.distribute;
+  this.vals=this.makeNew();
+  this.permanentGenerators=[];
+  this.permanentValuatedGenerator=0;
+  this.registeredInst=[];  // gestion des instructions intéressées par
+                           // l'événement. file d'attente.
+  this.m=null; // retient la machine d'exécution réactive utilisée par
+               // l'événement.
+  this.internalID=nextEventID++;
   };
-SC_EventDistributed.prototype = {
+SC_EventDistributed.prototype={
   constructor: SC_EventDistributed
 , generateInput: function(m, val){
-    if(this.lein != m.instantNumber){
-      this.lein = m.instantNumber;
-      this.vals = this.makeNew();
+    if(this.lein!=m.instantNumber){
+      this.lein=m.instantNumber;
+      this.vals=this.makeNew();
       this.wakeupAll(m, true);
-      if(undefined != val){
+      if(undefined!=val){
         Object.defineProperty(m.generated_values
              , this.toString()
-             , {get: function(){return this.vals; }.bind(this)});
+             , { get: function(){ return this.vals; }.bind(this) } );
         }
       }
     this.distribute(this.vals, val);
     }
 , generate: function(m, flag){
     // flag indique désormais un generate valué.
-    if(this.lein != m.instantNumber){
-      this.lein = m.instantNumber;
-      this.vals = this.makeNew();
+    if(this.lein!=m.instantNumber){
+      this.lein=m.instantNumber;
+      this.vals=this.makeNew();
       this.wakeupAll(m, false);
       if(flag){
         Object.defineProperty(m.generated_values
              , this.toString()
-             , {get: function(){return this.vals; }.bind(this)});
+             , { get: function(){return this.vals; }.bind(this) } );
         }
       }
     }
@@ -803,8 +773,8 @@ SC_EventDistributed.prototype = {
     this.distribute(this.vals, val);
     }
 , getValues: function(m){
-    if(this.lein != m.instantNumber){
-      this.vals = this.makeNew();
+    if(this.lein!=m.instantNumber){
+      this.vals=this.makeNew();
       }
     return this.vals;
     }
@@ -838,204 +808,91 @@ function SC_SensorId(params){
 Éléments d'identification interne des SensorId...
  */
   Object.defineProperty(this, "internalId"
-         , {value: nextEventID++, writable:false});
+         , { value: nextEventID++, writable: false });
   Object.defineProperty(this, "name"
-         , {value: "#_"+this.internalId+"_"+params.name, writable:false});
+         , { value: "#_"+this.internalId+"_"+params.name, writable: false });
   //this.currentVal = null;
+/*
+ * On va se lier à une instruction s'exécutant dans une machine spécifique.
+ */
+    Object.defineProperty(this, "bindTo"
+           , { value: function(engine, parbranch, seq, path, cube, cinst){
+/*
+ * On récupère le sensor associé à cet ID.
+ */
+      const sens=engine.getSensor(this);
+      return sens;
+      }, writable: false } );
+  if(params.isPower){
+    if((!isNaN(params.n) || !isNaN(params.delay))){
+      this.n=params.n;
+      this.delay=params.delay;
+      this.async=(params.async)?params.async:NO_FUN;
+      if(!isNaN(params.delay)){
+        if(params.delay>0){
+          const handle=setInterval(function(){
+            SC_Global_Manager.updateSensor(this);
+            }.bind(this), params.delay);
+          Object.defineProperty(this, "stop"
+                 , { value: function(h){
+                       clearInterval(h);
+                       }.bind(this, handle), writable: false } );
+          }
+        else{
+          throw new Error("invalid delay");
+          }
+        }
+      else{
+        Object.defineProperty(this, "run"
+               , { value: function(){
+                     for(var i=0; i<this.n; i++){
+                       this.async();
+                       SC_Global_Manager.updateSensor(this, i);
+                       }
+               }, writable: false } );
+        }
+      }
+    else{
+      const b={};
+      const animDetector=function(b, ts){
+        SC_Global_Manager.updateSensor(this, ts);
+        window.requestAnimationFrame(b.ad);
+        }.bind(this, b);
+      b.ad=animDetector;
+      window.requestAnimationFrame(animDetector);
+      }
+    }
+  else{
 /*
 Gestion des liens aux événement du DOM.
 On va modifier cette gestion pour la rendre obligatoire car les Sensor sont la
 transcription réactive des événements du DOM => plus de fonction newValue()...
  */
-  //console.log("registering "+this.name, this.dom_targets);
-  Object.defineProperty(this, "dom_evt_listener"
-         , {value: function(evt){
-            this.newValue(evt);
-            }.bind(this), writable:false});
-  this.dom_targets = params.dom_targets;
-/*
- * Le sensor possède ou non une machine propre ...
- * le paramètre owned indique si ou ou non il faut construire cette machine
- */
-  if(params.owned){
-    this.setOwn(params);
-    }
-  else{
-    if(params.dom_targets){
-      for(var t of params.dom_targets){
-        t.target.addEventListener(t.evt, this.dom_evt_listener);
+    this.dom_targets=params.dom_targets;
+    const handler=SC_Global_Manager.updateSensor.bind(SC_Global_Manager, this)
+    Object.defineProperty(this, "release"
+           , { value: function(){
+                 if(this.dom_targets){
+                   for(var t of this.dom_targets){
+                     if(t.evt && "string"==typeof(t.evt)){
+                       t.target.removeEventListener(t.evt, handler);
+                       }
+                     }
+                   }
+           }, writable: false } );
+    if(this.dom_targets){
+      for(var t of this.dom_targets){
+        if(t.evt && "string"==typeof(t.evt)){
+          t.target.addEventListener(t.evt
+             , handler);
+          }
         }
       }
     }
   };
-SC_SensorId.prototype= {
+SC_SensorId.prototype={
   constructor: SC_SensorId
-, isSensor:true
-, setOwn: function(params){
-    if(undefined == params){
-      params = {};
-      }
-    if(undefined == params.name){
-      params.name = this.name;
-      }
-    const ownMachine = new SC_Machine({
-                                   name: params.name
-                                 , init: params.init
-                                 , sensorId: this
-                                 , fun_stdout: params.fun_stdout
-                                 , fun_stderr: params.fun_stderr
-                                 , chkd_prompt: params.chkd_prompt
-                                 , fun_prompt: params.fun_prompt
-                                   });
-/*
- * define the extern machine API
- */
-    // Debug API
-    this.getIPS = ownMachine.getIPS.bind(ownMachine);
-    this.getInstantNumber = ownMachine.getInstantNumber.bind(ownMachine);
-    this.getTopLevelParallelBranchesNumber
-             = ownMachine.getTopLevelParallelBranchesNumber.bind(ownMachine);
-    this.setStdOut = ownMachine.setStdOut.bind(ownMachine);
-    this.enablePrompt = ownMachine.enablePrompt.bind(ownMachine);
-    if("function" == typeof(params.dumpTraceFun)){
-      ownMachine.dumpTraceFun = params.dumpTraceFun;
-      }
-    // User API
-    this.addToOwnEntry = function(evtName, value){
-      if(evtName instanceof SC_EventId){
-        this.addEntry(evtName, value);
-        }
-      else{
-        throw new Error("invalid event Id : "+evtName);
-        }
-      }.bind(ownMachine);
-    this.addToOwnProgram = function(prg){
-      if(prg.isAnSCProgram){
-        this.addProgram(prg);
-        }
-      else{
-        throw new Error("invalid program : "+prg);
-        }
-      }.bind(ownMachine);
-/*
- * Claude : partie intégrée dans le nouveau modèle de externalEvent.
- * Je prends la liberté de renommer raf en sc_raf. Ok ?
- */
-/*
- * Pour Claude : ici j'introduit l'équivalent de ton react multiple
- */
-    const reactMultiple = function(ownMachine, GM){
-      GM.enterReaction(ownMachine);
-      do{
-        ownMachine.react();
-        if(ownMachine.ended){
-          delete(this.getIPS);
-          delete(this.getInstantNumber);
-          delete(this.getTopLevelParallelBranchesNumber);
-          delete(this.setStdOut);
-          delete(this.enablePrompt);
-          delete(this.addToOwnEntry);
-          delete(this.addToOwnProgram);
-          delete(this.newValue);
-          delete(this.setOwn);
-          GM.closeReaction(ownMachine);
-          return true;
-          }
-        }
-      while(ownMachine.toContinue > 0);
-      GM.closeReaction(ownMachine);
-      return false;
-      }.bind(this, ownMachine, SC_Global_Manager);
-    const newValue = function(ownMachine, ream, GM, value){
-      if(GM.cctx){
-        GM.registerSensor(this, value
-           , function(){
-               //this.currentVal = value;
-               GM.updateSensor(this, value);
-               ream();
-               }.bind(this));
-        }
-      else{
-        //this.currentVal = value;
-        GM.updateSensor(this, value);
-        return ream();
-        }
-      return false;
-      }.bind(this, ownMachine, reactMultiple, SC_Global_Manager);
-    if(!isNaN(params.delay) && params.delay > 0){
-      ownMachine.delay = params.delay;
-      ownMachine.timer_handler = function(ownMachine, newValue){
-        const ended = newValue(performance.now());
-        if(ended){
-          clearInterval(ownMachine.timer);
-          }
-        }.bind(this, ownMachine, newValue);
-      ownMachine.timer = setInterval(ownMachine.timer_handler, params.delay);
-      this.setRunningDelay = function(delay){
-        if(isNaN(delay) || delay < 1){
-          return;
-          }
-        this.delay = delay;
-        if(this.timer){
-          clearInterval(this.timer);
-          }
-        this.timer = setInterval(this.timer_handler, delay);
-        }.bind(ownMachine);
-      this.setKeepRunningTo = function(b){
-        if(this.timer != 0){
-          if(b){
-            return;
-            }
-          clearInterval(this.timer);
-          this.timer = 0;
-          }
-        else{
-          if(b){
-            this.timer = setInterval(this.timer_handler, this.delay);
-            }
-          }
-        }.bind(ownMachine);
-      }
-    if(params.sc_RAF){
-      if(undefined == ownMachine.lFunc_raf){
-        ownMachine.raf_registered = true;
-        ownMachine.lFunc_raf = function(ownMachine, newValue){
-          const ended = newValue(performance.now());
-/*
- * S'interroger sur l'enchainement instantané des react vis à vis du sensor
- * émis juste avant (enchainement instantané de react() instantanés). Regarder
- * le lien avec les domaines d'horloge de Louis Mandel...
- * Devrait-on insérer des SC_Global_Manager.updateSensor() dans le reactMultiple?
- */
-          if(!ended && ownMachine.raf_registered){
-            requestAnimationFrame(ownMachine.lFunc_raf);
-            }
-          }.bind(this, ownMachine, newValue);
-        requestAnimationFrame(ownMachine.lFunc_raf);
-        }
-      }
-    if(params.dom_targets){
-      ownMachine.lFunc_handlers= [];
-      for(tgt of params.dom_targets){
-        const lFunc_handler = function(ownMachine, tgt, newValue, lFunc_h, evt) {
-          const ended = newValue(evt);
-          if(ended){
-            tgt.target.removeEventListener(tgt.evt, lFunc_h)
-            }
-          }.bind(this, ownMachine, tgt, newValue);
-        const bdh = lFunc_handler.bind(null, lFunc_handler);
-        ownMachine.lFunc_handlers.push({tgt: tgt.target, fun:bdh});
-        tgt.target.addEventListener(tgt.evt, bdh);
-        }
-      }
-    if(!params.no_manual_control){
-      this.newValue = newValue;
-      }
-    else{
-      this.newValue = NO_FUN;
-      }
-    this.setOwn = NO_FUN;
-    }
+, isSensor: true
 , getId: function(){
     return this.internalId;
     }
@@ -1045,57 +902,43 @@ SC_SensorId.prototype= {
 , getName: function(){
     return this.name;
     }
-/*, getValue: function(){
-    return this.currentVal;
-    }*/
-, getIPS: function(){ return 0; }
-, getInstantNumber: function(){ return 0; }
-, getTopLevelParallelBranchesNumber:  function(){ return 0; }
-, postpone: function(delay){
-    setTimeout(this.newValue.bind(this), delay);
-    }
-, enablePrompt: NO_FUN
-, setStdOut: NO_FUN
-, setKeepRunningTo: NO_FUN
-, setRunningDelay: NO_FUN
-, newValue: function(value){
-    if(SC_Global_Manager.cctx){
-      SC_Global_Manager.registerSensor(this, value);
-      }
-    else{
-      //this.currentVal = value;
-      SC_Global_Manager.updateSensor(this, value);
-      }
-    }
-, addToOwnEntry: NO_FUN
-, addToOwnProgram: NO_FUN
-/*
- * On va se lier à une instruction s'exécutant dans une machine spécifique.
- */
-, bindTo: function(engine, parbranch, seq, path, cube, cinst){
-/*
- * On récupère le sensor associé à cet ID.
- */
-    var sens = engine.getSensor(this);
-    return sens;
-    }
+  };
+function SC_SampledId(params){
+  Object.defineProperty(this, "internalId"
+         , { value: nextEventID++, writable: false });
+  Object.defineProperty(this, "name"
+         , { value: "#_"+this.internalId+"_"+params.name, writable: false });
+  Object.defineProperty(this, "bindTo"
+           , { value: function(engine, parbranch, seq, path, cube, cinst){
+                 const sens=engine.getSensor(this);
+                 return sens;
+                 }, writable: false } );
+  Object.defineProperty(this, "newValue"
+           , { value: function(value){
+                 SC_Global_Manager.updateSensor(this, value);
+                 }, writable: false } );
+  };
+SC_SampledId.prototype={
+  constructor: SC_SampledId
+, isSensor: true
+, __proto__: SC_SensorId.prototype
   };
 function SC_Sensor(params){
-  this.lein = -1;
+  this.lein=-1;
 //  if(
 //    (undefined != params.makeNew)
 //    && (undefined != params.distribute)
 //    ){
 //    return new SC_EntryDistributed(params);
 //    }
-  this.sensId = params;
-  //this.name = params.name;
-  this.val = null; 
-  this.sampleVal = null;
-  this.sampled = false;
-  this.registeredInst = [];
+  this.sensId=params;
+  //this.name=params.name;
+  this.val=null; 
+  this.sampleVal=null;
+  this.sampled=false;
+  this.registeredInst=[];
   };
-SC_Sensor.prototype = {
+SC_Sensor.prototype={
   constructor: SC_Sensor
 , isPresent: SC_Event.prototype.isPresent
 , wakeupAll: SC_Event.prototype.wakeupAll
@@ -1111,7 +954,6 @@ SC_Sensor.prototype = {
         }
       this.val = val;
       m.setSensors[this.sensId.name]= [this.val];
-      //console.log("set "+this, m.setSensors[this]);
       }
     }
 , unregister: SC_Event.prototype.unregister
@@ -1423,6 +1265,8 @@ const SC_OpcodesNames = [
   , "RESET_ON_OEOI"
   , "RESET_ON_WEOI"
   , "RESET_ON_WAIT"
+  , "RESET_ON_P_OEOI"
+  , "RESET_ON_P_WAIT"
   , "DUMP_INIT"
   , "DUMP"
   , "DUMP_BACK"
@@ -1468,24 +1312,24 @@ SC_Instruction.prototype={
       case SC_Opcodes.SEQ:{
         return this.path.awake(m, flag, toEOI);
         }
-      case SC_Opcodes.RESET_ON:
       case SC_Opcodes.RESET_ON_WAIT:
-      case SC_Opcodes.RESET_ON_OEOI:
       case SC_Opcodes.RESET_ON_WEOI:{
+        this.oc=SC_Opcodes.RESET_ON;
+        }
+      case SC_Opcodes.RESET_ON:
+      case SC_Opcodes.RESET_ON_BACK:{
         this.path.awake(m, flag, toEOI);
         return true;
         }
       case SC_Opcodes.CUBE:
       case SC_Opcodes.CUBE_BACK:{
-        //console.log("cube awake running");
         this.path.awake(m, flag, toEOI);
         return true;
         }
       case SC_Opcodes.CUBE_STOP:
       case SC_Opcodes.CUBE_WAIT:{
-        //console.log("cube awake waitting");
         this.path.awake(m, flag, toEOI);
-        this.oc = SC_Opcodes.CUBE;
+        this.oc=SC_Opcodes.CUBE;
         return true;
         }
       case SC_Opcodes.KILL_SUSP_REGISTERED:
@@ -1496,7 +1340,7 @@ SC_Instruction.prototype={
       case SC_Opcodes.KILL_WAIT:
       case SC_Opcodes.KILL_WEOI:{
         this.path.awake(m, flag, toEOI);
-        this.oc = SC_Opcodes.KILL_SUSP_REGISTERED;
+        this.oc=SC_Opcodes.KILL_SUSP_REGISTERED;
         return true;
         }
       case SC_Opcodes.CONTROL_REGISTERED_CHECK:
@@ -1584,15 +1428,17 @@ SC_Instruction.prototype={
       case SC_Opcodes.WHEN_REGISTERED:{
         return this.path.awake(m, flag);
         }
+      case SC_Opcodes.RESET_ON_P_WAIT:
       case SC_Opcodes.RESET_ON_WAIT:{
-        this.oc = SC_Opcodes.RESET_ON_OEOI;
-        this.awake(m, flag);
-        return false;
+        if(this.config.isPresent(m)){
+          return this.path.awake(m, flag, true);
+          }
         }
       case SC_Opcodes.RESET_ON:
+      case SC_Opcodes.RESET_ON_BACK:
+      case SC_Opcodes.RESET_ON_P_OEOI:
       case SC_Opcodes.RESET_ON_OEOI:
       case SC_Opcodes.RESET_ON_WEOI:{
-        //this.awake(m, flag);
         return false;
         }
       case SC_Opcodes.CONTROL_REGISTERED_CHECK:
@@ -1656,7 +1502,6 @@ SC_Instruction.prototype={
         }
       case SC_Opcodes.CUBE_HALT:
       case SC_Opcodes.CUBE_WAIT:{
-        //console.log("cube wakeup on waitting", SC_Opcodes.toString(this.oc));
         if(this.c.isPresent(m)){
           return this.path.awake(m, flag, true);
           }
@@ -1664,7 +1509,6 @@ SC_Instruction.prototype={
       case SC_Opcodes.CUBE:
       case SC_Opcodes.CUBE_BACK:
       case SC_Opcodes.CUBE_STOP:{
-        //console.log("cube wakeup on running", SC_Opcodes.toString(this.oc));
         return false;
         }
       case SC_Opcodes.KILL_HALT:
@@ -2068,6 +1912,7 @@ SC_Instruction.prototype={
       case SC_Opcodes.SEQ_ENDED:{
         return "seqend";
         }
+      case SC_Opcodes.SEQ_BACK:
       case SC_Opcodes.SEQ_INIT:
       case SC_Opcodes.SEQ:{
         var res = "[\n"+tab;
@@ -2080,6 +1925,7 @@ SC_Instruction.prototype={
       case SC_Opcodes.HALT:{
         return "pause forever ";
         }
+      case SC_Opcodes.PAUSE_INLINE:
       case SC_Opcodes.PAUSE:{
         return "pause ";
         }
@@ -2155,6 +2001,9 @@ SC_Instruction.prototype={
              + this.evtFun.action.toString()
              + " forever "
              ;
+        }
+      case SC_Opcodes.PAUSE_N_TIMES_INLINE:{
+        return "pause "+this.count+"/"+this.times+" times";
         }
       case SC_Opcodes.CELL:{
         return "compute "+this.sideEffect+" on "+this.state
@@ -2570,7 +2419,6 @@ SC_Generate.prototype = {
     else if(copy.val instanceof SC_Instruction
             && copy.val.oc == SC_Opcodes.CELL){
       copy.oc = SC_Opcodes.GENERATE_CELL_INIT;
-      //console.log(this.constructor+".bindTo(): => generate cell !");
       }
     copy.times = tmp_times;
     copy.itsParent = parbranch;
@@ -3090,7 +2938,6 @@ SC_Next.prototype = {
 , bindTo: function(engine, parbranch, seq, path, cube, cinst){
     const binder = _SC._b(cube);
     const count = binder(this.count);
-    //console.log("count", count, typeof(count));
     const copy = new SC_Instruction(('function' == typeof(count))
                                           ?SC_Opcodes.NEXT_DYN
                                           :SC_Opcodes.NEXT
@@ -4521,32 +4368,18 @@ SC_Cube.prototype = {
                         , { value: copy.exposeReader , writable:false }
                         );
     var tmp_par_dyn;
-    var tmp_beh = /*SC.par(
-           SC.repeatForever(
-             SC.await(
-                   SC.or(this.o.SC_cubeCellifyEvt
-                   , this.o.SC_cubeAddCellEvt))
-           , this.o.$SC_cellMaker
-             )
-         , SC.seq(
-             */tmp_par_dyn = SC.parex(this.o.SC_cubeAddBehaviorEvt
+    var tmp_beh=tmp_par_dyn=SC.parex(this.o.SC_cubeAddBehaviorEvt
              , this.p
-               )
-           /*, SC.generate(Evt_kill)
-           , SC.act(()=>{console.log("gen kill")})
-             )
-           )*/;
-    for(var i = 0 ; i < this.toAdd.length; i++){
+               );
+    for(var i=0; i<this.toAdd.length; i++){
       tmp_par_dyn.add(this.toAdd[i]);
       }
-    copy.path = path;
-    var swap_text = "(function(state, m){";
+    copy.path=path;
+    var swap_text="(function(state, m){";
     if(cells){
       for(var k of cells){
-        //console.log('adding', k.id, 'type', k.type);
         switch(k.type){
           case 'fun':{
-            //console.log('register ', k.id, 'on', copy.exposedState);
             copy.exposedState[k.id] = copy.o[k.id].bind(copy.exposedState);
             break;
             }
@@ -4729,7 +4562,6 @@ SC_ReactiveInterface.prototype = {
 , sensorValueOf: function(sensorID){
     if(sensorID instanceof SC_SensorId){
       let val = this.all[sensorID.name];
-      //console.log("looking for", sensorID.name, "in", this.all, "found", val);
       return val?val[0]:undefined;
       }
     throw new Error("ask for value of non sensor ID");
@@ -4747,8 +4579,8 @@ SC_ReactiveInterface.prototype = {
  *    instant
  */
 function SC_Machine(params){
-  if(undefined == performance){
-    performance = {now:function(){
+  if(undefined==performance){
+    performance={ now: function(){
                  return new Date().getTime();
                  }
                };
@@ -4791,19 +4623,22 @@ function SC_Machine(params){
   this.prg.cube = this;
   this.setStdOut(params.fun_stdout);
   this.setStdErr(params.fun_stderr);
-  this.traceEvt = new SC_Event({name:"traceEvt"});
+  this.traceEvt=new SC_Event({ name: "traceEvt" });
   if(params.init && params.init.isAnSCProgram){
     this.addProgram(params.init);
     }
   this.ips = 0;
   this.reactMeasuring = 0;
-  this.environment = {};
-  this.reactInterface = new SC_ReactiveInterface();
-  this.reactInterface.getIPS = this.getIPS.bind(this);
-  this.reactInterface.getInstantNumber = this.getInstantNumber.bind(this);
+  this.environment={};
+  this.reactInterface=new SC_ReactiveInterface();
+  this.reactInterface.getIPS=this.getIPS.bind(this);
+  this.reactInterface.writeToStdout=function(s){
+    this.pending.push({ e: this.traceEvt, v: s })
+    }.bind(this);
+  this.reactInterface.getInstantNumber=this.getInstantNumber.bind(this);
   this.reactInterface.getTopLevelParallelBranchesNumber
-                      = this.getTopLevelParallelBranchesNumber.bind(this);
-  this.reactInterface.addToOwnEntry = function(evtName, value){
+                      =this.getTopLevelParallelBranchesNumber.bind(this);
+  this.reactInterface.addToOwnEntry=function(evtName, value){
       if(evtName instanceof SC_EventId){
         this.addEntry(evtName, value);
         }
@@ -4811,7 +4646,7 @@ function SC_Machine(params){
         throw new Error("invalid event Id : "+evtName);
         }
       }.bind(this);
-  this.reactInterface.addToOwnProgram = function(prg){
+  this.reactInterface.addToOwnProgram=function(prg){
     if(prg.isAnSCProgram){
       this.addProgram(prg);
       }
@@ -4863,8 +4698,8 @@ SC_Machine.prototype = {
     this.stdErr = ("function" == typeof(stderr))?stderr:NO_FUN;
     }
 , addEntry: function(evtId, val){
-    const evt = this.getEvent(evtId);
-    this.pending.push({e:evt, v:val});
+    const evt=this.getEvent(evtId);
+    this.pending.push({ e: evt, v: val });
     }
 , addProgram: function(p){
     this.pendingPrograms.push(p);
@@ -4900,8 +4735,8 @@ SC_Machine.prototype = {
     this.pendingPrograms = null;
     this.parActions = null;
     this.stdOut = NO_FUN;
-    this.traceEvt = null;
-    this.environment = null;
+    this.traceEvt=null;
+    this.environment=null;
     if(this.timer != 0){
       clearInterval(this.timer);
       this.timer = 0;
@@ -4936,10 +4771,10 @@ SC_Machine.prototype = {
 Modifier la gestion des pending sensors. La gestion des Sensors doit-être
 séparée de la gestion des événements classiques.
 */
-    var sensor = this.getSensor(sensId);
-    sensor.sampleVal = val;
+    var sensor=this.getSensor(sensId);
+    sensor.sampleVal=val;
     if(!sensor.sampled){
-      sensor.sampled = true;
+      sensor.sampled=true;
       this.pendingSensors.push(sensor);
       }
     }
@@ -5031,7 +4866,6 @@ Si on est en burst mode on ne fait pas d'échantillonnage...
       this.toContinue--;
       }
     else{
-      //console.log("sampling sensors");
       this.startReaction = 0;
       //if(0 > this.toContinue){
       //  this.toContinue = 0;
@@ -5041,7 +4875,6 @@ On parcours la liste des sensors...
 */
       for(var sens of this.pendingSensors){
         //let v = this.pendingSensors[nm];
-        //console.log("    sampling", v.s.name, v.v, v.g);
         //if(v.g){
           //v.g = false;
         sens.systemGen(sens.sampleVal, this, true);
@@ -5050,7 +4883,6 @@ On parcours la liste des sensors...
         //  }
         }
       this.pendingSensors = [];
-      //console.log("sampling sensors", this.pendingSensors);
       }
 //    for(var p of this.burstState){
 //      //const p = this.burstState[n];
@@ -5059,7 +4891,6 @@ On parcours la liste des sensors...
 //      sens.systemGen(p.v, this, true);
 //      //}
 //      }
-    //console.log("now on pending events...");
     var tmp = this.pending;
     this.pending = [];
     for(var n in tmp){
@@ -5090,13 +4921,13 @@ On parcours la liste des sensors...
       this.eoi();
       res = SC_Instruction_State.STOP;
       }
-    this.reactInterface.getValuesOf = function(evtID){
+    this.reactInterface.getValuesOf=function(evtID){
       if(evtID instanceof SC_EventId){
         return this.all[evtID.name];
         }
       throw new Error("ask for values of non event ID");
       };
-    this.reactInterface.presenceOf = function(id){
+    this.reactInterface.presenceOf=function(id){
       if(id instanceof SC_EventId){
         return this.getEvent(id).isPresent(this);
         }
@@ -5250,7 +5081,7 @@ On parcours la liste des sensors...
       will(this.reactInterface);
       }
     if(this.traceEvt.isPresent(this)){
-      if(undefined != this.dumpTraceFun){
+      if(this.dumpTraceFun){
         this.dumpTraceFun(this.traceEvt.getValues(this));
         }
       else{
@@ -5272,7 +5103,7 @@ On parcours la liste des sensors...
         this.reactMeasuring = performance.now();
         }
       }
-    this.ended = (res == SC_Instruction_State.TERM);
+    this.ended=(res==SC_Instruction_State.TERM);
     if(this.ended){
       this.collapse();
       SC_Global_Manager.removeFromRegisteredMachines(this);
@@ -5281,6 +5112,14 @@ On parcours la liste des sensors...
     this.reactInterface.presenceOf = NO_FUN;
     this.burstMode = false;
     return !this.ended;
+    }
+, trace(){
+    const args=[];
+    args.push(`machine(${this.instantNumber}): `);
+    for(var i of arguments){
+      args.push(i);
+      }
+    console.log.apply(console, args);
     }
 , activate: function(){
     var st = SC_Instruction_State.SUSP;
@@ -5617,12 +5456,14 @@ ACT:  switch(inst.oc){
           inst.seq = seq;
           }
         case SC_Opcodes.SEQ:{
-          caller = seq = inst;
-          inst.oc = SC_Opcodes.SEQ_BACK;
-          inst = inst.seqElements[inst.idx];
+          caller=seq=inst;
+          //this.trace("seq -> ", inst.idx)
+          inst.oc=SC_Opcodes.SEQ_BACK;
+          inst=inst.seqElements[inst.idx];
           break;
           }
         case SC_Opcodes.SEQ_BACK:{
+          //this.trace("seq BACK ", inst.idx, caller)
           if(SC_Instruction_State.TERM == st){
             if(inst.idx >= inst.max){
               inst.oc = SC_Opcodes.SEQ;
@@ -5740,7 +5581,6 @@ ACT:  switch(inst.oc){
             }
           this.toContinue += Math.max(0, inst.count(this.reactInterface)
                              -(this.instantNumber-this.startReaction));
-          //console.log("to Continue => ", this.toContinue);
           inst = seq.seqElements[++seq.idx];
           break;
           }
@@ -5750,7 +5590,6 @@ ACT:  switch(inst.oc){
             }
           this.toContinue += Math.max(0, inst.count(this.reactInterface)
                              -(this.instantNumber-this.startReaction));
-          //console.log("to Continue => ", this.toContinue);
           st = SC_Instruction_State.TERM;
           inst = caller;
           break;
@@ -6328,21 +6167,22 @@ ACT:  switch(inst.oc){
             inst = seq.seqElements[++seq.idx];
             break;
             }
+          inst.caller=caller;
           inst.config.registerInst(this, inst);
-          inst.oc = SC_Opcodes.AWAIT_REGISTRED_INLINE;
-          st = SC_Instruction_State.WAIT;
-          inst = caller;
+          inst.oc=SC_Opcodes.AWAIT_REGISTRED_INLINE;
+          st=SC_Instruction_State.WAIT;
+          inst=caller;
           break;
           }
         case SC_Opcodes.AWAIT_REGISTRED_INLINE:{
           if(inst.config.isPresent(this)){
-            inst.oc = SC_Opcodes.AWAIT_INLINE;
+            inst.oc=SC_Opcodes.AWAIT_INLINE;
             inst.config.unregister(inst);
-            inst = seq.seqElements[++seq.idx];
+            inst=seq.seqElements[++seq.idx];
             break;
             }
-          st = SC_Instruction_State.WAIT;
-          inst = caller;
+          st=SC_Instruction_State.WAIT;
+          inst=caller;
           break;
           }
         case SC_Opcodes.AWAIT:{
@@ -6432,16 +6272,16 @@ ACT:  switch(inst.oc){
               break;
               }
             case SC_Instruction_State.STOP:{
-              caller = inst.caller;
-              inst.oc = SC_Opcodes.KILL_STOP;
-              st = SC_Instruction_State.WEOI;
-              inst = inst.caller;
+              caller=inst.caller;
+              inst.oc=SC_Opcodes.KILL_STOP;
+              st=SC_Instruction_State.WEOI;
+              inst=inst.caller;
               break;
               }
             case SC_Instruction_State.WAIT:{
               caller = inst.caller;
               inst.oc = SC_Opcodes.KILL_WAIT;
-              st = (inst.c.isPresent(this))?SC_Instruction_State.WEOI
+              st=(inst.c.isPresent(this))?SC_Instruction_State.WEOI
                                            :SC_Instruction_State.WAIT;
               inst = inst.caller;
               break;
@@ -6449,7 +6289,7 @@ ACT:  switch(inst.oc){
             case SC_Instruction_State.HALT:{
               caller = inst.caller;
               inst.oc = SC_Opcodes.KILL_HALT;
-              st = (inst.c.isPresent(this))?SC_Instruction_State.WEOI
+              st=(inst.c.isPresent(this))?SC_Instruction_State.WEOI
                                            :SC_Instruction_State.WAIT;
               inst = inst.caller;
               break;
@@ -6473,70 +6313,88 @@ ACT:  switch(inst.oc){
           break;
           }
         case SC_Opcodes.RESET_ON_INIT:{
-          inst.caller = caller;
+          inst.caller=caller;
           inst.config.registerInst(this, inst);
+          //this.trace(`react reset on INIT`);
           }
         case SC_Opcodes.RESET_ON:{
-          caller = inst;
-          inst.oc = SC_Opcodes.RESET_ON_BACK;
-          inst = inst.prog;
-          break;
-          }
-        case SC_Opcodes.RESET_ON_OEOI:{
-          st = SC_Instruction_State.OEOI;
-          inst = caller;
+          //this.trace("react reset on ON");
+          caller=inst;
+          inst.oc=SC_Opcodes.RESET_ON_BACK;
+          inst=inst.prog;
           break;
           }
         case SC_Opcodes.RESET_ON_BACK:{
+          //this.trace("react reset on BACK", st);
           switch(st){
             case SC_Instruction_State.TERM:{
-              caller = inst.caller;
-              inst.oc = SC_Opcodes.RESET_ON_INIT;
+              caller=inst.caller;
+              inst.oc=SC_Opcodes.RESET_ON_INIT;
               inst.config.unregister(inst);
-              inst = caller;
-              break ACT;
+              inst=caller;
+              break;// ACT ?
               }
             case SC_Instruction_State.SUSP:{
-              caller = inst;
-              inst = inst.prog;
+              caller=inst;
+              inst=inst.prog;
               break;
               }
             case SC_Instruction_State.WEOI:{
-              caller = inst.caller;
-              inst.oc = SC_Opcodes.RESET_ON_WEOI;
-              inst = inst.caller;
+              caller=inst.caller;
+              inst.oc=SC_Opcodes.RESET_ON_WEOI;
+              //this.trace("react reset on WEOI");
+              inst=inst.caller;
               break;
               }
             case SC_Instruction_State.STOP:{
-              caller = inst.caller;
-              st = SC_Instruction_State.OEOI;
-              inst.oc = SC_Opcodes.RESET_ON_OEOI;
-              inst = inst.caller;
+              caller=inst.caller;
+              st=SC_Instruction_State.OEOI;
+              inst.oc=SC_Opcodes.RESET_ON_P_OEOI;
+              inst=inst.caller;
               break;
               }
             case SC_Instruction_State.OEOI:{
-              caller = inst.caller;
-              inst.oc = SC_Opcodes.RESET_ON_OEOI;
-              inst = inst.caller;
+              caller=inst.caller;
+              //this.trace("react reset on OEOI");
+              inst.oc=SC_Opcodes.RESET_ON_OEOI;
+              inst=inst.caller;
               break;
               }
             case SC_Instruction_State.HALT:{
               caller=inst.caller;
-              st=SC_Instruction_State.WAIT;
-              inst.oc=SC_Opcodes.RESET_ON_WAIT;
+              //this.trace("react reset on HALT");
+              //st=SC_Instruction_State.WAIT;
+              inst.oc=SC_Opcodes.RESET_ON_P_WAIT;
+              st=(inst.config.isPresent(this))?SC_Instruction_State.WEOI
+                                           :SC_Instruction_State.WAIT;
               inst=inst.caller;
               break;
               }
             case SC_Instruction_State.WAIT:{
-              caller = inst.caller;
-              inst.oc = SC_Opcodes.RESET_ON_WAIT;
-              inst = inst.caller;
+              caller=inst.caller;
+              //this.trace("react reset on WAIT");
+              st=(inst.config.isPresent(this))?SC_Instruction_State.WEOI
+                                           :SC_Instruction_State.WAIT;
+              inst.oc=SC_Opcodes.RESET_ON_WAIT;
+              inst=inst.caller;
               break;
               }
             default:{
               throw "*** RESET_ON state pb !"
               }
             }
+          break;
+          }
+        case SC_Opcodes.RESET_ON_WEOI:
+        case SC_Opcodes.RESET_ON_WAIT:
+        case SC_Opcodes.RESET_ON_HALT:{
+          st=SC_Instruction_State.WEOI;
+          inst=caller;
+          break;
+          }
+        case SC_Opcodes.RESET_ON_OEOI:{
+          st=SC_Instruction_State.OEOI;
+          inst=caller;
           break;
           }
         case SC_Opcodes.CONTROL_INIT:{
@@ -7054,7 +6912,6 @@ ACT:  switch(inst.oc){
             inst = caller;
             break;
             }
-          //console.log("par dyn ending");
           this.reset(inst);
           st = SC_Instruction_State.TERM;
           inst = inst.caller;
@@ -7221,7 +7078,6 @@ ACT:  switch(inst.oc){
         case SC_Opcodes.MATCH:{
           var val = parseInt((null==inst.v.t)
                                  ?eval(inst.v.f):inst.v.t[inst.v.f]);
-          //console.log("match branch select one", val);
           inst.choice = inst.cases[val];
           if(undefined == inst.choice){
             inst.choice = SC_nothing;
@@ -7236,8 +7092,6 @@ ACT:  switch(inst.oc){
         case SC_Opcodes.MATCH_BACK:{
           inst.oc = SC_Opcodes.MATCH_CHOOSEN;
           if(SC_Instruction_State.TERM == st){
-            //console.log("match branch ended", inst.choice);
-            //debugger;
             this.reset(inst.choice);
             inst.choice = null;
             inst.oc = SC_Opcodes.MATCH;
@@ -7255,24 +7109,14 @@ ACT:  switch(inst.oc){
             }
           inst.killEvt.registerInst(this, inst);
           inst.swap(this);
-          //this.registerForCubeSwap(inst);
           }
         case SC_Opcodes.CUBE:{
-          //inst.doubleCheck = true;
           caller = inst;
-          //console.log("cube run");
           inst.oc = SC_Opcodes.CUBE_BACK;
           inst = inst.p;
           break;
           }
         case SC_Opcodes.CUBE_BACK:{
-          //if(inst.doubleCheck){
-          //  inst.doubleCheck = false;
-          //  }
-          //else{
-          //  console.error("pb");
-          //  }
-          //console.log("cube back", SC_Instruction_State.toString(st));
           switch(st){
             case SC_Instruction_State.TERM:{
               this.lastWills.push(inst.lastWill);
@@ -7314,15 +7158,11 @@ ACT:  switch(inst.oc){
               console.error("stop");
               }
             }
-          //if(inst.oc == SC_Opcodes.CUBE_BACK){
-          //  console.error("pb");
-          //  }
           caller = inst = inst.caller;
           break;
           }
         case SC_Opcodes.CUBE_TERM:{
           inst.oc = SC_Opcodes.CUBE_INIT;
-          //console.log("ending cube");
           st = SC_Instruction_State.TERM;
           caller = inst = inst.caller;
           break;
@@ -7361,7 +7201,6 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.DUMP:{
           inst.oc = SC_Opcodes.DUMP_BACK;
-          //this.stdOut(inst.p.toString());
           console.log("DUMP before prg:", inst.p);
           caller = inst;
           inst = inst.p
@@ -7388,13 +7227,21 @@ ACT:  switch(inst.oc){
       }
     }
 , eoi: function(){
-    var inst = this.prg;
-    var seq = null;
-    var caller = act_exit;
+    var inst=this.prg;
+    var seq=null;
+    var caller=act_exit;
     while(true){
 EOI:  switch(inst.oc){
         case SC_Opcodes._EXIT:{
           return;
+          }
+//        case SC_Opcodes.ACTION_INLINE:{
+//          inst=caller;
+//          break;
+//          }
+        case SC_Opcodes.SEQ_INIT:{
+          caller=inst;
+          break;
           }
         case SC_Opcodes.SEQ:{
           caller = seq = inst;
@@ -7415,27 +7262,27 @@ EOI:  switch(inst.oc){
           inst = caller;
           break;
           }
+        //case SC_Opcodes.RESET_ON:
+        case SC_Opcodes.RESET_ON_WAIT:
         case SC_Opcodes.RESET_ON_OEOI:
         case SC_Opcodes.RESET_ON_WEOI:{
-          inst.oc = SC_Opcodes.RESET_ON_BACK;
-          caller = inst;
-          inst = inst.prog;
+          inst.rstOC=inst.oc;
+          inst.oc=SC_Opcodes.RESET_ON_BACK;
+          caller=inst;
+          inst=inst.prog;
           break;
           }
+        case SC_Opcodes.RESET_ON_P_WAIT:
+        case SC_Opcodes.RESET_ON_P_OEOI:
         case SC_Opcodes.RESET_ON_BACK:{
-          inst.oc = SC_Opcodes.RESET_ON;
+          inst.oc=SC_Opcodes.RESET_ON;
           if(inst.config.isPresent(this)){
             this.reset(inst.prog);
             }
-          inst = caller = inst.caller;
-          break;
-          }
-        case SC_Opcodes.RESET_ON_WAIT:{
-          if(inst.config.isPresent(this)){
-            inst.oc = SC_Opcodes.RESET_ON;
-            this.reset(inst.prog);
+          else if(inst.rstOC===SC_Opcodes.RESET_ON_WAIT){
+            inst.oc=inst.rstOC;
             }
-          inst = caller = inst.caller;
+          inst=caller=inst.caller;
           break;
           }
         case SC_Opcodes.KILL_SUSP_REGISTERED:
@@ -7505,6 +7352,7 @@ EOI:  switch(inst.oc){
           inst = caller;
           break;
           }
+        case SC_Opcodes.HALT:
         case SC_Opcodes.PAUSE_N_TIMES_INLINE:{
           inst = caller;
           break;
@@ -7631,21 +7479,21 @@ EOI:  switch(inst.oc){
       }
     }
 , reset: function(inst){
-    var caller = act_exit;
-    var oldInstOC = null;
+    var caller=act_exit;
+    //var oldInstOC=null;
     while(true){
-RST:  switch(oldInstOC = inst.oc){
+RST:  switch(/*oldInstOC = */inst.oc){
         case SC_Opcodes._EXIT:{
           return;
           }
         case SC_Opcodes.REL_JUMP:
         case SC_Opcodes.REPEAT_FOREVER:{
-          inst = caller;
+          inst=caller;
           break;
           }
         case SC_Opcodes.REPEAT_FOREVER_TO_STOP:{
-          inst.oc = SC_Opcodes.REPEAT_FOREVER;
-          inst = caller;
+          inst.oc=SC_Opcodes.REPEAT_FOREVER;
+          inst=caller;
           break;
           }
         case SC_Opcodes.REPEAT_N_TIMES_INIT:
@@ -7653,36 +7501,36 @@ RST:  switch(oldInstOC = inst.oc){
         case SC_Opcodes.REPEAT_N_TIMES_BUT_FOREVER:
         case SC_Opcodes.REPEAT_N_TIMES_BUT_FOREVER_TO_STOP:
         case SC_Opcodes.REPEAT_N_TIMES_TO_STOP:{
-          inst.oc = SC_Opcodes.REPEAT_N_TIMES_INIT;
-          inst = caller;
+          inst.oc=SC_Opcodes.REPEAT_N_TIMES_INIT;
+          inst=caller;
           break;
           }
         case SC_Opcodes.IF_REPEAT_INIT:{
-          inst = caller;
+          inst=caller;
           break;
           }
         case SC_Opcodes.IF_REPEAT_TO_STOP:
         case SC_Opcodes.IF_REPEAT:{
-          inst.oc = SC_Opcodes.IF_REPEAT_INIT;
-          inst = caller;
+          inst.oc=SC_Opcodes.IF_REPEAT_INIT;
+          inst=caller;
           break;
           }
         case SC_Opcodes.REPEAT_N_TIMES_TO_STOP:{
-          inst.oc = SC_Opcodes.REPEAT_N_TIMES_INIT;
-          inst = caller;
+          inst.oc=SC_Opcodes.REPEAT_N_TIMES_INIT;
+          inst=caller;
           break;
           }
         case SC_Opcodes.ACTION_INLINE:
         case SC_Opcodes.ACTION:{
-          inst = caller;
+          inst=caller;
           break;
           }
         case SC_Opcodes.ACTION_N_TIMES_INLINE_BUT_FOREVER_CONTROLED:
         case SC_Opcodes.ACTION_N_TIMES_INLINE_BUT_FOREVER_HALTED:
         case SC_Opcodes.ACTION_N_TIMES_INIT_INLINE:
         case SC_Opcodes.ACTION_N_TIMES_INLINE:{
-          inst.oc = SC_Opcodes.ACTION_N_TIMES_INIT_INLINE;
-          inst = caller;
+          inst.oc=SC_Opcodes.ACTION_N_TIMES_INIT_INLINE;
+          inst=caller;
           break;
           }
         case SC_Opcodes.ACTION_N_TIMES_INIT:
@@ -7725,28 +7573,24 @@ RST:  switch(oldInstOC = inst.oc){
           break;
           }
         case SC_Opcodes.CUBE_ACTION_FOREVER_HALTED:{
-          inst.oc = SC_Opcodes.CUBE_ACTION_FOREVER;
+          inst.oc=SC_Opcodes.CUBE_ACTION_FOREVER;
           this.removeFromPermanentCube(inst)
           }
+        case SC_Opcodes.SEQ_INIT:
         case SC_Opcodes.TEST:
         case SC_Opcodes.CUBE_ACTION_FOREVER_CONTROLED:
         case SC_Opcodes.CUBE_ACTION_FOREVER:{
-          inst = caller;
+          inst=caller;
           break;
           }
         case SC_Opcodes.SEQ:{
-          inst.resetCaller = caller;
-          caller = inst;
-          inst.oc = SC_Opcodes.SEQ_BACK;
-          //console.log("resetting seq at", inst.idx, inst.seqElements[inst.idx]);
-          inst = inst.seqElements[inst.idx];
-          break;
-          }
-        case SC_Opcodes.SEQ_BACK:{
-          inst.oc = SC_Opcodes.SEQ;
-          inst.idx = 0;
-          //console.log("resetting seq back", inst);
-          inst = caller = inst.resetCaller;
+          inst.oc=SC_Opcodes.SEQ;
+          const len=inst.seqElements.length;
+          for(var i=0; i<len; i++){
+            this.reset(inst.seqElements[i]);
+            }
+          inst.idx=0;
+          inst=caller;
           break;
           }
         case SC_Opcodes.PAUSE_UNTIL_DONE:{
@@ -7964,19 +7808,20 @@ RST:  switch(oldInstOC = inst.oc){
         case SC_Opcodes.RESET_ON_OEOI:
         case SC_Opcodes.RESET_ON_WEOI:
         case SC_Opcodes.RESET_ON_WAIT:{
-          inst.resetCaller = caller;
-          caller = inst;
-          inst.oc = SC_Opcodes.RESET_ON_BACK;
-          inst = inst.prog;
+          inst.resetCaller=caller;
+          caller=inst;
+          inst.oc=SC_Opcodes.RESET_ON_BACK;
+          inst=inst.prog;
           break;
           }
         case SC_Opcodes.RESET_ON_BACK:{
           inst.config.unregister(inst);
-          inst.oc = SC_Opcodes.RESET_ON_INIT;
-          caller = inst.resetCaller;
+          inst.oc=SC_Opcodes.RESET_ON_INIT;
+          caller=inst.resetCaller;
           }
+        case SC_Opcodes.KILL_SUSP_INIT:
         case SC_Opcodes.RESET_ON_INIT:{
-          inst = caller;
+          inst=caller;
           break;
           }
         case SC_Opcodes.KILL_SUSP_REGISTERED:
@@ -7985,30 +7830,21 @@ RST:  switch(oldInstOC = inst.oc){
         case SC_Opcodes.KILL_STOP:
         case SC_Opcodes.KILL_WAIT:
         case SC_Opcodes.KILL_HALT:{
-          inst.resetCaller = caller;
-          caller = inst;
-          inst.oc = SC_Opcodes.KILL_BACK;
-          //if(this.dbgReset){
-          //  console.log('reseting kill');
-          //  }
-          inst = inst.p;
+          inst.resetCaller=caller;
+          caller=inst;
+          inst.oc=SC_Opcodes.KILL_BACK;
+          inst=inst.p;
           break;
           }
         case SC_Opcodes.KILL_BACK:{
           inst.c.unregister(inst);
-          caller = inst.resetCaller;
+          caller=inst.resetCaller;
           }
         case SC_Opcodes.KILLED:{
-          inst.oc = SC_Opcodes.KILL_SUSP;
-          //if(this.dbgReset){
-          //  console.log('reseting killed ...');
-          //  }
+          inst.oc=SC_Opcodes.KILL_SUSP;
           }
         case SC_Opcodes.KILL_SUSP:{
           inst = caller;
-          //if(this.dbgReset){
-          //  console.log('reset is already done ...');
-          //  }
           break;
           }
         case SC_Opcodes.CONTROL:
@@ -8143,8 +7979,7 @@ RST:  switch(oldInstOC = inst.oc){
         case SC_Opcodes.PAR_DYN_TO_REGISTER:
         case SC_Opcodes.PAR_DYN_FORCE:
         case SC_Opcodes.PAR_DYN:{
-          inst.resetCaller = caller;
-          //console.log("PAR_DYN reset");
+          inst.resetCaller=caller;
           while(! inst.suspended.isEmpty()){
             inst.suspended.pop();
             }
@@ -8160,16 +7995,14 @@ RST:  switch(oldInstOC = inst.oc){
           while(! inst.halted.isEmpty()){
             inst.halted.pop();
             }
-          inst.oc = SC_Opcodes.PAR_DYN_FIRE;
-          caller = inst;
-          inst.tmp_idx = 0;
+          inst.oc=SC_Opcodes.PAR_DYN_FIRE;
+          caller=inst;
+          inst.tmp_idx=0;
           }
         case SC_Opcodes.PAR_DYN_FIRE:{
-          //console.log("reset: PAR_DYN_FIRE");
           inst.tmp = inst.originalBranches[inst.tmp_idx++];
           if(null != inst.tmp){
             inst.tmp.flag = SC_Instruction_State.SUSP;
-            //console.log("reset: ParDyn", inst.tmp.prg);
             inst = inst.tmp.prg;
             break;
             }
@@ -8184,15 +8017,12 @@ RST:  switch(oldInstOC = inst.oc){
         case SC_Opcodes.PAR_INIT:
         case SC_Opcodes.PAR:
         case SC_Opcodes.PAR_FORCE:{
-          inst.resetCaller = caller;
-          inst.oc = SC_Opcodes.PAR_FIRE;
-          caller = inst;
+          inst.resetCaller=caller;
+          inst.oc=SC_Opcodes.PAR_FIRE;
+          caller=inst;
           }
         case SC_Opcodes.PAR_FIRE:{
           inst.tmp = inst.suspended.pop();
-          //if(this.dbgReset){
-          //  console.log("par reset");
-          //  }
           if(null != inst.tmp){
             inst = inst.tmp.prg;
             break;
@@ -8259,8 +8089,6 @@ RST:  switch(oldInstOC = inst.oc){
         case SC_Opcodes.CUBE_WAIT:
         case SC_Opcodes.CUBE_STOP:
         case SC_Opcodes.CUBE:{
-          //inst.doubleCheck = true;
-          //console.log("CUBE.resetting cube", SC_Opcodes.toString(inst.oc));
           inst.killEvt.unregister(this);
           inst.resetCaller = caller;
           caller = inst;
@@ -8270,13 +8098,6 @@ RST:  switch(oldInstOC = inst.oc){
           break;
           }
         case SC_Opcodes.CUBE_BACK:{
-          //if(inst.doubleCheck && inst.oc == SC_Opcodes.CUBE_BACK){
-          //  inst.doubleCheck = false;
-          //  }
-          //else{
-          //  console.error("pb");
-          //  }
-          //console.log("CUBE.reseting() done");
           inst.oc = SC_Opcodes.CUBE_INIT;
           inst = caller = inst.resetCaller;
           break;
@@ -8293,7 +8114,6 @@ RST:  switch(oldInstOC = inst.oc){
           inst.resetCaller = caller;
           caller = inst;
           inst.oc = SC_Opcodes.DUMP_BACK;
-          //this.stdOut(inst.p.toString());
           console.log('DUMP reset before', inst.p);
           inst = inst.p;
           break;
@@ -8489,106 +8309,11 @@ var nextID=0;
  * Public API
  */
 var SC={
-/*
- *** New API
- * Clock is a Sensor ID defining a reactive clock. In this new API, a clock has
- * an associated reactive machine which interprets reactive programs.
- * Changing many things :
- *   - mandatory parmaters are (i) a name for the clock identifying the clock
- *     (should be unique in the app); (ii) a delay meaning that a clock is
- *     always bound to realtime clock tick generation.
- *   - default behavior is pauseForver() has it should not terinate. It should
- *     beter capture common behavior as one has often to add an init program to
- *     avoid instantaneous termination after the first tick.
- *   - the corresponding sensor is of course owned by the reactive clock we
- *     want to build.
- */
-  clock: function(params){
-    if((undefined==params)
-       ||(undefined==params.name)
-       ||("string"!=typeof(params.name))
-       ||(undefined==params.delay)
-       ||(isNaN(params.delay))
-       ||(params.delay<0)
-       ){
-      throw new Error("missing mandatory parameters : name, delay <"+params+">");
-      return;
-      }
-    params.owned=true;
-    params.init=(undefined!==params.init)?params.init:this.pauseForever();
-    return new SC_SensorId(params);
-    }
-, reactiveMachine: function(initParams){
-    if(undefined==initParams){
-      initParams={};
-      }
-    if(undefined==initParams.name){
-      initParams.name=this.newID()+"_unanmed_machine";
-      }
-    if(undefined==initParams.delay){
-      initParams.delay=0;
-      }
-    initParams.init=null;
-    return this.clock(initParams);
-    }
-, machine: function(delay, initParams){
-    if(undefined==initParams){
-      initParams=(delay)?{ delay: delay }:{};
-      }
-    else if(delay && undefined==initParams.delay){
-      initParams.delay=delay;
-      }
-    if(undefined==initParams.name){
-      initParams.name=this.newID()+"_unanmed_machine";
-      }
-    return this.clock(initParams);
-    }
-/*
- * SugarCubes Event Constructor.
- * The parameter (optional) act as a name for the event allowing one to
- * identify the event while debugging.
- */
-, evt: function(name, params){
-    if(undefined!=params){
-      params.name=name;
-      }
-    else{
-      params={ name: name };
-      }
-    return new SC_EventId(params);
-    }
-, sensor: function(name, params){
-    if(undefined!=params){
-      params.name=name;
-      }
-    else{
-      params={ name: name };
-      }
-    return new SC_SensorId(params);
-    }
-, sensorize: function(params){
-    if(undefined==params){
-      throw new Error("SC.sensorize(): undefined params "+params);
-      }
-    if(undefined==params.name){
-      throw new Error("SC.sensorize(): undefined params.name "+params);
-      }
-    if(undefined==params.dom_targets){
-      throw new Error("SC.sensorize(): undefined dom_targets "+params);
-      }
-    return new SC_SensorId(params);
-    }
-, nothing: function(){
-    return SC_Nothing;
-    }
-, nop: function(){
+  nop: function(){
     return this.nothing();
     }
 , purge: function(prg){
     return (prg)?prg:this.nothing();
-    }
-, pauseForever: function(){
-    return SC_PauseForEver;
     }
 , pauseRT: function(n){
     return new SC_PauseRT(_SC.b_(n));
@@ -8642,9 +8367,6 @@ var SC={
     }
 , seq: function(){
     return new SC_Seq(arguments);
-    }
-, act: function(fun){
-    return new SC_Action(fun);
     }
 , action: function(fun, times){
     return new SC_Action(_SC.b_(fun), _SC.b_(times));
@@ -8794,14 +8516,14 @@ var SC={
       }
     return new SC_Seq(prgs);
     }
-, test: function(b,t,e){
-    var prgs = [new SC_Test(b)];    
-    var elsJ = 2;
-    var end = 1;
-    if(t && t != SC_Nothing){
+, test: function(b, t, e){
+    var prgs=[new SC_Test(b)];    
+    var elsJ=2;
+    var end=1;
+    if(t && SC_Nothing!=t){
       prgs.push(t);
       if(t instanceof SC_Seq){
-        elsJ += t.seqElements.length;
+        elsJ+=t.seqElements.length;
         }
       else{
         elsJ++;
@@ -9003,7 +8725,6 @@ var SC={
         if(undefined===p){
           return new SC_CubeBinding(name);
           }
-        //console.log(name, {p: p});
         return new SC_CubeBinding(name, {p: p});
         }
       catch(e){}
@@ -9039,12 +8760,12 @@ var SC={
  * et la machine (cela est du au nouveau status de sensor en SugarCubes).
  */
   externalEvent: function externalEvent(pElt_target, ps_DomEvt, pn_nbreFois) {
-    if(undefined === pn_nbreFois){ pn_nbreFois = -1; }
-    const pSensor = new SC.sensorize({
+    if(undefined===pn_nbreFois){ pn_nbreFois=-1; }
+    const pSensor=new SC.sensorize({
             name: ''+ Elt_target+'.'+ps_DomEvt
-          , dom_targets:[{target: pElt_target, evt:ps_DomEvt}]
+          , dom_targets: [{ target: pElt_target, evt: ps_DomEvt }]
           , pn_nbreFois: pn_nbreFois
-          , owned:true
+          , owned: true
             });
     return pSensor
     }
@@ -9052,6 +8773,20 @@ var SC={
     console.log.call(console,arguments);
     }
   };
+/*
+ *** New API
+Clock define a reactive logical clock, which interprets reactive programs.
+It provides notion of successive instants.
+Changing many things :
+  - mandatory parmaters are (i) a name for the clock identifying the clock
+    (should be unique in the app); (ii) a delay meaning that a clock is
+    always bound to realtime clock tick generation.
+  - default behavior is pauseForver() has it should not terinate. It should
+    beter capture common behavior as one has often to add an init program to
+    avoid instantaneous termination after the first tick.
+  - the corresponding sensor is of course owned by the reactive clock we
+    want to build.
+ */
   Object.defineProperty(SC, "newID"
                           , { enumerable: false
                             , value: function(){
@@ -9060,6 +8795,219 @@ var SC={
                             , writable: false
                               }
                           );
+  let animator=null;
+  Object.defineProperty(SC, "animSensor"
+                          , { enumerable: false
+                            , value: function(){
+                                if(animator){
+                                  return animator;
+                                  }
+                                const params={ name: "animator", isPower: true };
+                                return animator=new SC_SensorId(params);
+                                }
+                            , writable: false
+                              }
+                          );
+  Object.defineProperty(SC, "evt"
+                          , { enumerable: false
+                            , value: function(name, params){
+                                if(undefined!=name || "string"!=typeof(name)){
+                                  name="no_name";
+                                  }
+                                if(undefined!=params){
+                                  params.name=name;
+                                  }
+                                else{
+                                  params={ name: name };
+                                  }
+                                return new SC_EventId(params);
+                                }
+                            , writable: false
+                              }
+                          );
+  Object.defineProperty(SC, "sampled"
+                          , { enumerable: false
+                            , value: function(name, params){
+                                if(undefined!=params){
+                                  params.name=name;
+                                  }
+                                else{
+                                  params={ name: name };
+                                  }
+                                return new SC_SampledId(params);
+                                }
+                            , writable: false
+                              }
+                          );
+  Object.defineProperty(SC, "sensor"
+                          , { enumerable: false
+                            , value: function(name, params){
+                                if(undefined!=params){
+                                  params.name=name;
+                                  }
+                                else{
+                                  throw new Error("SC.sensor(): undefined params "+params);
+                                  }
+                                if(undefined==params.dom_targets){
+                                  throw new Error("SC.sensor(): undefined dom_targets "+params);
+                                  }
+                                return new SC_SensorId(params);
+                                }
+                            , writable: false
+                              }
+                          );
+  Object.defineProperty(SC, "processor"
+                          , { enumerable: false
+                            , value: function(p){
+                                if(undefined==p || "object"!=typeof(p)){
+                                  p={};
+                                  }
+                                p.name="processor";
+                                p.isPower=true;
+                                delete(p.delay);
+                                return new SC_SensorId(p);
+                                }
+                            , writable: false
+                              }
+                          );
+  Object.defineProperty(SC, "periodic"
+                          , { enumerable: false
+                            , value: function(p){
+                                if(undefined==p || "object"!=typeof(p)){
+                                  throw new Error("SC.periodic(): invalid param "
+                                                 +p);
+                                  }
+                                if(isNaN(p.delay) || p.delay<=0){
+                                  throw new Error("SC.periodic(): invalid delay "
+                                                 +p.delay);
+                                  }
+                                p.name="periodic";
+                                p.isPower=true;
+                                return new SC_SensorId(p);
+                                }
+                            , writable: false
+                              }
+                          );
+  Object.defineProperty(SC, "clock"
+  , { 
+      value: function(p){
+        if(undefined==p){
+          p={};
+          }
+        if(undefined==p.name){
+          p.name=this.newID()+"_unanmed_machine"
+          }
+        else if("string"!=typeof(p.name)){
+          throw new Error("invalid name : "+p.name);
+          }
+        /*if(undefined==p.init){
+          p.init=this.pauseForever();
+          }
+        else*/ if(p.init && !p.init.isAnSCProgram){
+          throw new Error("invalid initial program : "+p.init);
+          }
+        if(p.fun_stdout && "function"!=typeof(p.fun_stdout)){
+          throw new Error("invalid stdout function : "+p.fun_stdout);
+          }
+        if(p.fun_stderr && "function"!=typeof(p.fun_stderr)){
+          throw new Error("invalid stderr function : "+p.fun_stderr);
+          }
+        if(p.fun_prompt && "function"!=typeof(p.fun_prompt)){
+          throw new Error("invalid prompt function : "+p.fun_prompt);
+          }
+        const ownMachine=new SC_Machine(p);
+        var res={};
+        res.getIPS=ownMachine.getIPS.bind(ownMachine);
+        res.getInstantNumber=ownMachine.getInstantNumber.bind(ownMachine);
+        res.getTopLevelParallelBranchesNumber
+           =ownMachine.getTopLevelParallelBranchesNumber.bind(ownMachine);
+        res.setStdOut=ownMachine.setStdOut.bind(ownMachine);
+        res.enablePrompt=ownMachine.enablePrompt.bind(ownMachine);
+        if("function"==typeof(p.dumpTraceFun)){
+          ownMachine.dumpTraceFun=p.dumpTraceFun;
+          }
+        res.addEntry=function(evtName, value){
+          if(evtName instanceof SC_EventId){
+            this.addEntry(evtName, value);
+            }
+          else{
+            throw new Error("invalid event Id : "+evtName);
+            }
+          }.bind(ownMachine);
+        res.addProgram=function(prg){
+          if(prg.isAnSCProgram){
+            this.addProgram(prg);
+            }
+          else{
+            throw new Error("invalid program : "+prg);
+            }
+          }.bind(ownMachine);
+/*
+Claude : partie intégrée dans la machine reactive. On distingue 2 notions :
+  - Les instants classiques du réactif
+  - Les réactions qui sont des burst d'instants
+Je prends la liberté de renommer raf en sc_raf. Ok ?
+Ici j'introduit l'équivalent de ton react multiple.
+ */
+    const reaction=function(){
+      do{
+        this.react();
+        if(this.ended){
+          return true;
+          }
+        }
+      while(this.toContinue>0);
+      return false;
+      }.bind(ownMachine);
+        var registrations={};
+        res.bindTo=function(ream, registrations, sensor){
+          if(registrations[sensor.toString()]){
+            return;
+            }
+          registrations[sensor.toString()]=sensor;
+          SC_Global_Manager.connect(sensor, ream);
+          }.bind(res, reaction, registrations);
+        res.disconnectFrom=function(ream, registrations, sensor){
+          if(undefined==registrations[sensor.toString()]){
+            return;
+            }
+          delete(registrations[sensor.toString()]);
+          SC_Global_Manager.disconnect(sensor, ream);
+          }.bind(res, reaction, registrations);
+        return res;
+        }
+    , writable: false
+      }
+    );
+  Object.defineProperty(SC, "pauseForever"
+                          , { enumerable: false
+                            , value: function(name, params){
+                                return SC_PauseForEver;
+                                }
+                            , writable: false
+                              }
+                          );
+  Object.defineProperty(SC, "nothing"
+                          , { enumerable: false
+                            , value: function(name, params){
+                                return SC_Nothing;
+                                }
+                            , writable: false
+                              }
+                          );
+  Object.defineProperty(SC, "init"
+  , { 
+      value: function(p){
+        if(undefined==p){
+          p={};
+          }
+        if(p.modules){
+          /* chargement des modules */
+          }
+        }
+    , writable: false
+      }
+    );
   Object.defineProperty(SC, "NO_ACTION"
                           , { enumerable: false
                             , value: NO_FUN
