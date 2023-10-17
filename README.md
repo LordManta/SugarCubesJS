@@ -11,8 +11,8 @@ It is based on Frederic Boussinot's *synchronous/reactive paradigm* proposed in 
 Quick start:
 ------------
 
-We developed SugarCubesJS first to ease the build of WebApps deployed on smartphones and tablets in a scientific study : DanceDoigt.
-So the primary environment for SugarCubesJS is a Web page.
+We developed *SugarCubesJS* first to ease the build of *WebApps* deployed on smartphones and tablets in a scientific study : [DanceDoigt](http://jeanferdysusini.free.fr/DanceDoigt/).
+So the primary environment for *SugarCubesJS* is a Web page.
 
 1. load the library SugarCubes.js by adding :
    ```HTML
@@ -21,13 +21,16 @@ So the primary environment for SugarCubesJS is a Web page.
    ```
    to your HTML page. One can use the following url to access online version of the library at : `[http://jeanferdysusini.free.fr/_2024/SugarCubes.js](http://jeanferdysusini.free.fr/_2024/SugarCubes.js)`.
 
-2. then in a script node, one builds a reactive execution environment to execute reactive programs :
+2. In a script node, build a reactive execution environment to execute reactive programs :
    ```javascript
    var main=SC.clock();
    ```
-   In SugarCubesJS, this reactive execution environment is called *a clock*, because it paces the execution of a reactive system. So, the execution of the reactive system is split into **a sequence of logical steps**. Steps of execution are called *instants*. The execution of the reactive system progresses from instant to instant driven by the clock. And so, every times, one refers to instantaneity, it is in regard to that precise notion of instants.
+   To be able to trace execution, set a standard output for messages. Here, one uses the *Javascript* console.
+   ```javascript
+   main.setStdOut(SC.writeInConsole);
+   ```
 
-3. declares reactive events :
+3. declare reactive events :
    ```javascript
    var e=SC.evt("e");
    ```
@@ -45,32 +48,20 @@ So the primary environment for SugarCubesJS is a Web page.
    main.addProgram(program2);
    ```
 
-6. cyclically activate the execution environment :
+6. build a sensor which is an interface in between classic Javascript execution model and SugarCubes execution model.
    ```javascript
-   for(var i = 0 ; i < 20; i++){
-     machine.newValue();
-     }
+   var period=SC.periodic({ delay: 1000 });
    ```
-   
-   *Note:* It is a common practice to trigger the reactions of the execution environment according to a "real time" clock. A simple way to do this is to use the `setInterval()` method :
-   ```javascript
-   window.setInterval(
-           function(){
-             machine.newValue();
-             }
-           , 30
-           );
-   ```
-   But the easiest way to integrate the reactive environment is to declare it with a `delay` parameter :
-   
-   ```javascript
-   var machine = SC.machine(30);
-   ```
-   where 30 is the delay (in milliseconds) between two consecutive reactions. So you don't need to deal with a loop of `react()` method calls or the `setInterval()` method in your code. The execution environment will be triggered automatically every 30ms (or more... Because only minimal delay is guarantied).
+   The sensor period will produce a new value about every seconds.
 
-7. The result of such execution goes to the debugging console, so it doesn't provide anything observable to the user in the document page. To redirect output to the content of a *HTML* document, you can for example declare a *HTML* element in your document : for example a `PRE` element :
+7. bind the clock to the period sensor to make it produce reactions on regular basis.
    ```javascript
-   var output = document.createElement("pre");
+   main.bindTo(period);
+   ```
+
+8. The result of such execution goes to the debugging console, so it doesn't provide anything observable to the user in the document page. To redirect output to the content of a *HTML* document, you can for example declare a *HTML* element in your document : for example a `PRE` element :
+   ```javascript
+   var output=document.createElement("pre");
    document.body.appendChild(output);
    ```
    Then set a closure to capture and redirect standard *SugarCubesJS* output :
@@ -80,11 +71,12 @@ So the primary environment for SugarCubesJS is a Web page.
      });
    ```
 
-8. For a better understanding of what is going on you can activate a prompt indicating each new instant of the reactive execution environment :
+9. For a better understanding of what is going on you can activate a prompt indicating each new instant of the reactive execution environment :
    ```javascript
    machine.enablePrompt(true);
    ```
 
+   In SugarCubesJS, this reactive execution environment is called *a clock*, because it paces the execution of a reactive system. So, the execution of the reactive system is split into **a sequence of logical steps**. Steps of execution are called *instants*. The execution of the reactive system progresses from instant to instant driven by the clock. And so, every times, one refers to instantaneity, it is in regard to that precise notion of instants.
 Look at the source of `SC_Demo0.html` *HTML* file to see the big picture of this very first example.
 
 One word about Reactive Synchronous Programming Model « à la » Boussinot:

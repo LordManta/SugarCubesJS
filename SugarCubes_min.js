@@ -8104,10 +8104,13 @@ var SC={
             });
     return pSensor
     }
-, writeInConsole:function(){
-    console.log.call(console,arguments);
-    }
   };
+  Object.defineProperty(SC, "writeInConsole"
+                          , { enumerable: false
+                            , value: console.log.bind(console)
+                            , writable: false
+                              }
+                          );
   Object.defineProperty(SC, "newID"
                           , { enumerable: false
                             , value: function(){

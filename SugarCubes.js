@@ -8783,9 +8783,6 @@ var SC={
             });
     return pSensor
     }
-, writeInConsole:function(){
-    console.log.call(console,arguments);
-    }
   };
 /*
  *** New API
@@ -8801,6 +8798,12 @@ Changing many things :
   - the corresponding sensor is of course owned by the reactive clock we
     want to build.
  */
+  Object.defineProperty(SC, "writeInConsole"
+                          , { enumerable: false
+                            , value: console.log.bind(console)
+                            , writable: false
+                              }
+                          );
   Object.defineProperty(SC, "newID"
                           , { enumerable: false
                             , value: function(){

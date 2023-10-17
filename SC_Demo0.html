@@ -25,11 +25,12 @@ To do so, one uses an HTML pre element, and redirect stdout to that pre
 element.
 */
 clck.enablePrompt(true);
-const output=document.createElement("pre");
-document.body.appendChild(output);
-clck.setStdOut(function(msg){
-  output.innerText+=msg;
-  });
+clck.setStdOut(SC.writeInConsole);
+//const output=document.createElement("pre");
+//document.body.appendChild(output);
+//clck.setStdOut(function(msg){
+//  output.innerText+=msg;
+//  });
 
 /*
 Then, one makes an identifier of a reactive event called "e".
