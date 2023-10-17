@@ -216,7 +216,7 @@ To write a reactive program, a developer will nest calls of methods of the objec
    ```javascript
    var aProgram = SC.repeat(SC.forever
                     , SC.await(e)
-                    , SC.log("message in the console")
+                    , SC.write("message in the console")
                     );
    ```
 In this example, one writes a *repeat* instruction (which is the root of the *AST* of the program). The *repeat* instruction takes a first parameter which is a number iterations (that is the number of times it will executes its body). In this example, one uses the predefined constant `SC.forever` which means an infinite number of iterations. The rest of the parameters are the instructions of the body of the *repeat* instruction put into a sequence. In this example, the body of the *repeat* instruction is made of two instructions in sequence. First the `SC.await()` is an instruction which awaits the presence of the event `&e`. And the second instruction `SC.log()` which writes a string in the *SugarCubesJS* standard output.

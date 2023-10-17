@@ -9,9 +9,9 @@
 <body>
 <script>
 /*
-First, one makes a logical clock which paces execution of a reactive system.
+First, one makes a logical clock, which paces execution of the reactive system.
 */
-const clck=SC.clock();
+const main=SC.clock();
 
 /*
 As logical clock executes reactive programs.
@@ -24,13 +24,12 @@ One configures it to display a text showing instants elapsing:
 To do so, one uses an HTML pre element, and redirect stdout to that pre
 element.
 */
-clck.enablePrompt(true);
-clck.setStdOut(SC.writeInConsole);
-//const output=document.createElement("pre");
-//document.body.appendChild(output);
-//clck.setStdOut(function(msg){
-//  output.innerText+=msg;
-//  });
+main.enablePrompt(true);
+const output=document.createElement("pre");
+document.body.appendChild(output);
+main.setStdOut(function(msg){
+  output.innerText+=msg;
+  });
 
 /*
 Then, one makes an identifier of a reactive event called "e".
@@ -38,10 +37,14 @@ Then, one makes an identifier of a reactive event called "e".
 const e=SC.evt("e");
 /*
 One can use that reactive event to build reactive programs :
- - the first one, in an inifinite loop is awaiting for the event e to be
-   present and the instantaneously display a messgae on the stout, and so on...
- - the second, in another infinite loop is pausing for 5 consecutive instants
-   and then instantaneously generates the reactive event e.
+ - the first one, in a loop (of 3 iterations) is awaiting for the event e to be
+   present and then instantaneously display a message on the stout.
+ - the second, in another loop that is pausing for 5 consecutive instants and
+   then instantaneously generates the reactive event e.
+
+Note : The repeat loop is not intantaneous, which means that when p terminates,
+the repeat instruction do not restart p in that very same instant, but wait for
+the next instant before restarting p.
 */
 const program1=SC.repeat(3, SC.await(e)
                               , SC.write("event &e is generated !\n"));
@@ -50,36 +53,24 @@ const program2=SC.repeat(3, SC.pause(5)
 /*
 Then, one adds the two programs into the reactive clock. This builds a program,
 which is the parallel of the two added programs.
+The following two lines of code is equivalent to :
+main.addProgram(SC.par(program1, program2));
 */
-clck.addProgram(program1);
-clck.addProgram(program2);
+main.addProgram(program1);
+main.addProgram(program2);
 
 /*
-To get the execution thread, clock needs a processor which will make react the
-clock for 20 consecutive instants.
+To get the execution thread, clock needs a processor which will execute
+reactions. One uses a periodic sensor which is a SugarCubes sensor that issues
+a new value every seconds.
 */
 const power=SC.periodic({ delay: 1000 });
 /*
-One binds the clock to that processor.
+One binds the clock to that sensor, so the clock will produce a reaction of the
+reactive system everytime the sensor issues a new value.
 */
-clck.bindTo(power);
+main.bindTo(power);
 
-var Sens_mouse_click=SC.sensor("Sens_mouse_click"
-                         , {dom_targets: [
-                               {
-				 target: window
-			       , evt: "click"
-			       }
-                                       ]
-                         });
-
-clck.addProgram(
-  SC.repeatForever(
-    SC.await(Sens_mouse_click)
-  , SC.write('click!')
-    )
-  );
-clck.bindTo(Sens_mouse_click);
 </script>
 </body>
 </html>
