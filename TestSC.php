@@ -52,14 +52,14 @@
     }
 ?>
 </script>
-<button onclick="window.location.search='?n='+(Math.max(1,testNum-2))">&lt;</button>
+<button onclick="window.location.search='?n='+(Math.max(1, testNum-2))">&lt;</button>
 <input type="checkbox" id="check_cont" <?php
   if(isset($_GET['continue'])
      && ("true" == $_GET['continue'])){
     echo "checked";
     }
 ?> onclick="autoContinueSetting()">Auto continue</input>
-<button onclick="window.location.search='?n='+(Math.min(max_test_file_num,testNum))">&gt;</button>
+<button onclick="window.location.search='?n='+(Math.min(max_test_file_num, testNum))">&gt;</button>
 </div>
 <div id="program_source">
  
@@ -69,17 +69,17 @@
 <div id="expected_result">
 </div>
 <script type="text/javascript">
-var check_cont = document.getElementById("check_cont");
+var check_cont=document.getElementById("check_cont");
 function autoContinueSetting(evt){
-  if(testNum < max_test_file_num && check_cont.checked){
+  if(testNum<max_test_file_num && check_cont.checked){
     window.location.search="?n="+testNum+"&continue=true";
     }
   }
-var source = document.getElementById("program_source");
-var testPanel = document.getElementById("testPanel");
-var testNum = 0;
+var source=document.getElementById("program_source");
+var testPanel=document.getElementById("testPanel");
+var testNum=0;
 try{
-  testNum = parseInt((/\?n=([^&#]*)/.exec(location.search))[1]);
+  testNum=parseInt((/\?n=([^&#]*)/.exec(location.search))[1]);
   if(isNaN(testNum)||!(/^[1-9][0-9]*$/.test(""+testNum))){
     window.location.search='?n=1';
     }
@@ -90,10 +90,7 @@ catch(e){
 function writeInConsole(msg){
   testPanel.value+=msg;
   }
-SC.log=function(){return SC.nothing()};
-SC.write=function(msg){
-  return SC.trace(msg);
-  }
+SC.log=function(){ return SC.nothing() };
 SC.dump=function(msg){
   return SC.action(
      function(m){
@@ -105,7 +102,7 @@ SC.dump=function(msg){
 var m=SC.clock({
   dumpTraceFun: function(msgs){
     for(var i in msgs){
-      testPanel.value += msgs[i];
+      testPanel.value+=msgs[i];
       }
     }
   });
@@ -149,11 +146,10 @@ if("function"==typeof(testBehavior.init)){
 var maxInstants=(undefined==testBehavior.maxI)?10:testBehavior.maxI;
 var test_prg=testBehavior.prg;
 if("string"==typeof(test_prg)){
-  test_prg = eval(test_prg);
+  test_prg=eval(test_prg);
   }
 source.innerHTML=testBehavior.prg;
 if(testBehavior.persist){
-  console.log("persist");
   m.addProgram(SC.pause(maxInstants));
   }
 m.addProgram(test_prg);
@@ -161,13 +157,13 @@ m.addProgram(test_prg);
 if("function"==typeof(testBehavior.async)){
   testBehavior.async=testBehavior.async.bind(testBehavior);
   }
-const power=SC.processor({ n: maxInstants , async: testBehavior.async });
+const power=SC.processor({ n: maxInstants, async: testBehavior.async });
 m.bindTo(power);
 power.run();
 
-if(testPanel.value == testBehavior.expected){
+if(testPanel.value==testBehavior.expected){
   testNum++;
-  if(testNum <= max_test_file_num){
+  if(testNum<=max_test_file_num){
     if(check_cont.checked){
       window.location.search="?n="+testNum+"&continue=true";
       }

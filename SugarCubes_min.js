@@ -543,16 +543,18 @@ function SC_SampledId(params){
                  const sens=engine.getSensor(this);
                  return sens;
                  }, writable: false } );
-  Object.defineProperty(this, "newValue"
-           , { value: function(value){
-                 SC_Global_Manager.updateSensor(this, value);
-                 }, writable: false } );
   };
 SC_SampledId.prototype={
   constructor: SC_SampledId
 , isSensor: true
 , __proto__: SC_SensorId.prototype
   };
+Object.defineProperty(SC_SampledId.prototype, "newValue"
+  , { value: function(value){
+        SC_Global_Manager.updateSensor(this, value);
+        }
+     , writable: false
+       });
 function SC_Sensor(params){
   this.lein=-1;
   this.sensId=params;
@@ -567,16 +569,16 @@ SC_Sensor.prototype={
 , wakeupAll: SC_Event.prototype.wakeupAll
 , generateValues: NO_FUN
 , systemGen: function(val, m, flag){
-    if(this.lein != m.instantNumber){
-      this.lein = m.instantNumber;
+    if(this.lein!=m.instantNumber){
+      this.lein=m.instantNumber;
       this.wakeupAll(m, flag);
       if(val){
         Object.defineProperty(m.generated_values
              , this.sensId.toString()
              , {get: function(){return [this.val]; }.bind(this)});
         }
-      this.val = val;
-      m.setSensors[this.sensId.name]= [this.val];
+      this.val=val;
+      m.setSensors[this.sensId.name]=[this.val];
       }
     }
 , unregister: SC_Event.prototype.unregister
@@ -8105,9 +8107,13 @@ var SC={
     return pSensor
     }
   };
+  Object.defineProperty(SC, "sc_build"
+                          , { value: 2
+                            , writable: false
+                              }
+                          );
   Object.defineProperty(SC, "writeInConsole"
-                          , { enumerable: false
-                            , value: console.log.bind(console)
+                          , { value: console.log.bind(console)
                             , writable: false
                               }
                           );
@@ -8121,8 +8127,7 @@ var SC={
                           );
   let animator=null;
   Object.defineProperty(SC, "animSensor"
-                          , { enumerable: false
-                            , value: function(){
+                          , { value: function(){
                                 if(animator){
                                   return animator;
                                   }
@@ -8133,8 +8138,7 @@ var SC={
                               }
                           );
   Object.defineProperty(SC, "evt"
-                          , { enumerable: false
-                            , value: function(name, params){
+                          , { value: function(name, params){
                                 if(undefined!=name || "string"!=typeof(name)){
                                   name="no_name";
                                   }
@@ -8288,6 +8292,11 @@ var SC={
           delete(registrations[sensor.toString()]);
           SC_Global_Manager.disconnect(sensor, ream);
           }.bind(res, reaction, registrations);
+        Object.defineProperty(res, "isSCClock"
+                                , { value: true
+                                  , writable: false
+                                    }
+                                );
         return res;
         }
     , writable: false

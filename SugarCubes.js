@@ -10,82 +10,76 @@
 (function(){ //Chargement et identification du module
 /*----------------------------------------------------------------------------*/
 /*
- * SugarCubes internals.
- * Many comments are made in french, as they are personal working notes.
- * English comments should be more officials, but it is still a work in
- * progress...
+SugarCubes internals.
+Many comments are made in french, as they are personal working notes. English
+comments should be more official, but it is still a work in progress...
  */
 /*
- * Implementation notice: SugarCubes v5 allows one to build reactive systems.
- * Reactive systems are programs executed in a dedicated environment. They are
- * made of reactive programs built using reactive constructions which we call
- * reactive instructions. Reactive instructions allows one to build tree
- * structures which implement abstract syntax trees of reactive programs.
- * Reactive programs are executed by a reactive execution machine (shortly
- * called reactive machine or machine).
- * The reactive machine split the execution of a whole reactive system into a
- * logical succession of steps called "instants of execution" (we also call
- * this step of execution a reaction as it corresponds to the call of the react
- * method) during which
- * reactive instructions get activated according to their semantics.
- * Each instant of execution is decomposed in four successive phases:
- *   1. the reactive execution by itself during which reactive instruction are
- *      activated to execute their operational semantics.
- *   2. a phase where event values for the current instant are collected across
- *      the whole reactive system (visiting the whole abstract syntax tree of
- *      the program).
- *   3. a phase where atomic operations are performed (ideally to compute new
- *      memory states)
- *   4. a phase where the memory state of the system is swapped with the newly
- *      computed one and becomes available for the next instant.
+Implementation notice: SugarCubesJS is used to build « reactive systems »
+executed in a dedicated execution model «à la Boussinot». They are made of
+reactive instructions built using reactive constructions. Reactive instructions
+allows one to build tree structures which implement abstract syntax trees of
+reactive programs. Reactive programs are executed by a reactive clock (shortly
+called reactive machine or machine).
+The reactive machine splits the execution of a whole reactive system into a
+succession of logical steps called "instants of execution", during which
+reactive instructions get activated according to their semantics.
+Each instant of execution is decomposed in four successive phases:
+  1. the reactive execution by itself during which reactive instruction are
+     activated to execute their operational semantics.
+  2. a phase where event values for the current instant are collected across
+     the whole reactive system (visiting the whole abstract syntax tree of
+     the program).
+  3. a phase where atomic operations are performed (ideally to compute new
+     memory states)
+  4. a phase where the memory state of the system is swapped with the newly
+     computed one and becomes available for the next instant.
  */
 /*
- * Here we manly focus on the reactive phase (phase 1) of an instant of
- * execution, which is itself decomposed into 2 consecutive steps:
- *   - the activation phase: during which each instruction get activated and
- *     executes its operational semantics. The activation propagates across the
- *     AST of the reactive program. The implementation of this phase is mainly
- *     done in the activate() method of instruction objects.
- *   - the end of instant phase: during which the reactive machine decides the
- *     end of the current instant. The reactive machine propagates this
- *     decision all along the AST of the whole reactive programming in order to
- *     make all reactive instructions which are awaiting for the end of instant
- *     to be informed of it. The implementation of this phase mainly take place
- *     in the eoi() method of instruction objects.
- *
- * A reactive instruction is implemented as an object with a private state.
- * This state evolves according to time (ie sequence of reactions). At each
- * instant, the reactive instructions can get activated and so can execute
- * their reaction according to their own operational semantics.
- * 
- * We are now going into further details about the activation() implementation.
- * After each activation (ie each call to the method activation() of an
- * instruction), an instruction informs about its progress returning a
- * status flag whose values are :
- *   - SUSP: meaning that the instruction has to be reactivated (the
- *     activation() method has to be called once again) before the end the
- *     current instant is decided by the reactive machine (before the any call
- *     to the method eoi() by the reactive machine).
- *   - WEOI: meaning that the instruction has to be reactivated if an event is
- *     generated during the current instant or when the end of the instant is
- *     decided by the reactive machine.
- *   - OEOI: meaning that only the eoi() method has to be called on the
- *     instruction when the end of the instant is decided by the reactive
- *     machine whatever happens new during the activation phase.
- *   - STOP: meaning that the instruction has finished its execution for the
- *     current instant. It has to be reactivated only at the subsequent
- *     instant.
- *   - WAIT: meaning that the instruction cannot progress anymore but has not
- *     terminated its execution. It has to be reactivated only if a particular
- *     event occurs (in the current instant or in subsequent ones). The eoi()
- *     method should not be called subsequently on such instructions as it has
- *     no effect. Those instructions are only interested by presence of events
- *     and not absence of events.
- *   - HALT: meaning that the instruction cannot progress anymore. It can only
- *     delays its execution to subsequent instant (we often say it consumes
- *     time). It is useless to activate it but its execution never terminates.
- *   - TERM: the instruction has completely terminated its execution. It is
- *     useless to activate it anymore.
+Here we mainly focus on the reactive phase (phase 1) of an instant of execution,
+which is itself is decomposed into 2 consecutive steps:
+  - the activation phase: during which each instruction get activated and
+    executes its operational semantics. The activation propagates across the
+    AST of the reactive program. The implementation of this phase is mainly
+    done by the activate() method of the reactive machine.
+  - the end of instant phase: during which the reactive machine decides the
+    end of the current instant. The reactive machine propagates this
+    decision all along the AST of the whole reactive program, in order to
+    make all reactive instructions which are awaiting for the end of instant
+    to be informed of it. The implementation of this phase mainly takes place
+    in the eoi() method of the reactive machine.
+A reactive instruction is implemented as an object with a private state.
+This state evolves according to time (ie the sequence of reactions). At each
+instant, the reactive instructions can get activated and so can execute
+their reaction according to their own operational semantics.
+We are now going into further details about the activation() implementation.
+After each activation (ie each call to the method activation() of an
+instruction), an instruction informs about its progress returning a
+status flag whose values are :
+  - SUSP: meaning that the instruction has to be reactivated (the
+    activation() method has to be called once again) before the end the
+    current instant is decided by the reactive machine (before the any call
+    to the method eoi() by the reactive machine).
+  - WEOI: meaning that the instruction has to be reactivated if an event is
+    generated during the current instant or when the end of the instant is
+    decided by the reactive machine.
+  - OEOI: meaning that only the eoi() method has to be called on the
+    instruction when the end of the instant is decided by the reactive
+    machine whatever happens new during the activation phase.
+  - STOP: meaning that the instruction has finished its execution for the
+    current instant. It has to be reactivated only at the subsequent
+    instant.
+  - WAIT: meaning that the instruction cannot progress anymore but has not
+    terminated its execution. It has to be reactivated only if a particular
+    event occurs (in the current instant or in subsequent ones). The eoi()
+    method should not be called subsequently on such instructions as it has
+    no effect. Those instructions are only interested by presence of events
+    and not absence of events.
+  - HALT: meaning that the instruction cannot progress anymore. It can only
+    delays its execution to subsequent instant (we often say it consumes
+    time). It is useless to activate it but its execution never terminates.
+  - TERM: the instruction has completely terminated its execution. It is
+    useless to activate it anymore.
  */
 const SC_Instruction_state_str=[
   "UNDF" // Undefined => should be handled has an exception
@@ -913,16 +907,18 @@ function SC_SampledId(params){
                  const sens=engine.getSensor(this);
                  return sens;
                  }, writable: false } );
-  Object.defineProperty(this, "newValue"
-           , { value: function(value){
-                 SC_Global_Manager.updateSensor(this, value);
-                 }, writable: false } );
   };
 SC_SampledId.prototype={
   constructor: SC_SampledId
 , isSensor: true
 , __proto__: SC_SensorId.prototype
   };
+Object.defineProperty(SC_SampledId.prototype, "newValue"
+  , { value: function(value){
+        SC_Global_Manager.updateSensor(this, value);
+        }
+     , writable: false
+       });
 function SC_Sensor(params){
   this.lein=-1;
 //  if(
@@ -944,16 +940,16 @@ SC_Sensor.prototype={
 , wakeupAll: SC_Event.prototype.wakeupAll
 , generateValues: NO_FUN
 , systemGen: function(val, m, flag){
-    if(this.lein != m.instantNumber){
-      this.lein = m.instantNumber;
+    if(this.lein!=m.instantNumber){
+      this.lein=m.instantNumber;
       this.wakeupAll(m, flag);
       if(val){
         Object.defineProperty(m.generated_values
              , this.sensId.toString()
              , {get: function(){return [this.val]; }.bind(this)});
         }
-      this.val = val;
-      m.setSensors[this.sensId.name]= [this.val];
+      this.val=val;
+      m.setSensors[this.sensId.name]=[this.val];
       }
     }
 , unregister: SC_Event.prototype.unregister
@@ -962,7 +958,7 @@ SC_Sensor.prototype={
     return this.val;
     }
 , getAllValues: function(m, vals){
-    //vals[this.sensId] = [this.val];
+    //vals[this.sensId]=[this.val];
     }
 , toString: function(){
     return this.sensId.getName();
@@ -8798,9 +8794,13 @@ Changing many things :
   - the corresponding sensor is of course owned by the reactive clock we
     want to build.
  */
+  Object.defineProperty(SC, "sc_build"
+                          , { value: 2
+                            , writable: false
+                              }
+                          );
   Object.defineProperty(SC, "writeInConsole"
-                          , { enumerable: false
-                            , value: console.log.bind(console)
+                          , { value: console.log.bind(console)
                             , writable: false
                               }
                           );
@@ -8814,8 +8814,7 @@ Changing many things :
                           );
   let animator=null;
   Object.defineProperty(SC, "animSensor"
-                          , { enumerable: false
-                            , value: function(){
+                          , { value: function(){
                                 if(animator){
                                   return animator;
                                   }
@@ -8826,8 +8825,7 @@ Changing many things :
                               }
                           );
   Object.defineProperty(SC, "evt"
-                          , { enumerable: false
-                            , value: function(name, params){
+                          , { value: function(name, params){
                                 if(undefined!=name || "string"!=typeof(name)){
                                   name="no_name";
                                   }
@@ -8991,6 +8989,11 @@ Ici j'introduit l'équivalent de ton react multiple.
           delete(registrations[sensor.toString()]);
           SC_Global_Manager.disconnect(sensor, ream);
           }.bind(res, reaction, registrations);
+        Object.defineProperty(res, "isSCClock"
+                                , { value: true
+                                  , writable: false
+                                    }
+                                );
         return res;
         }
     , writable: false
