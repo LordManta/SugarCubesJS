@@ -11,6 +11,21 @@ if(SC && SC.sc_build>1){
   SC.tools=(function(){
     var WebAppcache=window.applicationCache;
     var manifest=document.documentElement.manifest;
+    function _p(params, force){
+      if(undefined==params && "object"===typeof(force)){
+        params=force;
+        }
+      else if(undefined==params && force){
+        params={};
+        }
+      if(params && "object"==typeof(params)){
+        params._=function(f, d){
+          return undefined!==this[f]?f:d;
+          }
+        return params;
+        }
+      return undefined;
+      }
     function Zone(conf){
       if(undefined==conf){
         conf={};
@@ -334,7 +349,7 @@ if(SC && SC.sc_build>1){
               this.newValue(evt);
               }.bind(sc_evt)
             : function(m, evt){
-              m.addToOwnEntry(this, evt);
+              m.addEntry(this, evt);
               }.bind(sc_evt, m)
         };
       if(undefined !== p.evt_click){
@@ -382,7 +397,7 @@ if(SC && SC.sc_build>1){
         }
       if(undefined !== elt.beh){
         if(p.m){
-          p.m.addToOwnProgram(elt.beh);
+          p.m.addProgram(elt.beh);
           }
         else{
           SC_ClientTools.addProgram(elt.beh);
@@ -410,683 +425,682 @@ if(SC && SC.sc_build>1){
       activateElement(tmp);
       return finishElement.call(this, tmp, p);
       }
-  const bubble_view_setNewText=function(msg){
-    function _(data){
-      if('function'==typeof data){
-        return data();
+    const bubble_view_setNewText=function(msg){
+      function _(data){
+        if('function'==typeof data){
+          return data();
+          }
+        return data;
+        };
+      this.style.maxWidth=(msg.max_w)?msg.max_w:"";
+      this.style.minWidth=(msg.min_w)?msg.min_w:"";
+      this.frame.style.transform="";
+      this.frame.style.bottom="";
+      this.frame.style.right="";
+      this.frame.style.left="";
+      this.frame.style.top="";
+      switch(msg.dir){
+        case 0:{ 
+          this.dir = 0;
+          this.classList.remove(this.classList[0]);
+          this.classList.add("JFSCSS_text_bubble_0");;
+          this.frame.style.left = msg.x;
+          this.frame.style.top = msg.y;
+          break;
+          }
+        case 1:{ 
+          this.dir = 1;
+          this.classList.remove(this.classList[0]);
+          this.classList.add("JFSCSS_text_bubble_1");
+          this.frame.style.left = msg.x;
+          this.frame.style.top = msg.y;
+          break;
+          }
+        case 2:{ 
+          this.dir = 2;
+          this.classList.remove(this.classList[0]);
+          this.classList.add("JFSCSS_text_bubble_2");
+          this.frame.style.left = _(msg.x);
+          this.frame.style.top = _(msg.y);
+          break;
+          }
+        case 3:{ 
+          this.dir = 3;
+          this.classList.remove(this.classList[0]);
+          this.classList.add("JFSCSS_text_bubble_3");
+          this.frame.style.right = _(msg.x);
+          this.frame.style.top = _(msg.y);
+          break;
+          }
+        case 4:{ 
+          this.dir = 4;
+          this.classList.remove(this.classList[0]);
+          this.classList.add("JFSCSS_text_bubble_4");
+          this.frame.style.left = msg.x;
+          this.frame.style.bottom = _(msg.y);
+          break;
+          }
+        case 5:{ 
+          this.dir = 5;
+          this.classList.remove(this.classList[0]);
+          this.classList.add("JFSCSS_text_bubble_5");
+          this.frame.style.left = msg.x;
+          this.frame.style.bottom = _(msg.y);
+          break;
+          }
+        case 6:{ 
+          this.dir = 6;
+          this.classList.remove(this.classList[0]);
+          this.classList.add("JFSCSS_text_bubble_6");
+          this.frame.style.right = _(msg.x);
+          this.frame.style.bottom = _(msg.y);
+          break;
+          }
+        case 7:{ 
+          this.dir = 7;
+          this.classList.remove(this.classList[0]);
+          this.classList.add("JFSCSS_text_bubble_7");
+          this.frame.style.left = msg.x;
+          this.frame.style.top = msg.y;
+          break;
+          }
+        case 8:{ 
+          this.dir = 8;
+          this.classList.remove(this.classList[0]);
+          this.classList.add("JFSCSS_text_bubble_8");
+          this.frame.style.left = msg.x;
+          this.frame.style.top = msg.y;
+          this.frame.style.transform = 'translate(0, -50%)';
+          break;
+          }
+        case 9:{ 
+          this.dir = 9;
+          this.classList.remove(this.classList[0]);
+          this.classList.add("JFSCSS_text_bubble_9");
+          this.frame.style.left = msg.x;
+          this.frame.style.bottom = msg.y;
+          break;
+          }
+        case 10:{ 
+          this.dir = 10;
+          this.classList.remove(this.classList[0]);
+          this.classList.add("JFSCSS_text_bubble_10");
+          this.frame.style.right = _(msg.x);
+          this.frame.style.top = _(msg.y);
+          break;
+          }
+        case 11:{ 
+          this.dir = 11;
+          this.classList.remove(this.classList[0]);
+          this.classList.add("JFSCSS_text_bubble_11");
+          this.frame.style.right = msg.x;
+          this.frame.style.top = msg.y;
+          this.frame.style.transform = 'translate(0, -50%)';
+          break;
+          }
+        case 12:{ 
+          this.dir = 12;
+          this.classList.remove(this.classList[0]);
+          this.classList.add("JFSCSS_text_bubble_12");
+          this.frame.style.right = msg.x;
+          this.frame.style.bottom = msg.y;
+          break;
+          }
+        default: {
+          this.dir = 0;      
+          this.frame.style.top = msg.y;
+          this.frame.style.left = msg.x;
+          break;
+          }
         }
-      return data;
+      this.frame.style.position = ("fixed" == msg.mode)?"fixed":"absolute";
       };
-    this.style.maxWidth=(msg.max_w)?msg.max_w:"";
-    this.style.minWidth=(msg.min_w)?msg.min_w:"";
-    this.frame.style.transform="";
-    this.frame.style.bottom="";
-    this.frame.style.right="";
-    this.frame.style.left="";
-    this.frame.style.top="";
-    switch(msg.dir){
-      case 0:{ 
-        this.dir = 0;
-        this.classList.remove(this.classList[0]);
-        this.classList.add("JFSCSS_text_bubble_0");;
-        this.frame.style.left = msg.x;
-        this.frame.style.top = msg.y;
-        break;
+    var sharedContext=null;
+    var webKitAPI=false;
+    if('AudioContext' in window){
+      sharedContext=new AudioContext();
+      }
+    else if('webkitAudioContext' in window){
+      try{
+        sharedContext=new webkitAudioContext();
+        webKitAPI=true;
         }
-      case 1:{ 
-        this.dir = 1;
-        this.classList.remove(this.classList[0]);
-        this.classList.add("JFSCSS_text_bubble_1");
-        this.frame.style.left = msg.x;
-        this.frame.style.top = msg.y;
-        break;
-        }
-      case 2:{ 
-        this.dir = 2;
-        this.classList.remove(this.classList[0]);
-        this.classList.add("JFSCSS_text_bubble_2");
-        this.frame.style.left = _(msg.x);
-        this.frame.style.top = _(msg.y);
-        break;
-        }
-      case 3:{ 
-        this.dir = 3;
-        this.classList.remove(this.classList[0]);
-        this.classList.add("JFSCSS_text_bubble_3");
-        this.frame.style.right = _(msg.x);
-        this.frame.style.top = _(msg.y);
-        break;
-        }
-      case 4:{ 
-        this.dir = 4;
-        this.classList.remove(this.classList[0]);
-        this.classList.add("JFSCSS_text_bubble_4");
-        this.frame.style.left = msg.x;
-        this.frame.style.bottom = _(msg.y);
-        break;
-        }
-      case 5:{ 
-        this.dir = 5;
-        this.classList.remove(this.classList[0]);
-        this.classList.add("JFSCSS_text_bubble_5");
-        this.frame.style.left = msg.x;
-        this.frame.style.bottom = _(msg.y);
-        break;
-        }
-      case 6:{ 
-        this.dir = 6;
-        this.classList.remove(this.classList[0]);
-        this.classList.add("JFSCSS_text_bubble_6");
-        this.frame.style.right = _(msg.x);
-        this.frame.style.bottom = _(msg.y);
-        break;
-        }
-      case 7:{ 
-        this.dir = 7;
-        this.classList.remove(this.classList[0]);
-        this.classList.add("JFSCSS_text_bubble_7");
-        this.frame.style.left = msg.x;
-        this.frame.style.top = msg.y;
-        break;
-        }
-      case 8:{ 
-        this.dir = 8;
-        this.classList.remove(this.classList[0]);
-        this.classList.add("JFSCSS_text_bubble_8");
-        this.frame.style.left = msg.x;
-        this.frame.style.top = msg.y;
-        this.frame.style.transform = 'translate(0, -50%)';
-        break;
-        }
-      case 9:{ 
-        this.dir = 9;
-        this.classList.remove(this.classList[0]);
-        this.classList.add("JFSCSS_text_bubble_9");
-        this.frame.style.left = msg.x;
-        this.frame.style.bottom = msg.y;
-        break;
-        }
-      case 10:{ 
-        this.dir = 10;
-        this.classList.remove(this.classList[0]);
-        this.classList.add("JFSCSS_text_bubble_10");
-        this.frame.style.right = _(msg.x);
-        this.frame.style.top = _(msg.y);
-        break;
-        }
-      case 11:{ 
-        this.dir = 11;
-        this.classList.remove(this.classList[0]);
-        this.classList.add("JFSCSS_text_bubble_11");
-        this.frame.style.right = msg.x;
-        this.frame.style.top = msg.y;
-        this.frame.style.transform = 'translate(0, -50%)';
-        break;
-        }
-      case 12:{ 
-        this.dir = 12;
-        this.classList.remove(this.classList[0]);
-        this.classList.add("JFSCSS_text_bubble_12");
-        this.frame.style.right = msg.x;
-        this.frame.style.bottom = msg.y;
-        break;
-        }
-      default: {
-        this.dir = 0;      
-        this.frame.style.top = msg.y;
-        this.frame.style.left = msg.x;
-        break;
+      catch(e){
+        console.error("no Web Audio API");
         }
       }
-    this.frame.style.position = ("fixed" == msg.mode)?"fixed":"absolute";
-    };
-  var sharedContext=null;
-  var webKitAPI=false;
-  if('AudioContext' in window){
-    sharedContext=new AudioContext();
-    }
-  else if('webkitAudioContext' in window){
-    try{
-      sharedContext=new webkitAudioContext();
-      webKitAPI=true;
-      }
-    catch(e){
+    else{
       console.error("no Web Audio API");
       }
-    }
-  else{
-    console.error("no Web Audio API");
-    }
-  var SC_ClientTools={
-    init: function(m){
-      if(this.m){
-        console.log("already initialized...");
-        return;
-        }
-      if(undefined===m || !m.isSCClock){
-        m=SC.clock({ init: SC.pauseForever() });
-        }
-      Object.defineProperty(SC.tools, "m"
-      , { value: m
-        , writable: false
+    var SC_ClientTools={
+      init: function(m){
+        if(this.m){
+          console.log("already initialized...");
+          return;
           }
-        );
-      this.setWorkspace(document);
-      if("complete"!=document.readyState){
-        this.addProgram=function(p){
-          console.log("add before start", this.Evt_Sart);
-          this.m.addProgram((this.Evt_Sart)
-                ?SC.seq(SC.await(this.Evt_Sart), p):p);
-          }.bind(this);
-        this.generateEvent=function(evt, v){
-          this.m.addProgram((this.Evt_Sart)
-                ?SC.seq(SC.await(this.Evt_Sart), SC.generate(evt, p))
-                :SC.generate(evt, p));
-          }.bind(this);
-        }
-      else{
-        this.addProgram=this.m.addProgram.bind(this.m);
-        this.generateEvent=this.m.addEntry.bind(this.m);
-        }
-      }
-  , workspace: document
-  , setWorkspace: function(w){
-      this.workspace=w;
-      if(undefined===w.sc_getFPS){
-        w.sc_getFPS=function(){return "NA";}
-        }
-      }
-  , Evt_appStarted: SC.evt("appStarted")
-  , appInited: false
-  , makeDiv: makeElement.bind(this, "div")
-  , makeP: makeElement.bind(this, "p")
-  , makeUl: makeElement.bind(this, "ul")
-  , makeInput: makeElement.bind(this, "input")
-  , makeLabel: makeElement.bind(this, "label")
-  , makeSpan: makeElement.bind(this, "span")
-  , makeImage: function(args){
-      var tmp=null;
-      if(undefined!==args.w
-         && undefined!==args.h
-        ){
-        tmp=new Image(args.w, args.h);
-        }
-      else{
-        tmp=new Image();
-        }
-      activateElement(tmp);
-      return finishElement.call(this, tmp, args);
-      }
-  , audioContext: sharedContext
-  , activateElement: activateElement
-  , configureElement: finishElement
-  , energize: function(p){
-      var tmp=finishElement.call(this
-      , activateElement(document.currentScript.previousElementSibling)
-      , p
-        );
-      return tmp;
-      }
-  , loadData: function(url, resEvt, engine){
-      if(undefined===resEvt){
-        resEvt=SC.sampled("lodingData("+url+")");
-        }
-      const xmlHttpReq=new XMLHttpRequest();
-      xmlHttpReq.open("GET", url, true);
-      xmlHttpReq.onload=(function(sensor){
-          if(200==this.status || 0==this.status){
-            sensor.newValue(this.responseText);
+        if(undefined===m || !m.isSCClock){
+          m=SC.clock({ init: SC.pauseForever() });
+          }
+        Object.defineProperty(SC.tools, "m"
+        , { value: m
+          , writable: false
             }
-          }).bind(xmlHttpReq, resEvt);
-      xmlHttpReq.send(null);
-      return resEvt;
-      }
-  , initPanel: function(){
-      if(undefined===this.m){
-        throw new Error("initialize tools first");
-        }
-      this.controlPanel={};
-      this.controlPanel.win=document.createElement("div");
-      this.controlPanel.win.id='SC_ControlPanel';
-      this.controlPanel.toggle=function(b){
-        var cpc = this.content;
-        var hidden = "none" == cpc.style.display;
-        if((true === b)||(false === b)){
-          hidden = b;
-          }
-        cpc.style.display = (hidden)?"block":"none";
-        if(hidden){
-          this.win.style.paddingBottom="2px";
+          );
+        this.setWorkspace(document);
+        if("complete"!=document.readyState){
+          this.addProgram=function(p){
+            this.m.addProgram((this.Evt_Sart)
+                  ?SC.seq(SC.await(this.Evt_Sart), p):p);
+            }.bind(this);
+          this.generateEvent=function(evt, v){
+            this.m.addProgram((this.Evt_Sart)
+                  ?SC.seq(SC.await(this.Evt_Sart), SC.generate(evt, p))
+                  :SC.generate(evt, p));
+            }.bind(this);
           }
         else{
-          this.win.style.paddingBottom="5px";
+          this.addProgram=this.m.addProgram.bind(this.m);
+          this.generateEvent=this.m.addEntry.bind(this.m);
           }
-        }.bind(this.controlPanel)
-      window.addEventListener("load", function(){
-          document.body.appendChild(this.controlPanel.win);
-          }.bind(this)
+        }
+    , workspace: document
+    , setWorkspace: function(w){
+        this.workspace=w;
+        if(undefined===w.sc_getFPS){
+          w.sc_getFPS=function(){return "NA";}
+          }
+        }
+    , Evt_appStarted: SC.evt("appStarted")
+    , appInited: false
+    , makeDiv: makeElement.bind(this, "div")
+    , makeP: makeElement.bind(this, "p")
+    , makeUl: makeElement.bind(this, "ul")
+    , makeInput: makeElement.bind(this, "input")
+    , makeLabel: makeElement.bind(this, "label")
+    , makeSpan: makeElement.bind(this, "span")
+    , makeImage: function(args){
+        var tmp=null;
+        if(undefined!==args.w
+           && undefined!==args.h
+          ){
+          tmp=new Image(args.w, args.h);
+          }
+        else{
+          tmp=new Image();
+          }
+        activateElement(tmp);
+        return finishElement.call(this, tmp, args);
+        }
+    , audioContext: sharedContext
+    , activateElement: activateElement
+    , configureElement: finishElement
+    , energize: function(p){
+        var tmp=finishElement.call(this
+        , activateElement(document.currentScript.previousElementSibling)
+        , p
           );
-      var tmp = new Image(30,30);
-      tmp.setAttribute("src", "images/png/Close.png");
-      tmp.onclick = this.controlPanel.toggle;
-      tmp.style.margin="0";
-      tmp.style.padding="0";
-      this.controlPanel.win.appendChild(tmp);
-      this.controlPanel.content = document.createElement("div");
-      this.controlPanel.content.setAttribute("id","SC_CP_content");
-      this.controlPanel.win.appendChild(this.controlPanel.content);
-      this.controlPanel.console = document.createElement("div");
-      this.controlPanel.console.setAttribute("id","SC_console");
-      tmp=document.createElement("p");
-      tmp.style.margin="0";
-      tmp.style.padding="0";
-      tmp.innerHTML="ScreenShot :";
-      this.controlPanel.screenShot = new Image();
-      this.controlPanel.screenShot.setAttribute("id","SC_ScreenShot_pic");
-      this.controlPanel.screenShotSensor = SC.sensorize({name:"screenShotSensor"
-                         , dom_targets:[
-                               {target:this.controlPanel.screenShot, evt:"click"}
-                                       ]
-                         });
-      tmp.appendChild(this.controlPanel.screenShot);
-      this.controlPanel.content.appendChild(tmp);
-      tmp=document.createElement("p");
-      tmp.innerHTML = "IPS: ";
-      this.controlPanel.SC_Panel_ips = document.createElement("span");
-      tmp.appendChild(this.controlPanel.SC_Panel_ips);
-      this.controlPanel.SC_Panel_fps = document.createElement("span");
-      tmp.appendChild(this.controlPanel.SC_Panel_fps);
-      this.controlPanel.content.appendChild(tmp);
-      var tmpTable=document.createElement("table");
-      tmpTable.setAttribute("id","SC_mouse_tracker");
-      tmpTable.innerHTML="<tr><th></th><th>x</th><th>y</th></tr>";
-      tmp=document.createElement("tr");
-      tmp.innerHTML="<th>client</th>";
-      var SC_evt_mouse_client_x = document.createElement("td");
-      tmp.appendChild(SC_evt_mouse_client_x);
-      var SC_evt_mouse_client_y = document.createElement("td");
-      tmp.appendChild(SC_evt_mouse_client_y);
-      tmpTable.appendChild(tmp);
-      tmp=document.createElement("tr");
-      tmp.innerHTML="<th>page</th>";
-      var SC_evt_mouse_page_x = document.createElement("td");
-      tmp.appendChild(SC_evt_mouse_page_x);
-      var SC_evt_mouse_page_y = document.createElement("td");
-      tmp.appendChild(SC_evt_mouse_page_y);
-      tmpTable.appendChild(tmp);
-      tmp=document.createElement("tr");
-      tmp.innerHTML="<th>screen</th>";
-      var SC_evt_mouse_screen_x = document.createElement("td");
-      tmp.appendChild(SC_evt_mouse_screen_x);
-      var SC_evt_mouse_screen_y = document.createElement("td");
-      tmp.appendChild(SC_evt_mouse_screen_y);
-      tmpTable.appendChild(tmp);
-      this.controlPanel.content.appendChild(tmpTable);
-      tmpTable=document.createElement("table");
-      tmpTable.setAttribute("id","SC_reactive_machine_info");
-      tmp=document.createElement("tr");
-      tmp.innerHTML="<th>toplevel branches:</th>";
-      var SC_toplevel_bn = document.createElement("td");
-      tmp.appendChild(SC_toplevel_bn);
-      tmpTable.appendChild(tmp);
-      tmp=document.createElement("tr");
-      tmp.innerHTML="<tr><td><button onclick='SC_ClientTools.SC_controlMachine(event);'>Pause</button></td><td><button onclick='SC_ClientTools.m.newValue()'>Step</button></td></tr>";
-      tmpTable.appendChild(tmp);
-      tmp=document.createElement("tr");
-      tmp.innerHTML="<th>instant:</th>";
-      var SC_instant_n_cell = document.createElement("td");
-      tmp.appendChild(SC_instant_n_cell);
-      tmpTable.appendChild(tmp);
-      this.controlPanel.content.appendChild(tmpTable);
-      this.controlPanel.content.appendChild(document.createElement("br"));
-      this.controlPanel.content.appendChild(this.controlPanel.console);
-      this.controlPanel.setInspectorBtn = function(){
-        var inspector_btn = document.createElement("button");
-        inspector_btn.innerHTML="Element Inspector";
-        inspector_btn.onclick=function(){
-          SC.tools.generateEvent(SC_ClientTools.elementInspector.setIcobjUnderInspectionEvt, null);
-          };
-        this.content.appendChild(inspector_btn);
+        return tmp;
         }
-      if(undefined !== this.elementInspector){
-        this.controlPanel.setInspectorBtn();
-        }
-      SC_evt_mouse_click = SC.sensorize({name:"SC_evt_mouse_click"
-                         , dom_targets:[
-                               {target:document, evt:"click"}
-                                       ]
-                         });
-      SC_evt_mouse_down = SC.sensorize({name:"SC_evt_mouse_down"
-                         , dom_targets:[
-                               {target:document, evt:"mousedown"}
-                                       ]
-                         });
-      SC_evt_mouse_up = SC.sensorize({name:"SC_evt_mouse_up"
-                         , dom_targets:[
-                               {target:document, evt:"mouseup"}
-                                       ]
-                         });
-      SC_evt_mouse_move = SC.sensorize({name:"SC_evt_mouse_move"
-                         , dom_targets:[
-                               {target:document, evt:"mousemove"}
-                                       ]
-                         });
-      SC_evt_touch_start = SC.sensorize({name:"SC_evt_touch_start"
-                         , dom_targets:[
-                               {target:document, evt:"touchstart"}
-                                       ]
-                         });
-      SC_evt_touch_end = SC.sensorize({name:"SC_evt_touch_end"
-                         , dom_targets:[
-                               {target:document, evt:"touchend"}
-                                       ]
-                         });
-      SC_evt_touch_cancel = SC.sensorize({name:"SC_evt_touch_cancel"
-                         , dom_targets:[
-                               {target:document, evt:"touchcancel"}
-                                       ]
-                         });
-      SC_evt_touch_move = SC.sensorize({name:"SC_evt_touch_move"
-                         , dom_targets:[
-                               {target:document, evt:"touchmove"}
-                                       ]
-                         });
-      this.SC_controlMachine = function(evt){
-        this.m.setKeepRunningTo("Pause" != evt.target.innerHTML);
-        evt.target.innerHTML=(("Pause" == evt.target.innerHTML)?"Resume":"Pause");
-        }
-      SC.writeInConsole = function(msg, nl){
-        if(nl){
-          this.controlPanel.console.appendChild(document.createElement("br"));
+    , loadData: function(url, resEvt, engine){
+        if(undefined===resEvt){
+          resEvt=SC.sampled("lodingData("+url+")");
           }
-        this.controlPanel.console.appendChild(document.createTextNode(msg));
-        console.log.apply(console, arguments);
-        }.bind(this);
-      function trackEvent(theEvt){
-        var res = SC.repeat(SC.forever
-            , SC.await(theEvt)
-            , SC.action(function(evt, m){
-                 var val = m.sensorValueOf(evt);
-                 SC_evt_mouse_client_x.innerHTML = (undefined == val)?"--"
-                                                          :Math.floor(val.clientX);
-                 SC_evt_mouse_client_y.innerHTML = (undefined == val)?"--"
-                                                          :Math.floor(val.clientY);
-                 SC_evt_mouse_page_x.innerHTML = (undefined == val)?"--"
-                                                          :Math.floor(val.x);
-                 SC_evt_mouse_page_y.innerHTML = (undefined == val)?"--"
-                                                          :Math.floor(val.y);
-                 SC_evt_mouse_screen_x.innerHTML = (undefined == val)?"--"
-                                                          :Math.floor(val.screenX);
-                 SC_evt_mouse_screen_y.innerHTML = (undefined == val)?"--"
-                                                          :Math.floor(val.screenY);
-               }.bind(undefined, theEvt))
+        const xmlHttpReq=new XMLHttpRequest();
+        xmlHttpReq.open("GET", url, true);
+        xmlHttpReq.onload=(function(sensor){
+            if(200==this.status || 0==this.status){
+              sensor.newValue(this.responseText);
+              }
+            }).bind(xmlHttpReq, resEvt);
+        xmlHttpReq.send(null);
+        return resEvt;
+        }
+    , initPanel: function(){
+        if(undefined===this.m){
+          throw new Error("initialize tools first");
+          }
+        this.controlPanel={};
+        this.controlPanel.win=document.createElement("div");
+        this.controlPanel.win.id='SC_ControlPanel';
+        this.controlPanel.toggle=function(b){
+          var cpc = this.content;
+          var hidden = "none" == cpc.style.display;
+          if((true === b)||(false === b)){
+            hidden = b;
+            }
+          cpc.style.display = (hidden)?"block":"none";
+          if(hidden){
+            this.win.style.paddingBottom="2px";
+            }
+          else{
+            this.win.style.paddingBottom="5px";
+            }
+          }.bind(this.controlPanel)
+        window.addEventListener("load", function(){
+            document.body.appendChild(this.controlPanel.win);
+            }.bind(this)
             );
-        return res;
-      }
-      this.m.addToOwnProgram(trackEvent(SC_evt_mouse_down));
-      this.m.addToOwnProgram(trackEvent(SC_evt_mouse_move));
-      this.m.addToOwnProgram(trackEvent(SC_evt_mouse_up));
-      this.m.addToOwnProgram(trackEvent(SC_evt_touch_start));
-      this.m.addToOwnProgram(trackEvent(SC_evt_touch_move));
-      this.m.addToOwnProgram(trackEvent(SC_evt_touch_end));
-      this.m.addToOwnProgram(
-          SC.repeat(SC.forever
-            , SC.act(function(m){
-                  this.controlPanel.SC_Panel_fps.innerHTML = " FPS : "
-                                                             +this.workspace.getFPS()+" ";
-                }.bind(this))
-            , SC.pause(200)
-            )
-        );
-      this.m.addToOwnProgram(
-          SC.repeat(SC.forever
-            , SC.act(function(m){
-                  this.controlPanel.SC_Panel_ips.innerHTML = " "+m.getIPS()+" ";
-                }.bind(this))
-            , SC.pause(200)
-            )
-        );
-      this.m.addToOwnProgram(
-          SC.repeatForever(
-                SC.await(this.controlPanel.screenShotSensor)
-              , SC.action(
-                  function(m){
-                    if(undefined !== this.workspace.toDataURL){
-                      this.controlPanel.screenShot.src=this.workspace.toDataURL("image/png");
-                      }
-                    }.bind(this))
-            )
-        );
-      this.m.addToOwnProgram(
-          SC.repeat(SC.forever
-            , SC.act(function(view, m){
-                view.innerHTML=m.getInstantNumber();
-                }.bind(this, SC_instant_n_cell)
-                )
-            , SC.act(function SC_updateTLBN(view, m){
-                view.innerHTML=m.getTopLevelParallelBranchesNumber();
-                }.bind(this, SC_toplevel_bn)
-                )
-            )
-        );
-      SC.write = function(msg){
-        return SC.act(function(){
-                   SC.writeInConsole(msg);
-                 });
-        }
-    }
-  , appInit: function(config){
-      this.appInited=true;
-      if(undefined!==config.appTitle.text){
-        document.write("<title"
-                      +((undefined===config.appTitle.lang)
-                           ?"":(" lang='"+config.appTitle.lang+"'"))
-                      +">"
-                      +config.appTitle.text+"</title>");
-        }
-      else{
-        document.write("<title>"+config.appTitle+"</title>");
-        }
-      if(undefined!==config.appAuthors.content){
-        document.write("<meta name='athor'"
-                          +((undefined === config.appAuthors.lang)
-                                    ?"":" lang='"+config.appAuthors.lang+"'")
-                        +" content='"+config.appAuthors.content+"'/>");
-        }
-      else{
-        document.write("<meta name='athor' content='"+config.appAuthors+"'/>");
-        }
-      if(undefined!==config.appDescription){
-        if(undefined!==config.appDescription.content){
-          document.write("<meta name='description' content='"
-                            +((undefined === config.appDescription.lang)
-                                      ?"":" lang='"+config.appDescription.lang+"'")
-                         +config.appDescription.content+"'/>");
-        }
-        else{
-          document.write("<meta name='description' content='"+config.appDescription+"'/>");
+        var tmp = new Image(30,30);
+        tmp.setAttribute("src", "images/png/Close.png");
+        tmp.onclick = this.controlPanel.toggle;
+        tmp.style.margin="0";
+        tmp.style.padding="0";
+        this.controlPanel.win.appendChild(tmp);
+        this.controlPanel.content = document.createElement("div");
+        this.controlPanel.content.setAttribute("id","SC_CP_content");
+        this.controlPanel.win.appendChild(this.controlPanel.content);
+        this.controlPanel.console = document.createElement("div");
+        this.controlPanel.console.setAttribute("id","SC_console");
+        tmp=document.createElement("p");
+        tmp.style.margin="0";
+        tmp.style.padding="0";
+        tmp.innerHTML="ScreenShot :";
+        this.controlPanel.screenShot = new Image();
+        this.controlPanel.screenShot.setAttribute("id","SC_ScreenShot_pic");
+        this.controlPanel.screenShotSensor = SC.sensorize({name:"screenShotSensor"
+                           , dom_targets:[
+                                 {target:this.controlPanel.screenShot, evt:"click"}
+                                         ]
+                           });
+        tmp.appendChild(this.controlPanel.screenShot);
+        this.controlPanel.content.appendChild(tmp);
+        tmp=document.createElement("p");
+        tmp.innerHTML = "IPS: ";
+        this.controlPanel.SC_Panel_ips = document.createElement("span");
+        tmp.appendChild(this.controlPanel.SC_Panel_ips);
+        this.controlPanel.SC_Panel_fps = document.createElement("span");
+        tmp.appendChild(this.controlPanel.SC_Panel_fps);
+        this.controlPanel.content.appendChild(tmp);
+        var tmpTable=document.createElement("table");
+        tmpTable.setAttribute("id","SC_mouse_tracker");
+        tmpTable.innerHTML="<tr><th></th><th>x</th><th>y</th></tr>";
+        tmp=document.createElement("tr");
+        tmp.innerHTML="<th>client</th>";
+        var SC_evt_mouse_client_x = document.createElement("td");
+        tmp.appendChild(SC_evt_mouse_client_x);
+        var SC_evt_mouse_client_y = document.createElement("td");
+        tmp.appendChild(SC_evt_mouse_client_y);
+        tmpTable.appendChild(tmp);
+        tmp=document.createElement("tr");
+        tmp.innerHTML="<th>page</th>";
+        var SC_evt_mouse_page_x = document.createElement("td");
+        tmp.appendChild(SC_evt_mouse_page_x);
+        var SC_evt_mouse_page_y = document.createElement("td");
+        tmp.appendChild(SC_evt_mouse_page_y);
+        tmpTable.appendChild(tmp);
+        tmp=document.createElement("tr");
+        tmp.innerHTML="<th>screen</th>";
+        var SC_evt_mouse_screen_x = document.createElement("td");
+        tmp.appendChild(SC_evt_mouse_screen_x);
+        var SC_evt_mouse_screen_y = document.createElement("td");
+        tmp.appendChild(SC_evt_mouse_screen_y);
+        tmpTable.appendChild(tmp);
+        this.controlPanel.content.appendChild(tmpTable);
+        tmpTable=document.createElement("table");
+        tmpTable.setAttribute("id","SC_reactive_machine_info");
+        tmp=document.createElement("tr");
+        tmp.innerHTML="<th>toplevel branches:</th>";
+        var SC_toplevel_bn = document.createElement("td");
+        tmp.appendChild(SC_toplevel_bn);
+        tmpTable.appendChild(tmp);
+        tmp=document.createElement("tr");
+        tmp.innerHTML="<tr><td><button onclick='SC_ClientTools.SC_controlMachine(event);'>Pause</button></td><td><button onclick='SC_ClientTools.m.newValue()'>Step</button></td></tr>";
+        tmpTable.appendChild(tmp);
+        tmp=document.createElement("tr");
+        tmp.innerHTML="<th>instant:</th>";
+        var SC_instant_n_cell = document.createElement("td");
+        tmp.appendChild(SC_instant_n_cell);
+        tmpTable.appendChild(tmp);
+        this.controlPanel.content.appendChild(tmpTable);
+        this.controlPanel.content.appendChild(document.createElement("br"));
+        this.controlPanel.content.appendChild(this.controlPanel.console);
+        this.controlPanel.setInspectorBtn = function(){
+          var inspector_btn = document.createElement("button");
+          inspector_btn.innerHTML="Element Inspector";
+          inspector_btn.onclick=function(){
+            SC.tools.generateEvent(SC_ClientTools.elementInspector.setIcobjUnderInspectionEvt, null);
+            };
+          this.content.appendChild(inspector_btn);
           }
-        }
-      if(undefined !== config.appKeywords){
-        if(undefined !== config.appKeywords.content){
-          document.write("<meta name='athor'"
-                            +((undefined === config.appKeywords.lang)
-                                      ?"":" lang='"+config.appKeywords.lang)+"'"+">"
-                          +" content='"+config.appKeywords.content+"'/>");
+        if(undefined !== this.elementInspector){
+          this.controlPanel.setInspectorBtn();
           }
-        else{
-          document.write("<meta name='athor' content='"+config.appKeywords+"'/>");
+        SC_evt_mouse_click = SC.sensorize({name:"SC_evt_mouse_click"
+                           , dom_targets:[
+                                 {target:document, evt:"click"}
+                                         ]
+                           });
+        SC_evt_mouse_down = SC.sensorize({name:"SC_evt_mouse_down"
+                           , dom_targets:[
+                                 {target:document, evt:"mousedown"}
+                                         ]
+                           });
+        SC_evt_mouse_up = SC.sensorize({name:"SC_evt_mouse_up"
+                           , dom_targets:[
+                                 {target:document, evt:"mouseup"}
+                                         ]
+                           });
+        SC_evt_mouse_move = SC.sensorize({name:"SC_evt_mouse_move"
+                           , dom_targets:[
+                                 {target:document, evt:"mousemove"}
+                                         ]
+                           });
+        SC_evt_touch_start = SC.sensorize({name:"SC_evt_touch_start"
+                           , dom_targets:[
+                                 {target:document, evt:"touchstart"}
+                                         ]
+                           });
+        SC_evt_touch_end = SC.sensorize({name:"SC_evt_touch_end"
+                           , dom_targets:[
+                                 {target:document, evt:"touchend"}
+                                         ]
+                           });
+        SC_evt_touch_cancel = SC.sensorize({name:"SC_evt_touch_cancel"
+                           , dom_targets:[
+                                 {target:document, evt:"touchcancel"}
+                                         ]
+                           });
+        SC_evt_touch_move = SC.sensorize({name:"SC_evt_touch_move"
+                           , dom_targets:[
+                                 {target:document, evt:"touchmove"}
+                                         ]
+                           });
+        this.SC_controlMachine = function(evt){
+          this.m.setKeepRunningTo("Pause" != evt.target.innerHTML);
+          evt.target.innerHTML=(("Pause" == evt.target.innerHTML)?"Resume":"Pause");
           }
-        }
-      if(undefined === config.viewport){
-        document.write("<meta name='viewport' content='width=device-width,height=device-height,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no'/>");
-        }
-      else{
-        var tmp_vprt="<meta name='viewport' content='"
-        var data=config.viewport;
-        var first=true;
-        if(undefined!==data.width){
-          tmp_vprt+=(first?"":",")+"width="+data.width;
-          first=false;
-          }
-        if(undefined!==data.height){
-          tmp_vprt+=(first?"":",")+"height="+data.height;
-          first=false;
-          }
-        if(undefined!==data.init_scale){
-          tmp_vprt+=(first?"":",")+"initial-scale="+data.init_scale;
-          first=false;
-          }
-        if(undefined !== data.max){
-          tmp_vprt += (first?"":",")+"maximum-scale="+data.max;
-          first = false;
-          }
-        if(undefined !== data.min){
-          tmp_vprt += (first?"":",")+"minimum-scale="+data.min;
-          first = false;
-          }
-        if(undefined !== data.scalable){
-          tmp_vprt += (first?"":",")+"user-scalable="+data.scalable;
-          first = false;
-          }
-        tmp_vprt += "'/>"
-        document.write(tmp_vprt);
-        }
-      document.write("<meta name='apple-mobile-web-app-capable' content='yes'>");
-      if(undefined !== config.statusBarConfig){
-        document.write("<meta name='apple-mobile-web-app-status-bar-style'"
-                     + " content='"+config.statusBarConfig+"'>");
-        }
-      else{
-        document.write("<meta name='apple-mobile-web-app-status-bar-style'"
-                     + " content='translucent white'>");
-        }
-      document.write("<meta name='apple-touch-fullscreen' content='yes'>");
-      if(undefined !== config.startup_img){
-        for(var i in config.startup_img){
-          document.write("<link href='"+config.startup_img[i].rsrc+"'"
-                       + ((undefined !== config.startup_img[i].media)
-                            ?" media='"+config.startup_img[i].media+"'"
-                            :"")
-                       + " rel='apple-touch-startup-image'/>");
-          }
-        }
-      if(undefined !== config.controler_style){
-        document.write("<link rel ='stylesheet' type='text/css' href='"+config.controler_style+"' title='Style'/>");
-        }
-      if(undefined !== config.iconSet){
-        for(var j in config.iconSet){
-          var i = config.iconSet[j];
-          var base_tmp = "<link"
-                  + " sizes='"+i.size+"'"
-                  + " href='"+i.url+"'";
-          document.write(base_tmp
-                  + " rel='apple-touch-icon"
-                           + ((true == i.precomp)?"-precomposed":"")+"'/>"
-                  );
-          document.write(base_tmp
-                  + " rel='icon'/>"
-                  );
-          document.write(base_tmp
-                  + " rel='shortcut icon'/>"
-                  );
-          }
-        }
-      const config_m=(config.machineConfig)?config.machineConfig
-                                           :{ delay: config.tickTime };
-      if(!config_m.delay){
-        config_m.delay=100;
-        }
-      config_m.name="SC_Tools_clock";
-      const m=SC.clock(config_m);
-      m.setStdOut(SC.writeInConsole);
-      this.init(m);
-      this.periodic=SC.periodic(config_m);
-      this.m.bindTo(this.periodic);
-      const tmp_par=SC.par(SC.pause(10));
-      if(config.audioSupport){
-        this.audioToolbox.init();
-        tmp_par.add(SC.await(this.audioToolbox.Evt_audioLoaded));
-        }
-      if(config.controler){
-        this.initPanel();
-        if(config.controler_closed){
-          this.controlPanel.toggle(false);
-          }
-        }
-      this.t=[];
-      SC_ify=function(p){
-        var res;
-        this.t.push(res=this.energize(p));
-        return res;
-        }.bind(this);
-      this.splashScreen=this.makeDiv({
-        id:"App_splashScreen"
-        });
-      if(undefined!==config.splashConfig){
-        this.splashScreen=this.makeDiv({
-            id:"App_splashScreen"
-          , inH: "<div"
-                +((undefined!=config.splashConfig.background)?(" style='background:"+config.splashConfig.background+"'"):"")
-                +"> <div><span class='SC_splashH1'"
-                +((undefined!=config.splashConfig.title_style)?(" style='"+config.splashConfig.title_style +"'"):"")
-                +">"+config.splashConfig.title+"</span></div> "
-                +"<img id='SC_splash_FB_loading' src='/images/gif/CP48_spinner.gif'/>"
-                +"<div class='SC_splashH3' style='display:none;'>"
-                +config.splashConfig.start
-                +"</div></div>"
+        SC.writeInConsole = function(msg, nl){
+          if(nl){
+            this.controlPanel.console.appendChild(document.createElement("br"));
             }
-          );
-        const im_anim=this.splashScreen.children[0].children[1];
-        const btn=this.splashScreen.children[0].children[2];
-        this.splashScreen.Evt_clickStart=SC.sensor("Evt_clickStart"
-        , { dom_targets: [{ target: btn
-              , evt: "mousedown"
-                }
-              ]
-            });
-        this.m.bindTo(this.splashScreen.Evt_clickStart);
-        this.splashScreen.Evt_allLoaded=SC.evt("Evt_allLoaded");
-        this.splashScreen.btn=btn;
-        window.addEventListener("load"
-        , function(btn, ia){
-            this.appPageLoaded=true;
-            ia.style.display="none";
-            btn.style.display="";
-            this.m.addProgram(
-              SC.seq(
-                SC.await(this.splashScreen.Evt_allLoaded)
-              , SC.action(function(m){
-                  this.splashScreen.parentElement.removeChild(
-                                                        this.splashScreen);
-                  }.bind(this)
-                  )
-              , SC.generate(this.Evt_appStarted)
-                )
+          this.controlPanel.console.appendChild(document.createTextNode(msg));
+          console.log.apply(console, arguments);
+          }.bind(this);
+        function trackEvent(theEvt){
+          var res = SC.repeat(SC.forever
+              , SC.await(theEvt)
+              , SC.action(function(evt, m){
+                   var val = m.sensorValueOf(evt);
+                   SC_evt_mouse_client_x.innerHTML = (undefined == val)?"--"
+                                                            :Math.floor(val.clientX);
+                   SC_evt_mouse_client_y.innerHTML = (undefined == val)?"--"
+                                                            :Math.floor(val.clientY);
+                   SC_evt_mouse_page_x.innerHTML = (undefined == val)?"--"
+                                                            :Math.floor(val.x);
+                   SC_evt_mouse_page_y.innerHTML = (undefined == val)?"--"
+                                                            :Math.floor(val.y);
+                   SC_evt_mouse_screen_x.innerHTML = (undefined == val)?"--"
+                                                            :Math.floor(val.screenX);
+                   SC_evt_mouse_screen_y.innerHTML = (undefined == val)?"--"
+                                                            :Math.floor(val.screenY);
+                 }.bind(undefined, theEvt))
               );
-            }.bind(this, btn, im_anim)
+          return res;
+        }
+        this.m.addProgram(trackEvent(SC_evt_mouse_down));
+        this.m.addProgram(trackEvent(SC_evt_mouse_move));
+        this.m.addProgram(trackEvent(SC_evt_mouse_up));
+        this.m.addProgram(trackEvent(SC_evt_touch_start));
+        this.m.addProgram(trackEvent(SC_evt_touch_move));
+        this.m.addProgram(trackEvent(SC_evt_touch_end));
+        this.m.addProgram(
+            SC.repeat(SC.forever
+              , SC.act(function(m){
+                    this.controlPanel.SC_Panel_fps.innerHTML = " FPS : "
+                                                               +this.workspace.getFPS()+" ";
+                  }.bind(this))
+              , SC.pause(200)
+              )
           );
         this.m.addProgram(
-          SC.seq(
-            SC.await(this.splashScreen.Evt_clickStart)
-          , SC.action(function(m){
-              this.splashScreen.btn.innerHTML="Loading..."
-              this.audioToolbox.loadAll();
-              }.bind(this))
-          , tmp_par
-          , SC.generate(this.splashScreen.Evt_allLoaded)
-            )
+            SC.repeat(SC.forever
+              , SC.act(function(m){
+                    this.controlPanel.SC_Panel_ips.innerHTML = " "+m.getIPS()+" ";
+                  }.bind(this))
+              , SC.pause(200)
+              )
           );
-        }
-      else{
         this.m.addProgram(
-          SC.seq(SC.pause(10),SC.generate((this.Evt_appStarted)))
+            SC.repeatForever(
+                  SC.await(this.controlPanel.screenShotSensor)
+                , SC.action(
+                    function(m){
+                      if(undefined !== this.workspace.toDataURL){
+                        this.controlPanel.screenShot.src=this.workspace.toDataURL("image/png");
+                        }
+                      }.bind(this))
+              )
           );
-        }
-      if(true == config.inspectorEnabled){
-        this.initInspector();
-        }
+        this.m.addProgram(
+            SC.repeat(SC.forever
+              , SC.act(function(view, m){
+                  view.innerHTML=m.getInstantNumber();
+                  }.bind(this, SC_instant_n_cell)
+                  )
+              , SC.act(function SC_updateTLBN(view, m){
+                  view.innerHTML=m.getTopLevelParallelBranchesNumber();
+                  }.bind(this, SC_toplevel_bn)
+                  )
+              )
+          );
+        SC.write = function(msg){
+          return SC.act(function(){
+                     SC.writeInConsole(msg);
+                   });
+          }
       }
+    , appInit: function(config){
+        this.appInited=true;
+        if(undefined!==config.appTitle.text){
+          document.write("<title"
+                        +((undefined===config.appTitle.lang)
+                             ?"":(" lang='"+config.appTitle.lang+"'"))
+                        +">"
+                        +config.appTitle.text+"</title>");
+          }
+        else{
+          document.write("<title>"+config.appTitle+"</title>");
+          }
+        if(undefined!==config.appAuthors.content){
+          document.write("<meta name='athor'"
+                            +((undefined === config.appAuthors.lang)
+                                      ?"":" lang='"+config.appAuthors.lang+"'")
+                          +" content='"+config.appAuthors.content+"'/>");
+          }
+        else{
+          document.write("<meta name='athor' content='"+config.appAuthors+"'/>");
+          }
+        if(undefined!==config.appDescription){
+          if(undefined!==config.appDescription.content){
+            document.write("<meta name='description' content='"
+                              +((undefined === config.appDescription.lang)
+                                        ?"":" lang='"+config.appDescription.lang+"'")
+                           +config.appDescription.content+"'/>");
+          }
+          else{
+            document.write("<meta name='description' content='"+config.appDescription+"'/>");
+            }
+          }
+        if(undefined !== config.appKeywords){
+          if(undefined !== config.appKeywords.content){
+            document.write("<meta name='athor'"
+                              +((undefined === config.appKeywords.lang)
+                                        ?"":" lang='"+config.appKeywords.lang)+"'"+">"
+                            +" content='"+config.appKeywords.content+"'/>");
+            }
+          else{
+            document.write("<meta name='athor' content='"+config.appKeywords+"'/>");
+            }
+          }
+        if(undefined === config.viewport){
+          document.write("<meta name='viewport' content='width=device-width,height=device-height,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no'/>");
+          }
+        else{
+          var tmp_vprt="<meta name='viewport' content='"
+          var data=config.viewport;
+          var first=true;
+          if(undefined!==data.width){
+            tmp_vprt+=(first?"":",")+"width="+data.width;
+            first=false;
+            }
+          if(undefined!==data.height){
+            tmp_vprt+=(first?"":",")+"height="+data.height;
+            first=false;
+            }
+          if(undefined!==data.init_scale){
+            tmp_vprt+=(first?"":",")+"initial-scale="+data.init_scale;
+            first=false;
+            }
+          if(undefined !== data.max){
+            tmp_vprt += (first?"":",")+"maximum-scale="+data.max;
+            first = false;
+            }
+          if(undefined !== data.min){
+            tmp_vprt += (first?"":",")+"minimum-scale="+data.min;
+            first = false;
+            }
+          if(undefined !== data.scalable){
+            tmp_vprt += (first?"":",")+"user-scalable="+data.scalable;
+            first = false;
+            }
+          tmp_vprt += "'/>"
+          document.write(tmp_vprt);
+          }
+        document.write("<meta name='apple-mobile-web-app-capable' content='yes'>");
+        if(undefined !== config.statusBarConfig){
+          document.write("<meta name='apple-mobile-web-app-status-bar-style'"
+                       + " content='"+config.statusBarConfig+"'>");
+          }
+        else{
+          document.write("<meta name='apple-mobile-web-app-status-bar-style'"
+                       + " content='translucent white'>");
+          }
+        document.write("<meta name='apple-touch-fullscreen' content='yes'>");
+        if(undefined !== config.startup_img){
+          for(var i in config.startup_img){
+            document.write("<link href='"+config.startup_img[i].rsrc+"'"
+                         + ((undefined !== config.startup_img[i].media)
+                              ?" media='"+config.startup_img[i].media+"'"
+                              :"")
+                         + " rel='apple-touch-startup-image'/>");
+            }
+          }
+        if(undefined !== config.controler_style){
+          document.write("<link rel ='stylesheet' type='text/css' href='"+config.controler_style+"' title='Style'/>");
+          }
+        if(undefined !== config.iconSet){
+          for(var j in config.iconSet){
+            var i = config.iconSet[j];
+            var base_tmp = "<link"
+                    + " sizes='"+i.size+"'"
+                    + " href='"+i.url+"'";
+            document.write(base_tmp
+                    + " rel='apple-touch-icon"
+                             + ((true == i.precomp)?"-precomposed":"")+"'/>"
+                    );
+            document.write(base_tmp
+                    + " rel='icon'/>"
+                    );
+            document.write(base_tmp
+                    + " rel='shortcut icon'/>"
+                    );
+            }
+          }
+        const config_m=(config.machineConfig)?config.machineConfig
+                                             :{ delay: config.tickTime };
+        if(!config_m.delay){
+          config_m.delay=100;
+          }
+        config_m.name="SC_Tools_clock";
+        const m=SC.clock(config_m);
+        m.setStdOut(SC.writeInConsole);
+        this.init(m);
+        this.periodic=SC.periodic(config_m);
+        this.m.bindTo(this.periodic);
+        const tmp_par=SC.par(SC.pause(10));
+        if(config.audioSupport){
+          this.audioToolbox.init();
+          tmp_par.add(SC.await(this.audioToolbox.Evt_audioLoaded));
+          }
+        if(config.controler){
+          this.initPanel();
+          if(config.controler_closed){
+            this.controlPanel.toggle(false);
+            }
+          }
+        this.t=[];
+        SC_ify=function(p){
+          var res;
+          this.t.push(res=this.energize(p));
+          return res;
+          }.bind(this);
+        this.splashScreen=this.makeDiv({
+          id:"App_splashScreen"
+          });
+        if(undefined!==config.splashConfig){
+          this.splashScreen=this.makeDiv({
+              id:"App_splashScreen"
+            , inH: "<div"
+                  +((undefined!=config.splashConfig.background)?(" style='background:"+config.splashConfig.background+"'"):"")
+                  +"> <div><span class='SC_splashH1'"
+                  +((undefined!=config.splashConfig.title_style)?(" style='"+config.splashConfig.title_style +"'"):"")
+                  +">"+config.splashConfig.title+"</span></div> "
+                  +"<img id='SC_splash_FB_loading' src='/images/gif/CP48_spinner.gif'/>"
+                  +"<div class='SC_splashH3' style='display:none;'>"
+                  +config.splashConfig.start
+                  +"</div></div>"
+              }
+            );
+          const im_anim=this.splashScreen.children[0].children[1];
+          const btn=this.splashScreen.children[0].children[2];
+          this.splashScreen.Evt_clickStart=SC.sensor("Evt_clickStart"
+          , { dom_targets: [{ target: btn
+                , evt: "mousedown"
+                  }
+                ]
+              });
+          this.m.bindTo(this.splashScreen.Evt_clickStart);
+          this.splashScreen.Evt_allLoaded=SC.evt("Evt_allLoaded");
+          this.splashScreen.btn=btn;
+          window.addEventListener("load"
+          , function(btn, ia){
+              this.appPageLoaded=true;
+              ia.style.display="none";
+              btn.style.display="";
+              this.m.addProgram(
+                SC.seq(
+                  SC.await(this.splashScreen.Evt_allLoaded)
+                , SC.action(function(m){
+                    this.splashScreen.parentElement.removeChild(
+                                                          this.splashScreen);
+                    }.bind(this)
+                    )
+                , SC.generate(this.Evt_appStarted)
+                  )
+                );
+              }.bind(this, btn, im_anim)
+            );
+          this.m.addProgram(
+            SC.seq(
+              SC.await(this.splashScreen.Evt_clickStart)
+            , SC.action(function(m){
+                this.splashScreen.btn.innerHTML="Loading..."
+                this.audioToolbox.loadAll();
+                }.bind(this))
+            , tmp_par
+            , SC.generate(this.splashScreen.Evt_allLoaded)
+              )
+            );
+          }
+        else{
+          this.m.addProgram(
+            SC.seq(SC.pause(10),SC.generate((this.Evt_appStarted)))
+            );
+          }
+        if(true == config.inspectorEnabled){
+          this.initInspector();
+          }
+        }
     , displaySplash: function(){
         if(!this.appInited){
           console.log("Application Not inited, can't call this one.");
@@ -1177,33 +1191,33 @@ if(SC && SC.sc_build>1){
         }
     , speech: function(params){
         params.get=function(field, d){
-          return (this[field])?this[field]:d;
+          return (undefined!==this[field])?this[field]:d;
           }
-        const speeckable=new SpeechSynthesisUtterance(params.get("speech",""));
-        speeckable.lang=params.get("lang", "fr-FR");
-        speeckable.Evt_startSpeak=params.get("start_evt"
+        const speakable=new SpeechSynthesisUtterance(params.get("speech",""));
+        speakable.lang=params.get("lang", "fr-FR");
+        speakable.Evt_startSpeak=params.get("start_evt"
                                            , SC.evt("Evt_startSpeak"));
-        speeckable.Sns_ended=params.get("stop_evt", SC.sensor("Sns_ended"));
-        speeckable.Evt_cancel=params.get("cancel_evt", SC.evt("Evt_cancel"));
-        speeckable.onend=speeckable.Sns_ended.newValue.bind(speeckable.Sns_ended);
-        speeckable.sc_speech_beh=
-          SC.kill(speeckable.Evt_cancel
+        speakable.Sns_ended=params.get("stop_evt", SC.sensor("Sns_ended"));
+        speakable.Evt_cancel=params.get("cancel_evt", SC.evt("Evt_cancel"));
+        speakable.onend=speakable.Sns_ended.newValue.bind(speakable.Sns_ended);
+        speakable.sc_speech_beh=
+          SC.kill(speakable.Evt_cancel
           , SC.par(
               SC.seq(
-                SC.await(speeckable.Evt_startSpeak)
+                SC.await(speakable.Evt_startSpeak)
               , SC.action(
                   window.speechSynthesis.speak.bind(window.speechSynthesis
-                                                  , speeckable))
-              , SC.await(speeckable.Sns_ended)
+                                                  , speakable))
+              , SC.await(speakable.Sns_ended)
                 )
             , SC.seq(
-                SC.await(speeckable.Evt_cancel)
+                SC.await(speakable.Evt_cancel)
               , SC.action(
                   window.speechSynthesis.cancel.bind(window.speechSynthesis))
                 )
               )
             );
-          return speeckable;
+          return speakable;
         }
     , initNotificationSupport: function(){
         SC.tools.makeNotification = function(){}
@@ -1498,191 +1512,234 @@ if(SC && SC.sc_build>1){
         bubble_frame.appendChild(bubble_view);
         return bubble_view;
         }
+    , removeCookie: function(cname){
+        const expires=";expires = Thu, 01 Jan 1970 00:00:00 GMT";
+        const cookieString=cname+"="
+            +expires;
+        document.cookie=cookieString;
+        }
     , setCookie: function(cname, cvalue, params){
-        const exdays = (params.days)?params.days:1;
-        const d = new Date();
-        d.setTime(d.getTime() + (exdays*24*60*60*1000));
-        const expires = "expires="+d.toUTCString();
-        const cookieString = cname + "=" + cvalue + ";" + expires + ";path=/"
-            +((params.dmn != undefined)?";domain="+params.dmn:"");
-        document.cookie = cookieString;
+        const old=this.getCookie(cname);
+        if(undefined!=old.value){
+          this.removeCookie(cname);
+          }
+        const exdays=(params && params.days)?params.days:1;
+        const d=new Date();
+        d.setTime(d.getTime()+(exdays*24*60*60*1000));
+        const expires=(params && params.days)?(";expires="+d.toUTCString())
+                                             :"";
+        const cookieString=cname+"="+encodeURIComponent(cvalue)
+            +expires
+            +((params && params.path)?";path="+params.path:"")
+            +((params && params.domain)?";domain="+params.domain:"")
+            +((params && params.secure)?";secure":"")
+            +((params && params.HttpOnly)?";HttpOnly":"");
+        document.cookie=cookieString;
+        }
+    , getCookies: function(){
+        const res=[];
+        const decodedCookie=decodeURIComponent(document.cookie);
+        if(decodedCookie==""){
+          return res;
+          }
+        const ca=decodedCookie.split(';');
+        var cookie={};
+        for(var i=0; i<ca.length; i++){
+          var c=ca[i];
+          while(' '==c.charAt(0)){
+            c=c.substring(1);
+            }
+          const splt=c.indexOf('=');
+          console.log("=>", splt);
+          const k=(splt<0)?c:c.substring(0, splt);
+          const v=(splt<0)?"":c.substring(splt+1);
+          cookie.name=k;
+          cookie.value=v;
+          res.push(cookie);
+          cookie={};
+          }
+        return res;
         }
     , getCookie: function(cname){
-        const name = cname + "=";
-        const ca = document.cookie.split(';');
-        for(var i = 0; i < ca.length; i++){
-          var c = ca[i];
-          while(' ' == c.charAt(0)){
-            c = c.substring(1);
+        const res={ name: cname };
+        const decodedCookie=decodeURIComponent(document.cookie);
+        const name=cname+"=";
+        const ca=decodedCookie.split(';');
+        for(var i=0; i<ca.length; i++){
+          var c=ca[i];
+          while(' '==c.charAt(0)){
+            c=c.substring(1);
             }
-          if(0 == c.indexOf(name)){
-            return c.substring(name.length, c.length);
-            }
-          }
-        return "";
-        }
-    , addStyleSheet : function(name,rules){
-        var style = document.styleSheets[0];
-        style.addRule(name, rules);
-        }
-    , makeDataDrawer : function(){
-        const div = document.createElement("div");
-        const canvas = document.createElement("canvas")
-        return div;
-        }
-  , crc32_bin: function(bytes){
-      const crc=new Uint32Array(3);
-      crc[0]=0xFFFFFFFF;
-      const n=input.length;
-      for(var i=0; i<n; i++){
-        crc[1]=(bytes[i]&0xFF);
-        for(var j=0; j<8; j++){
-          crc[2]=((crc[1]>>j)^crc[0])&0x1;      
-          crc[0]>>>= 1;
-          if(crc[2]){
-            crc[0]^=0xEDB88320;
+          if(0==c.indexOf(name)){
+            res.value=c.substring(name.length, c.length);
             }
           }
+        return res;
         }
-      crc[0]=~crc[0];
-      return crc[0];
-      }
-  , signal_ft: function(signal , threshold = 1e-8){
-      const N = signal.length;
-      const DE_PI_N = 2*Math.PI/N;
-      const ft = [];
-      for(var f = 0; f < N; f++){
-        const freq = {re: 0, im: 0};
-        for(var t = 0; t < N; t++){
-          const st = signal[t];
-          const amp = (undefined !== st.re && undefined !== st.im)?Math.sqrt(st.re*st.re+st.im*st.im):st;
-          if(isNaN(amp)){
-            console.error("DFT error", amp, st);
+    , addToMainStyleSheet: function(rule, index){
+        if(undefined==this.main_style){
+          this.main_style=document.createElement('style');
+          this.main_style.setAttribute("type", "text/css");
+          document.head.appendChild(this.main_style);
+          }
+        this.main_style.sheet.insertRule(rule, index);
+        this.removeFromMainStyleSheet=function(index){
+          this.main_style.sheet.deleteRule(index);
+          };
+        }
+    , crc32_bin: function(bytes){
+        const crc=new Uint32Array(3);
+        crc[0]=0xFFFFFFFF;
+        const n=input.length;
+        for(var i=0; i<n; i++){
+          crc[1]=(bytes[i]&0xFF);
+          for(var j=0; j<8; j++){
+            crc[2]=((crc[1]>>j)^crc[0])&0x1;      
+            crc[0]>>>= 1;
+            if(crc[2]){
+              crc[0]^=0xEDB88320;
+              }
             }
-          const alpha = -DE_PI_N*f*t;
-          const part = {
-              re: amp*Math.cos(alpha)
-            , im: amp*Math.sin(alpha)
-            };
-          freq.re += part.re;
-          freq.im += part.im;
+          }
+        crc[0]=~crc[0];
+        return crc[0];
         }
-        freq.re = (Math.abs(freq.re) < threshold)?0:freq.re;
-        freq.im = (Math.abs(freq.im) < threshold)?0:freq.im;
-        ft[f] = freq;
-        }
-      return ft;
-      }
-  , spectrum_ft: function(spectrum , threshold = 1e-8){
-      const N = spectrum.length;
-      const DE_PI_N = 2*Math.PI/N;
-      const s = [];
-      for(var t = 0; t < N; t++){
-        const sig = {re: 0, im: 0};
+    , signal_ft: function(signal , threshold = 1e-8){
+        const N = signal.length;
+        const DE_PI_N = 2*Math.PI/N;
+        const ft = [];
         for(var f = 0; f < N; f++){
-          const sf = spectrum[f];
-          const alpha = DE_PI_N*f*t;
-          const part = {
-              re: Math.cos(alpha)
-            , im: Math.sin(alpha)
-            };
-          sig.re += part.re*sf.re-part.im*sf.im;
-          sig.im += part.re*sf.im+part.im*sf.re;
+          const freq = {re: 0, im: 0};
+          for(var t = 0; t < N; t++){
+            const st = signal[t];
+            const amp = (undefined !== st.re && undefined !== st.im)?Math.sqrt(st.re*st.re+st.im*st.im):st;
+            if(isNaN(amp)){
+              console.error("DFT error", amp, st);
+              }
+            const alpha = -DE_PI_N*f*t;
+            const part = {
+                re: amp*Math.cos(alpha)
+              , im: amp*Math.sin(alpha)
+              };
+            freq.re += part.re;
+            freq.im += part.im;
           }
-        sig.re /= N;
-        sig.im /= N;
-        sig.re = (Math.abs(sig.re) < threshold)?0:sig.re;
-        sig.im = (Math.abs(sig.im) < threshold)?0:sig.im;
-        s[t] = sig;
-        }
-      return s;
-      }
-  , getRealParts: function(complex, mul){
-      const N=complex.length;
-      const mu=(mul)?mul:1;
-      const norms=[];
-      for(var i=0; i<N; i++){
-        const c=complex[i];
-        norms[i]=c.re*mu;
-        }
-      return norms;
-      }
-  , getNormsOf: function(complex, mul){
-      const N=complex.length;
-      const mu=(mul)?mul:1;
-      const norms=[];
-      for(var i=0; i<N; i++){
-        const c=complex[i];
-        norms[i]=mu*Math.sqrt(c.re*c.re+c.im*c.im);
-        }
-      return norms;
-      }
-  , applyFilter: function(complex, filter){
-      const N=complex.length;
-      const norms=[];
-      for(var i=0; i<N; i++){
-        const c=complex[i];
-        const filtered=filter(i, c);
-        norms[i]=filtered;
-        }
-      return norms;
-      }
-  , getUnSymNormsOf: function(complex, mul, disp0){
-      const N=complex.length;
-      const N2=Math.floor(N/2);
-      const mu=(mul)?mul:1;
-      const norms=[];
-      for(var i=0; i<N; i++){
-        const c=complex[i];
-        if(disp0 || 0!=i){
-          norms[(i<=N2)?(N2+i):i-N2]=mu*Math.sqrt(c.re*c.re+c.im*c.im);
+          freq.re = (Math.abs(freq.re) < threshold)?0:freq.re;
+          freq.im = (Math.abs(freq.im) < threshold)?0:freq.im;
+          ft[f] = freq;
           }
+        return ft;
         }
-      return norms;
-      }
-  , ranRange: function(max, min){
-      min = (undefined === min)?0:min;
-      const range = max-min;
-      return Math.random()*range+min;
-      }
-  , ranRange_i: function(max, min){
-      return parseInt(this.ranRange(parseInt(max), parseInt(min)));
-      }
-  , ran: function(amplitude, base){
-      return Math.random()*amplitude+(base?base:0);
-      }
-  , rani: function(face, base){
-      return parseInt(this.ran(parseInt(face), parseInt(base)));
-      }
-  , gauss: function(min, max, skew){
-      let u=0.0, v=0.0;
-      while(0===u){
-        u=Math.random();
+    , spectrum_ft: function(spectrum , threshold = 1e-8){
+        const N = spectrum.length;
+        const DE_PI_N = 2*Math.PI/N;
+        const s = [];
+        for(var t = 0; t < N; t++){
+          const sig = {re: 0, im: 0};
+          for(var f = 0; f < N; f++){
+            const sf = spectrum[f];
+            const alpha = DE_PI_N*f*t;
+            const part = {
+                re: Math.cos(alpha)
+              , im: Math.sin(alpha)
+              };
+            sig.re += part.re*sf.re-part.im*sf.im;
+            sig.im += part.re*sf.im+part.im*sf.re;
+            }
+          sig.re /= N;
+          sig.im /= N;
+          sig.re = (Math.abs(sig.re) < threshold)?0:sig.re;
+          sig.im = (Math.abs(sig.im) < threshold)?0:sig.im;
+          s[t] = sig;
+          }
+        return s;
         }
-      while(0===v){
-        v=Math.random();
+    , getRealParts: function(complex, mul){
+        const N=complex.length;
+        const mu=(mul)?mul:1;
+        const norms=[];
+        for(var i=0; i<N; i++){
+          const c=complex[i];
+          norms[i]=c.re*mu;
+          }
+        return norms;
         }
-      let num=Math.sqrt(-2.0*Math.log(u))*Math.cos(2.0*Math.PI*v);
-      num=num/10.0+0.5;
-      if(num>1 || num<0){ 
-        num=this.gauss(min, max, skew);
+    , getNormsOf: function(complex, mul){
+        const N=complex.length;
+        const mu=(mul)?mul:1;
+        const norms=[];
+        for(var i=0; i<N; i++){
+          const c=complex[i];
+          norms[i]=mu*Math.sqrt(c.re*c.re+c.im*c.im);
+          }
+        return norms;
         }
-      num=Math.pow(num, skew);
-      num*=max-min;
-      num+=min;
-      return num;
-      }
-  , gaussi: function(min, max, skew){
-      return parseInt(this.gauss(parseInt(min), parseInt(max), skew));
-      }
-    };
+    , applyFilter: function(complex, filter){
+        const N=complex.length;
+        const norms=[];
+        for(var i=0; i<N; i++){
+          const c=complex[i];
+          const filtered=filter(i, c);
+          norms[i]=filtered;
+          }
+        return norms;
+        }
+    , getUnSymNormsOf: function(complex, mul, disp0){
+        const N=complex.length;
+        const N2=Math.floor(N/2);
+        const mu=(mul)?mul:1;
+        const norms=[];
+        for(var i=0; i<N; i++){
+          const c=complex[i];
+          if(disp0 || 0!=i){
+            norms[(i<=N2)?(N2+i):i-N2]=mu*Math.sqrt(c.re*c.re+c.im*c.im);
+            }
+          }
+        return norms;
+        }
+    , ranRange: function(max, min){
+        min = (undefined === min)?0:min;
+        const range = max-min;
+        return Math.random()*range+min;
+        }
+    , ranRange_i: function(max, min){
+        return parseInt(this.ranRange(parseInt(max), parseInt(min)));
+        }
+    , ran: function(amplitude, base){
+        return Math.random()*amplitude+(base?base:0);
+        }
+    , rani: function(face, base){
+        return parseInt(this.ran(parseInt(face), parseInt(base)));
+        }
+    , gauss: function(min, max, skew){
+        let u=0.0, v=0.0;
+        while(0===u){
+          u=Math.random();
+          }
+        while(0===v){
+          v=Math.random();
+          }
+        let num=Math.sqrt(-2.0*Math.log(u))*Math.cos(2.0*Math.PI*v);
+        num=num/10.0+0.5;
+        if(num>1 || num<0){ 
+          num=this.gauss(min, max, skew);
+          }
+        num=Math.pow(num, skew);
+        num*=max-min;
+        num+=min;
+        return num;
+        }
+    , gaussi: function(min, max, skew){
+        return parseInt(this.gauss(parseInt(min), parseInt(max), skew));
+        }
+      };
   function AudioResource(url, ticks){
     const audio=new Audio(url);
-    const Samp_loaded=SC.sampled("Evt_loaded");
-    const Samp_ended=SC.sampled("Evt_ended");
+    const Samp_loaded=SC.sampled("Samp_loaded");
+    const Samp_ended=SC.sampled("Samp_ended");
     this.a=audio;
-    this.Evt_loaded=Evt_loaded;
-    this.Evt_ended=Evt_ended;
+    this.Samp_loaded=Samp_loaded;
+    this.Samp_ended=Samp_ended;
     this.playing=false;
     this.rt=ticks;
     this.rt_count=ticks;
@@ -1909,6 +1966,435 @@ if(SC && SC.sc_build>1){
               }
             }
           }
+      , writable: false
+        });
+    const offscreenFilterDrawArea=document.createElement('canvas');
+    Object.defineProperty(SC_ClientTools, 'imageFilter', {
+        value: {
+          getPixels: function(img){
+            offscreenFilterDrawArea.width=img.width;
+            offscreenFilterDrawArea.height=img.height;
+            const ctx=offscreenFilterDrawArea.getContext('2d');
+            ctx.clearRect(0, 0
+                       , offscreenFilterDrawArea.width
+                       , offscreenFilterDrawArea.height
+                       );
+            ctx.drawImage(img, 0, 0);
+            return ctx.getImageData(0, 0, img.width, img.height);
+            }
+        , applyPixelTransform: function(img, fun, target){
+            offscreenFilterDrawArea.width=img.width;
+            offscreenFilterDrawArea.height=img.height;
+            const ctx=offscreenFilterDrawArea.getContext('2d');
+            ctx.clearRect(0, 0
+                       , offscreenFilterDrawArea.width
+                       , offscreenFilterDrawArea.height
+                       );
+            ctx.drawImage(img, 0, 0);
+            const dataIm=ctx.getImageData(0, 0, img.width, img.height);
+            const pixels=dataIm.data;
+            fun(pixels);
+            ctx.clearRect(0, 0, img.width, img.height);
+            ctx.putImageData(dataIm, 0, 0);
+            const rendu=(target && (target instanceof Image))?target
+                                                             : new Image();
+            rendu.src=offscreenFilterDrawArea.toDataURL('image/png');
+            return rendu;
+            }
+        , permuteRedBlue: function(img, target){
+            const permuterRB=function(pixels){
+              for(var i=0; i<pixels.length; i+=4){
+                const red=pixels[i];
+                const blue=pixels[i+2];
+                pixels[i]=blue;
+                pixels[i+2]=red;
+                }
+              };
+            return this.applyPixelTransform(img, permuterRB, target);
+            }
+          }
+      , writable: false
+        });
+    function SC_Gauge(params){
+      this.max=params._("max", 1);
+      this.min=params._("min", 0);
+      this.lvl=(params.lvl)?params.lvl:this.max;
+      this.w=(params.w)?params.w:100;
+      this.h=(params.h)?params.h:4;
+      this.dispValue=(params.dv)?params.dv:false;
+      this.fc=(params.fc)?params.fc:"black";
+      this.hpp=this.lvl/(this.max-this.min);
+      };
+    SC_Gauge.prototype = {
+      constructor: SC_Gauge
+    , setLevel: function(lvl){
+        this.lvl = Math.min(this.max, Math.max(this.min, lvl));
+        this.hpp = this.lvl/(this.max-this.min);
+        this.color = "rgb("
+                    + parseInt(Math.max(0, Math.min(255, (1-this.hpp)*510)))+ ", "
+                    + parseInt(Math.max(0, Math.min(255, this.hpp*510)))+ ", "
+                    + "0"
+                    + ")";
+        this.value = parseInt(this.hpp*100)+" %";
+        }
+    , draw: function(ctx){
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(-this.w/2-1, -this.h/2-1, this.w+2, this.h+2);
+        ctx.closePath();
+        ctx.fillStyle=this.fc;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.rect(-this.w/2, -this.h/2, this.w*this.hpp, this.h);
+        ctx.closePath();
+        ctx.fillStyle=this.color;
+        ctx.fill();
+        if(this.dispValue){
+          ctx.fillStyle=this.fc;
+          ctx.font="10px sans-serif";
+          ctx.fillText(this.value, 0, -this.h);
+          }
+        ctx.restore();
+        }
+      };
+    const SC_Sprite2DConfig={
+      DEF: 1
+    , FWH: 2
+    , DWH: 3
+    , CFS: 4
+      };
+    Object.freeze(SC_Sprite2DConfig);
+    function SC_Sprite2DCut(x, y, w, h, ox, oy){
+      if(!(this instanceof SC_Sprite2DCut)){
+        throw new Error("SC_Sprite2DCut(): Constructor called without new...");
+        }
+      if(isNaN(x) || isNaN(y) || isNaN(w) || isNaN(h)
+                  || isNaN(ox) || isNaN(oy)
+                  || x<0 || y<0 || w<0 || h<0){
+        throw new Error("SC_Sprite2DCut(): inavelid parameters: ("
+                        +[x,y,w,h,ox,ox]+")");
+        }
+      this.x=x;
+      this.y=y;
+      this.w=w;
+      this.h=h;
+      this.of_x=ox;
+      this.of_y=oy;
+      };
+    function SC_Sprite2DState(sprite){
+      if(!(this instanceof SC_Sprite2DState)){
+        throw new Error("SC_Sprite2DState(): Constructor called without new...");
+        }
+      if(!sprite || !(sprite instanceof SC_Sprite2D)){
+        throw new Error("SC_Sprite2DState(): not a sprite provided to the constructor: "+sprite);
+        }
+      this.sprite=sprite;
+      this.mode=0; 
+      this.as=0; 
+      this.cal=this.sprite.getAnimationLength(this.mode); 
+      this.scale_x=this.scale_y=1; 
+      this.flip_x=this.flip_y=1; 
+      this.x=0; 
+      this.y=0; 
+      this.loop=0; 
+      this.angle=0; 
+      };
+    SC_Sprite2DState.prototype.nextStep=function(){
+      this.as=(-1==this.loop)?Math.min(this.as+1, this.cal-1)
+                             :((this.as+1)%this.cal);
+      };
+    SC_Sprite2DState.prototype.setLoop=function(l){
+      this.loop=l;
+      };
+    SC_Sprite2DState.prototype.setRotation=function(angle){
+      this.angle=angle;
+      };
+    SC_Sprite2DState.prototype.updateDef=function(def){
+      def.scale_x=this.scale_x*this.flip_x;
+      def.scale_y=this.scale_y*this.flip_y;
+      };
+    SC_Sprite2DState.prototype.stopAtEnd=function(){
+      };
+    SC_Sprite2DState.prototype.setMode=function(mode, as){
+      this.mode=mode;
+      this.cal=this.sprite.getAnimationLength(this.mode);
+      this.as=(as)?as:0;
+      };
+    SC_Sprite2DState.prototype.setScale=function(sx, sy){
+      this.scale_x=sx;
+      if(undefined==sy){
+        this.scale_y=sx;
+        }
+      else{
+        this.scale_y=sy;
+        }
+      };
+    SC_Sprite2DState.prototype.setPos=function(x, y){
+      this.x=x;
+      this.y=y;
+      }
+    SC_Sprite2DState.prototype.setOrientation=function(x, y){
+      this.flip_x=x?-1:1;
+      this.flip_y=y?-1:1;
+      };
+    SC_Sprite2DState.prototype.draw=function(ctx){
+      this.sprite.draw(ctx, this);
+      };
+    function SC_Sprite2D(initParams){
+      if(!SC_Sprite2DConfig.inculdes(initParams.conf)){
+        throw new Error("Invalid configuration for sprite creation: "
+                       +initParams.conf);
+        }
+      if(initParams.img){
+        this.srcImg=initParams.img;
+        }
+      else if(initParams.url && "string"==typeof(initParams.url)){
+        this.srcImg=new Image();
+        this.srcImg.src=initParams.url;
+        }
+      else{
+        throw new Error("no image provided to create a Sprite2D: "
+                       +initParams);
+        }
+      this.cuts=[];
+      this.defs=[];
+      this.draw=function(){};
+      switch(initParams.conf){
+        case SC_Sprite2DConfig.DEF:{
+          const cuts=this.cuts=initParams.cuts;
+          if(this.cuts && "array"==typeof(cuts)){
+            for(var cut of cuts){
+              if(!cut || !(cut instanceof SC_Sprite2DCut)){
+                throw new Error("Invalid cuts: "+this.cuts);
+                }
+              }
+            }
+          else{
+            throw new Error("Invalid cuts: "+this.cuts);
+            }
+          this.defs=initParams.defs;
+          if(this.defs && "array"==typeof(this.defs)){
+            for(var anp of this.defs){
+              if(!anp || "array"!=typeof(anp)){
+                throw new Error("Invalid defs: "+this.defs);
+                }
+              for(var c of anp){
+                if(!c || isNaN(c) || c<0 || c>=this.cuts.length){
+                  throw new Error("Invalid defs: "+this.defs);
+                  }
+                }
+              }
+            break;
+            }
+          throw new Error("Invalid defs: "+this.defs);
+          }
+        case SC_Sprite2DConfig.FWH:{
+          if(initParams.fw && !isNaN(initParams.fw)
+            && initParams.fh && !isNaN(initParams.fh)
+              ){
+            this.fw=initParams.fw;
+            this.fh=initParams.fh;
+            }
+          else{
+            throw new Error("Invalid fw and fh in FWH mode: "+initParams);
+            }
+          break;
+          }
+        case SC_Sprite2DConfig.DWH:{
+          if(initParams.fw && !isNaN(initParams.fw)
+            && initParams.fh && !isNaN(initParams.fh)
+              ){
+            this.fw=initParams.fw;
+            this.fh=initParams.fh;
+            }
+          else{
+            throw new Error("Invalid fw and fh in DWH mode: "+initParams);
+            }
+          this.defs=initParams.defs;
+          if(this.defs && "array"==typeof(this.defs)){
+            for(var anp of this.defs){
+              if(!anp || "array"!=typeof(anp)){
+                throw new Error("Invalid defs: "+this.defs);
+                }
+              for(var c of anp){
+                if(!c || isNaN(c) || c<0){
+                  throw new Error("Invalid defs: "+this.defs);
+                  }
+                }
+              }
+            }
+          break;
+          }
+        case SC_Sprite2DConfig.CFS:{
+          const cuts=initParams.cuts;
+          this.numberOfModes=cuts.length;
+          this.defs=[];
+          for(var cut of cuts){
+            const am=[];
+            for(var f=0; f<cut.n; f++){
+              am.push({x: cut.x+f*cut.w
+                     , y: cut.y
+                     , w: cut.w
+                     , h: cut.h
+                     , offset_x: 0
+                     , offset_y: 0
+                     , scale_x: (cut.scl)?cut.scl:1
+                     , scale_y: (cut.scl)?cut.scl:1
+                     , rot: (cut.rot)?cut.rot:0
+                      });
+              }
+            this.defs.push(am);
+            }
+          console.log("sprite of ", this.srcImg.src, this.iw, "x", this.ih, this.defs);
+          break;
+          }
+        default:{
+          this.numberOfModes = initParams.na;
+          }
+        }
+      this.srcImg.addEventListener('load' ,function(initParams){
+          const iw=this.srcImg.width;
+          const ih=this.srcImg.height;
+          switch(initParams.conf){
+            case SC_Sprite2DConfig.DEF:{
+              this.defs=initParams.defs;
+              this.numberOfModes=this.defs.length;
+              break;
+              }
+            case SC_Sprite2DConfig.FWH:{
+              this.fw=initParams.fw;
+              this.fh=initParams.fh;
+              this.numberOfModes=parseInt(this.ih/this.fh);
+              const al=parseInt(this.iw/this.fw);
+              this.defs=[];
+              for(var m=0; m<this.numberOfModes; m++){
+                const am=[];
+                for(var f=0; f<al; f++){
+                  am.push({x: f*this.fw
+                         , y: m*this.fh
+                         , w: this.fw
+                         , h: this.fh
+                         , offset_x: 0
+                         , offset_y: 0
+                         , scale_x: 1
+                         , scale_y: 1
+                          });
+                  }
+                this.defs.push(am);
+                }
+              break;
+              }
+            case SC_Sprite2DConfig.FWM:{
+              this.fw=initParams.fw;
+              const al=initParams.al;
+              this.numberOfModes=al.length;
+              this.fh=parseInt(this.ih/this.numberOfModes);
+              this.defs=[];
+              for(var m=0; m<this.numberOfModes; m++){
+                var am=[];
+                for(var f=0; f<al[m]; f++){
+                  am.push({x: f*this.fw
+                         , y: m*this.fh
+                         , w: this.fw
+                         , h: this.fh
+                         , offset_x: 0
+                         , offset_y: 0
+                         , scale_x: 1
+                         , scale_y: 1
+                          });
+                  }
+                this.defs.push(am);
+                }
+              break;
+              }
+            case SC_Sprite2DConfig.CFS:{
+              const cuts=initParams.cuts;
+              this.numberOfModes=cuts.length;
+              this.defs=[];
+              for(var cut of cuts){
+                const am=[];
+                for(var f=0; f<cut.n; f++){
+                  am.push({x: cut.x+f*cut.w
+                         , y: cut.y
+                         , w: cut.w
+                         , h: cut.h
+                         , offset_x: 0
+                         , offset_y: 0
+                         , scale_x: (cut.scl)?cut.scl:1
+                         , scale_y: (cut.scl)?cut.scl:1
+                         , rot: (cut.rot)?cut.rot:0
+                          });
+                  }
+                this.defs.push(am);
+                }
+              console.log("sprite of ", this.srcImg.src, this.iw, "x", this.ih, this.defs);
+              break;
+              }
+            default:{
+              this.numberOfModes = initParams.na;
+              }
+            }
+          delete this.draw;
+          }.bind(this, initParams));
+      };
+    SC_Sprite2D.prototype.getNewState=function(){
+      return new SC_Sprite2DState(this);
+      };
+    SC_Sprite2D.prototype.getAnimationLength=function(mode){
+      if(this.defs){
+        return (this.defs[mode]).length;
+        }
+      return -1;
+      };
+    SC_Sprite2D.prototype.setState=function(state){
+      this.currentState=state;
+      };
+    SC_Sprite2D.prototype.draw=function(ctx, state){
+      const frameDef=this.defs[state.mode][state.as];
+      const cor={scale_x: 1, scale_y: 1};
+      state.updateDef(cor);
+      ctx.save();
+      ctx.translate(state.x, state.y);
+      ctx.rotate(state.angle+((frameDef.rot)?frameDef.rot:0));
+      ctx.scale(cor.scale_x*frameDef.scale_x, cor.scale_y*frameDef.scale_y);
+      ctx.drawImage(this.srcImg
+              , frameDef.x, frameDef.y
+              , frameDef.w, frameDef.h
+              , -frameDef.w/2+frameDef.offset_x
+              , -frameDef.h/2+frameDef.offset_y
+              , frameDef.w, frameDef.h
+              );
+      ctx.restore();
+      };
+    const zeSpriteToolBox={};
+    Object.defineProperty(zeSpriteToolBox, 'mkSpriteGauge', {
+        value: function(params){
+          const p=_p(params);
+          if(p){
+            return new SC_Gauge(p);
+            }
+          throw new Error("GC.mkSpriteGauge(): no valid params", p);
+          }
+      , writable: false
+        });
+    Object.defineProperty(zeSpriteToolBox, 'mkSprite', {
+        value: function(params){
+          const p=_p(params);
+          if(p){
+            return new SC_Sprite2D(p);
+            }
+          throw new Error("GC.mkSprite(): no valid params", p);
+          }
+      , writable: false
+        });
+    Object.defineProperty(zeSpriteToolBox, 'getConf', {
+        value: function(){
+          return SC_Sprite2DConfig;
+          }
+      , writable: false
+        });
+    Object.defineProperty(SC_ClientTools, 'GK', {
+        value: zeSpriteToolBox
       , writable: false
         });
   SC_ClientTools.initInspector = function(){

@@ -501,15 +501,17 @@ function SC_SensorId(params){
     this.dom_targets=params.dom_targets;
     const handler=SC_Global_Manager.updateSensor.bind(SC_Global_Manager, this)
     Object.defineProperty(this, "release"
-           , { value: function(){
-                 if(this.dom_targets){
-                   for(var t of this.dom_targets){
+           , { value: function(handler, some){
+		 const rm=(some && "array"==typeof(some))?some
+		                      :this.dom_targets;
+                 if(rm){
+                   for(var t of rm){
                      if(t.evt && "string"==typeof(t.evt)){
                        t.target.removeEventListener(t.evt, handler);
                        }
                      }
                    }
-           }, writable: false } );
+           }.bind(this, handler), writable: false } );
     if(this.dom_targets){
       for(var t of this.dom_targets){
         if(t.evt && "string"==typeof(t.evt)){
@@ -517,6 +519,18 @@ function SC_SensorId(params){
              , handler);
           }
         }
+      Object.defineProperty(this, "addLink"
+             , { value: function(handler, dom_targets){
+	           if(undefined==dom_targets || "array"==typeof(dom_targets)){
+		     return;
+		     }
+                   for(var t of dom_targets){
+                     if(t.target && "object"==typeof(t.target)
+		        && t.evt && "string"==typeof(t.evt)){
+                       t.target.addEventListener(t.evt, handler);
+                       }
+                     }
+                   }.bind(this, handler), writable: false } );	
       }
     }
   };
@@ -3182,15 +3196,19 @@ SC_Queues.prototype = {
     }
   };
 function SC_Par(args, channel){
-  if(undefined !== channel){
+  if(undefined!==channel){
     return new SC_ParDyn(channel, args);
     }
-  this.branches = [];
+  this.branches=[];
   for(var i of args){
+    if(undefined==i || !(i.isAnSCProgram)){
+      console.log("pb", i);
+      continue;
+      }
     this.branches.push(new SC_ParBranch(null, null, i));
     }
   };
-SC_Par.prototype = {
+SC_Par.prototype={
   constructor: SC_Par
 , isAnSCProgram: true
 , bindTo: function(engine, parbranch, seq, path, cube, cinst){
@@ -7663,18 +7681,18 @@ var SC={
     return new SC_Pause(_SC.b_(n));
     }
 , pauseUntil: function(cond){
-    if((undefined === cond)||(null === cond)){
+    if(undefined===cond || null===cond){
       throw new Error('pauseUntil(): invalid condition: '+cond);
       }
-    if(false === cond){
+    if(false===cond){
       console.error("pauseUntil(): pauseForever for a false const.");
       return this.pauseForever();
       }
-    if(true === cond){
+    if(true===cond){
       console.error("pauseUntil(): single pause for a true const.");
       return this.pause();
       }
-    if("function" != typeof(cond) && !(cond instanceof SC_CubeBinding)){
+    if("function"!=typeof(cond) && !(cond instanceof SC_CubeBinding)){
       throw new Error('pauseUntil(): invalid condition implementation: '+cond);
       }
     return new SC_PauseUntil(cond);
@@ -7966,13 +7984,18 @@ var SC={
     return new SC_CubeAction(params);
     }
 , cube: function(o, p, extensions){
+    if(undefined==extensions|| "object"!=typeof(extensions)){
+      extensions={};
+      }
     if(undefined == o){
       throw new Error("undefined object for cube");
       }
+    extensions.root=o;
     if((undefined == p)||!p.isAnSCProgram){
       throw new Error("undefined program for cube: "+p);
       }
-    return new SC_Cube(o, p, extensions);
+    extensions.prg=p;
+    return this.cubify(extensions);
     }
 , killSelf: function(){
     return this.generate(SC.my("SC_cubeKillEvt"))
