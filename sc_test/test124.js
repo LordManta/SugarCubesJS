@@ -1,8 +1,8 @@
   {
    prg:
        SC.par(
-         SC.actionOn(e, function(v){
-             var msgs = v[e];
+         SC.actionOn(e, function(re){
+             var msgs=re.getValuesOf(e);
              for(var i in msgs){
                writeInConsole(msgs[i]);
                }

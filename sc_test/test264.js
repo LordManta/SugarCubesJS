@@ -14,9 +14,9 @@
        , SC.generate(e, "d ")
        , SC.repeat(10
            , SC.await(e)
-           , SC.actionOn(e, function(all){
-               for(var msg in all[e]){
-                 writeInConsole(all[e][msg]);
+           , SC.actionOn(e, function(re){
+               for(var msg of re.getValuesOf(e)){
+                 writeInConsole(msg);
                  }
                })
            )

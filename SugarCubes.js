@@ -1,10 +1,10 @@
 /*
  * SugarCubes.js
  * Authors : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
- * Created : 2/12/2014 9:23 PM
+ * Created : 2/12/2014 9:23
  * version : 5.0 alpha
- * implantation : 0.9.9
- * Copyleft 2014-2023.
+ * implantation : 0.9.10
+ * Copyleft 2014-2024.
  */
 ;
 (function(){ //Chargement et identification du module
@@ -346,7 +346,10 @@ var _SC={
       if(undefined == evt){
         return false;
         }
-      return (evt instanceof SC_EventId)||(evt instanceof SC_SensorId);
+      return (evt instanceof SC_EventId)||(evt instanceof SC_SensorId)
+            || ("string"==typeof(evt))
+            || ("object"==typeof(evt) && "object"==typeof(evt.t)
+                   && "string"==typeof(evt.f));
       }
   , checkEvent: function(evt){
       if(! this.isEvent(evt)){
@@ -374,7 +377,7 @@ var _SC={
         return evt;
       }
   , isConfig: function(cfg){
-      if(undefined == cfg){
+      if(undefined==cfg){
         return false;
         }
       return (cfg instanceof SC_Or) || (cfg instanceof SC_OrBin)
@@ -865,8 +868,8 @@ transcription réactive des événements du DOM => plus de fonction newValue()..
     const handler=SC_Global_Manager.updateSensor.bind(SC_Global_Manager, this)
     Object.defineProperty(this, "release"
            , { value: function(handler, some){
-		 const rm=(some && "array"==typeof(some))?some
-		                      :this.dom_targets;
+                 const rm=(some && "array"==typeof(some))?some
+                                      :this.dom_targets;
                  if(rm){
                    for(var t of rm){
                      if(t.evt && "string"==typeof(t.evt)){
@@ -884,16 +887,16 @@ transcription réactive des événements du DOM => plus de fonction newValue()..
         }
       Object.defineProperty(this, "addLink"
              , { value: function(handler, dom_targets){
-	           if(undefined==dom_targets || "array"==typeof(dom_targets)){
-		     return;
-		     }
+                   if(undefined==dom_targets || "array"==typeof(dom_targets)){
+                     return;
+                     }
                    for(var t of dom_targets){
                      if(t.target && "object"==typeof(t.target)
-		        && t.evt && "string"==typeof(t.evt)){
+                        && t.evt && "string"==typeof(t.evt)){
                        t.target.addEventListener(t.evt, handler);
                        }
                      }
-                   }.bind(this, handler), writable: false } );	
+                   }.bind(this, handler), writable: false } );        
       }
     }
   };
@@ -923,7 +926,7 @@ function SC_SampledId(params){
   };
 SC_SampledId.prototype={
   constructor: SC_SampledId
-, isSensor: true
+, isSampled: true
 , __proto__: SC_SensorId.prototype
   };
 Object.defineProperty(SC_SampledId.prototype, "newValue"
@@ -970,9 +973,9 @@ SC_Sensor.prototype={
 , getValue: function(m){
     return this.val;
     }
-, getAllValues: function(m, vals){
+/*, getAllValues: function(m, vals){
     //vals[this.sensId]=[this.val];
-    }
+    }*/
 , toString: function(){
     return this.sensId.getName();
     }
@@ -1244,6 +1247,7 @@ const SC_OpcodesNames = [
   , "CUBE_WAIT"
   , "CUBE_HALT"
   , "CUBE_BACK"
+  , "CELL_INIT"
   , "CELL"
   , "CUBE_CELL_INIT"
   , "CUBE_CELL"
@@ -1295,13 +1299,22 @@ for(var n = 0; n < SC_OpcodesNames.length; n++){
 SC_Opcodes.nb_of_instructions = SC_OpcodesNames.length;
 Object.freeze(SC_Opcodes);
 function SC_Instruction(opcode){
-  this.oc = SC_Opcodes.NOP;
+  this.oc=SC_Opcodes.NOP;
   if(SC_Opcodes.isValid(opcode)){
-    this.oc = opcode;
+    this.oc=opcode;
     }
-  this.caller = null;
-  this.seq = null;
-  this.resetCaller = null;
+  else{
+    throw new Error("SugarCubes internal error: invalid opcode "
+                   +SC_Opcodes.toString(this.oc));
+    }
+  this.caller=null;
+  this.seq=null;
+  this.resetCaller=null;
+  Object.defineProperty(this, "nm"
+     , { get: function(){ return SC_Opcodes.toString(this.oc); }
+       , enumerable: true
+       }
+     );  
   }
 const act_exit = new SC_Instruction(SC_Opcodes._EXIT);
 SC_Instruction.prototype={
@@ -1682,14 +1695,7 @@ SC_Instruction.prototype={
     return this.state;
     }
 , prepare: function(m){
-    var vals = {};
-    for(var i in this.eventList){
-      const evt = m.getEvent(this.eventList[i]);
-      if(evt.isPresent(m)){
-        evt.getAllValues(m, vals);
-        }
-      }
-    this.futur = this.sideEffect(this.state, vals, m.reactInterface);
+    this.futur=this.sideEffect(this.state, m.reactInterface);
     }
 , swap: function(){
     this.state=this.futur;
@@ -1848,27 +1854,23 @@ SC_Instruction.prototype={
 , addCell: function(nom, init, el, fun){
     switch(this.oc){
       case SC_Opcodes.CUBE:{
-        const tgt = this.o;
-        if((undefined !== tgt["$"+nom])
-          ||(undefined !== tgt["_"+nom])
+        const tgt=this.o;
+        if(undefined!==tgt["$_scc_"+nom]
+          || undefined!==tgt["_scc_"+nom]
+          || "function"!==typeof(fun)
           ){
-          throw "naming conflict for cell "+nom
-                 + "$"+nom+" is "+tgt["$"+nom]
-                 + "_"+nom+" is "+tgt["_"+nom]
-                 ;
+          throw Error("naming conflict for cell "+nom
+                 + " $_scc_"+nom+" is "+tgt["$_scc_"+nom]
+                 + " and _scc_"+nom+" is "+tgt["_scc_"+nom]);
         }
-        if(undefined !== fun){
-          tgt["_"+nom] = fun;
-          }
-        if(undefined === tgt["_"+nom]){
-          throw "no affectator for "+nom+" cell is defined";
-          }
-        tgt["$"+nom] = new SC_Cell({init:init
-                           , sideEffect: (tgt["_"+nom]).bind(tgt)
-                           , eventList: el});
-        Object.defineProperty(tgt, nom,{get: (function(nom){
-          return tgt["$"+nom].val();
-          }).bind(tgt, nom)});
+        tgt["_scc_"+nom]=fun;
+        tgt["$_scc_"+nom]=new SC_Cell({ init: init
+                                      , sideEffect: (tgt["_scc_"+nom]).bind(tgt)
+                                      , eventList: el });
+        Object.defineProperty(tgt, nom, {
+          get: (function(nom){
+            return tgt["$_scc_"+nom].val();
+            }).bind(tgt, nom)});
         break;
         }
       default:{
@@ -2014,6 +2016,7 @@ SC_Instruction.prototype={
       case SC_Opcodes.PAUSE_N_TIMES_INLINE:{
         return "pause "+this.count+"/"+this.times+" times";
         }
+      case SC_Opcodes.CELL_INIT:
       case SC_Opcodes.CELL:{
         return "compute "+this.sideEffect+" on "+this.state
                +((null == this.eventList)?"":" with "+this.eventList);
@@ -2060,12 +2063,22 @@ SC_IfRepeatPoint.prototype = {
     return "while "+this.condition+" repeat ";
     }
 , bindTo: function(engine, parbranch, seq, path, cube, cinst){
-    const copy = new SC_Instruction(SC_Opcodes.IF_REPEAT_INIT);
-    const binder = _SC._b(cube);
-    copy.condition = binder(this.condition);
-    copy._condition = this.condition;
-    copy.end = parseInt(this.end);
-    copy.seq = seq;
+    const copy=new SC_Instruction(SC_Opcodes.IF_REPEAT_INIT);
+    const binder=_SC._b(cube);
+    const cond=binder(this.condition);
+    if("object"==typeof(cond)){
+      Object.defineProperty(copy, "condition", {
+        value: function(re){
+          return cond.t[cond.f];
+          }
+        });
+      }
+    else{
+      copy.condition=cond;
+      }
+    copy._condition=this.condition;
+    copy.end=parseInt(this.end);
+    copy.seq=seq;
     return copy;
     }
   };
@@ -2136,14 +2149,21 @@ SC_Await.prototype = {
   constructor: SC_Await
 , isAnSCProgram: true
 , bindTo: function(engine, parbranch, seq, path, cube, cinst){
-    var binder = _SC._b(cube);
-    var bound_config = binder(this.config);
-    var zeConf = bound_config
-                           .bindTo(engine, parbranch, seq, path, cube, cinst);
+    const binder=_SC._b(cube);
+    const bound_config=binder(this.config);
+    var zeConf;
+    if("object"==typeof(bound_config) && "object"==typeof(bound_config.t)
+           && "string"==typeof(bound_config.f)){
+      zeConf=bound_config.t[bound_config.f]
+           .bindTo(engine, parbranch, seq, path, cube, cinst);
+      }    
+    else{
+      zeConf=bound_config.bindTo(engine, parbranch, seq, path, cube, cinst);
+      }
     var copy = new SC_Instruction(SC_Opcodes.AWAIT);
-    copy.config = zeConf;
-    copy._config = this.config;
-    copy.path = path;
+    copy.config=zeConf;
+    copy._config=this.config;
+    copy.path=path;
     return copy;
     }
 , toString: function(){
@@ -2293,7 +2313,8 @@ SC_GenerateForever.prototype = {
       copy.oc = SC_Opcodes.GENERATE_FOREVER_FUN_INIT;
       }
     else if(copy.val instanceof SC_Instruction
-            && copy.val.oc == SC_Opcodes.CELL){
+            && (copy.val.oc==SC_Opcodes.CELL
+                || copy.val.oc==SC_Opcodes.CELL_INIT)){
       copy.oc = SC_Opcodes.GENERATE_FOREVER_CELL_INIT;
       }
     copy.itsParent = parbranch;
@@ -2362,7 +2383,8 @@ SC_GenerateOne.prototype={
       copy.oc = SC_Opcodes.GENERATE_ONE_FUN;
       }
     else if(copy.val instanceof SC_Instruction
-            && copy.val.oc==SC_Opcodes.CELL){
+            && (copy.val.oc==SC_Opcodes.CELL
+                || copy.val.oc==SC_Opcodes.CELL_INIT)){
       copy.oc=SC_Opcodes.GENERATE_ONE_CELL;
       }
     copy.itsParent=parbranch;
@@ -2429,7 +2451,8 @@ SC_Generate.prototype = {
       copy.oc = SC_Opcodes.GENERATE_FUN_INIT;
       }
     else if(copy.val instanceof SC_Instruction
-            && copy.val.oc == SC_Opcodes.CELL){
+            && (copy.val.oc==SC_Opcodes.CELL
+                || copy.val.oc==SC_Opcodes.CELL_INIT)){
       copy.oc = SC_Opcodes.GENERATE_CELL_INIT;
       }
     copy.times = tmp_times;
@@ -3169,15 +3192,15 @@ SC_Step.prototype = {
  * SC_Seq Instruction
  ******************************************************************************/
 function SC_Seq(seqElements){
-  this.seqElements = [];
-  for(var i = 0; i < seqElements.length; i++){
-    const prg = seqElements[i];
-    if(SC_Nothing == prg){
+  this.seqElements=[];
+  for(var i=0; i<seqElements.length; i++){
+    const prg=seqElements[i];
+    if(SC_Nothing==prg){
       continue;
       }
     if(prg instanceof SC_Seq){
-      const len = prg.seqElements.length;
-      for(var j = 0; j < len; j++){
+      const len=prg.seqElements.length;
+      for(var j=0; j<len; j++){
         this.seqElements.push(prg.seqElements[j]);
         }
       }
@@ -3186,7 +3209,7 @@ function SC_Seq(seqElements){
       }
     }
   };
-SC_Seq.prototype = {
+SC_Seq.prototype={
   constructor: SC_Seq
 , isAnSCProgram: true
 , add: function(p){
@@ -3415,10 +3438,7 @@ SC_Action.prototype = {
   };
 // *** SC_SimpleAction
 function SC_SimpleAction(f){
-  if(undefined === f){
-    throw "undefined action";
-    }
-  this.action = f;
+  this.action=f;
   }
 SC_SimpleAction.prototype = {
   constructor: SC_SimpleAction
@@ -4036,72 +4056,71 @@ SC_Or.prototype = {
  * contient son propre état...
  */
 function SC_Cell(params){// {target?:(filed:) sideEffect: init?:}
-  if(undefined == params){
+  if(undefined==params){
     throw new Error("undefined params for SC_Cell");
     }
-  const recell= undefined != params.target;
-  if(recell && ((undefined == params.field)
-    || (undefined  == params.target[params.field]))){
+  const recell="object"==typeof(params.target);
+  if(recell
+    && ("string"!=typeof(params.field)
+      || undefined===params.target[params.field])){
      throw new Error("field not specified on target ("+params.field+")");
     }
-  if(undefined == params.sideEffect){
-    throw new Error("undefined sideEffect !");
-    }
-  this.params= params;
+  this.params=params;
   };
-SC_Cell.prototype = {
+SC_Cell.prototype={
   constructor: SC_Cell
 , isAnSCProgram: true
 , bindTo: function(engine, parbranch, seq, path, cube, cinst){
-    var tgt = cube[this.cellName];
-    const params= this.params;
-    const recell= undefined != params.target;
-    const cell= new SC_Instruction(SC_Opcodes.CELL);
-    cell.itsParent= this;
+    const p=this.params;
+    const recell="object"==typeof(p.target);
+    const cell=new SC_Instruction(SC_Opcodes.CELL);
+    cell.itsParent=this;
     if(recell){
-      Object.defineProperty(cell, "state",{set: (function(nom, x){
-          this[nom] = x;
-        }).bind(params.target, params.field)
+      Object.defineProperty(cell, "state", {set: (function(nom, x){
+          this[nom]=x;
+          }).bind(p.target, p.field)
         , get: (function(nom){
           return this[nom];
-        }).bind(params.target, params.field)
+        }).bind(p.target, p.field)
         });
       }
     else{
-      cell.state = (params.init)?params.init:null;
+      cell.state=(p.init)?p.init:null;
       }
-    if(undefined != params.sideEffect.t){ //forme : {t: , f:}
-      cell.sideEffect = params.sideEffect.t[params.sideEffect.f]
-                                     .bind(params.sideEffect.t);
+    if(undefined!=p.sideEffect.t){ //forme : {t: , f:}
+      cell.sideEffect=p.sideEffect.t[p.sideEffect.f]
+                                     .bind(p.sideEffect.t);
       }
     else{
-      cell.sideEffect = params.sideEffect;
+      cell.sideEffect=p.sideEffect;
       }
-    cell.eventList = (undefined == params.eventList)?[]:params.eventList;
-    cell.TODO =  -1;
-    cell.futur = null;
-    this.val= function(cell){return cell.val();}.bind(this, cell);
-    this.bindTo= function(cell){return cell;}.bind(this, cell);
+    //cell.eventList=p.eventList?p.eventList:[];
+    cell.TODO=-1;
+    cell.futur=null;
+    //cell.bindList=[];
+    this.val=function(cell){ return cell.val(); }.bind(this, cell);
+    this.bindTo=function(cell){ return cell; }.bind(this, cell);
     return cell;
     }
   };
 function SC_CubeCell(c){
-  this.cellName = c;
+  this.cellName=c;
   };
 SC_CubeCell.prototype = {
   constructor: SC_CubeCell
 , isAnSCProgram: true
 , bindTo: function(engine, parbranch, seq, path, cube, cinst){
-    var tgt = cube[this.cellName];
-    var copy = new SC_Instruction(SC_Opcodes.CUBE_CELL_INIT);
+    var tgt=cube[this.cellName];
+    var copy=new SC_Instruction(SC_Opcodes.CUBE_CELL_INIT);
     if(tgt instanceof SC_Instruction
-      &&(tgt.oc == SC_Opcodes.CELL)){
+      && (tgt.oc==SC_Opcodes.CELL
+                || tgt.oc==SC_Opcodes.CELL_INIT)){
       return tgt.bindTo(engine, parbranch, seq, copy, cube, cinst);
       }
-    copy.cellName = this.cellName;
+    copy.cellName=this.cellName;
     copy.cell=null;
-    copy.cube = cube;
-    copy.path = path;
+    copy.cube=cube;
+    copy.path=path;
     return copy;
     }
 , toString: function(){
@@ -4240,19 +4259,19 @@ SC_Test.prototype = {
   constructor: SC_Test
 , isAnSCProgram: true
 , bindTo: function(engine, parbranch, seq, path, cube, cinst){
-    var binder = _SC._b(cube);
-    var copy = new SC_Instruction(SC_Opcodes.TEST);
-    copy.b = binder(this.b);
-    copy.test = function(m){
+    var binder=_SC._b(cube);
+    var copy=new SC_Instruction(SC_Opcodes.TEST);
+    copy.b=binder(this.b);
+    copy.test=function(m){
       if("function" == typeof(this.b)){
         return this.b(m);
         }
-      return (((null == this.b.t)?this.b:this.b.t[this.b.f]));
+      return ((null==this.b.t)?this.b:this.b.t[this.b.f]);
       }
-    copy._b = this.b;
-    copy.elsB = this.elsB;
-    copy.path = path;
-    copy.seq = seq;
+    copy._b=this.b;
+    copy.elsB=this.elsB;
+    copy.path=path;
+    copy.seq=seq;
     return copy;
     }
 , toString: function(){
@@ -4547,7 +4566,7 @@ SC_CubeSimpleAction.prototype={
         }
       }
     else{
-      copy.closure = copy.action.bind(cube);
+      copy.closure=copy.action.bind(cube);
       }
     copy.evtList = [];
     for(var i = 0; i < this.evtList.length; i++){
@@ -4574,11 +4593,11 @@ var nextMachineID = 0;
 const SC_WRITE_ID=new SC_EventId("SC_WRITE_ID");
 function SC_ReactiveInterface(){
   };
-SC_ReactiveInterface.prototype = {
+SC_ReactiveInterface.prototype={
   constructor: SC_ReactiveInterface
 , sensorValueOf: function(sensorID){
     if(sensorID instanceof SC_SensorId){
-      let val = this.all[sensorID.name];
+      let val=this.all[sensorID.name];
       return val?val[0]:undefined;
       }
     throw new Error("ask for value of non sensor ID");
@@ -4626,7 +4645,7 @@ function SC_Machine(params){
   this.permanentCubeActions = [];
   this.actions = [];
   this.actionsOnEvents = [];
-  this.cells = [];
+  this.cells=[];
   this.generated_values = {};
   this.pending = [];
   this.externalPending = [];
@@ -4747,7 +4766,7 @@ SC_Machine.prototype = {
     this.lastWills = null
     this.actions = null;
     this.actionsOnEvents = null;
-    this.cells = null;
+    this.cells=null;
     this.pending = null;
     this.pendingSensors = null;
     this.pendingPrograms = null;
@@ -4927,7 +4946,7 @@ On parcours la liste des sensors...
     this.actions = [];
     this.cubeActions = [];
     this.actionsOnEvents = [];
-    this.cells = [];
+    this.cells=[];
     this.lastWills = [];
     this.parActions = [];
     if(this.promptEnabled){
@@ -4961,76 +4980,76 @@ On parcours la liste des sensors...
     for(var cell in this.cells){
       this.cells[cell].prepare(this);
       }
-    for(var i = 0; i < this.actionsOnEvents.length; i++){
-      var act = this.actionsOnEvents[i];
-      var a = act.action;
-      if(null!=a.f){
-        var t=a.t;
+    for(var i=0; i<this.actionsOnEvents.length; i++){
+      const act=this.actionsOnEvents[i];
+      var a=this.actionsOnEvents[i].action;
+      if(a.f){
+        const t=a.t;
         if(null==t){
           continue;
           }
-        if(undefined!==a.p){
-          t[a.f].call(t, a.p, this.generated_values, this.reactInterface);
+        if(a.p){
+          t[a.f].call(t, a.p, this.reactInterface);
           }
         else{
-          t[a.f].call(t, this.generated_values, this.reactInterface);
+          t[a.f].call(t, this.reactInterface);
           }
         }
       else{
-        a(this.generated_values, this.reactInterface);
+        a(this.reactInterface);
         }
       }
-    for(var i = 0; i < this.permanentActionsOnOnly.length; i++){
-      const inst = this.permanentActionsOnOnly[i];
-      const pres = inst.evtFun.config.isPresent(this);
+    for(var i=0; i<this.permanentActionsOnOnly.length; i++){
+      const inst=this.permanentActionsOnOnly[i];
+      const pres=inst.evtFun.config.isPresent(this);
       if(pres){
-        const a = inst.evtFun.action;
-        if(null!=a.f){
-          var t = a.t;
+        const a=inst.evtFun.action;
+        if(a.f){
+          var t=a.t;
           if(null==t){
             continue;
             }
-          if(undefined!==a.p){
-            t[a.f].call(t, a.p,this.generated_values, this.reactInterface);
+          if(a.p){
+            t[a.f].call(t, a.p, this.reactInterface);
             }
           else{
-            t[a.f].call(t, this.generated_values, this.reactInterface);
+            t[a.f].call(t, this.reactInterface);
             }
           }
         else{
-          a(this.generated_values, this.reactInterface);
+          a(this.reactInterface);
           }
         }
       }
-    for(var i = 0; i < this.permanentActionsOn.length; i++){
-      const inst = this.permanentActionsOn[i];
-      const pres = inst.evtFun.config.isPresent(this);
+    for(var i=0; i<this.permanentActionsOn.length; i++){
+      const inst=this.permanentActionsOn[i];
+      const pres=inst.evtFun.config.isPresent(this);
       if(pres){
-        const a = inst.evtFun.action;
-        if(null != a.f){
-          const t = a.t;
+        const a=inst.evtFun.action;
+        if(a.f){
+          const t=a.t;
           if(null==t){
             continue;
             }
-          if(undefined!==a.p){
-            t[a.f].call(t, a.p,this.generated_values, this.reactInterface);
+          if(a.p){
+            t[a.f].call(t, a.p, this.reactInterface);
             }
           else{
-            t[a.f].call(t, this.generated_values, this.reactInterface);
+            t[a.f].call(t, this.reactInterface);
             }
           }
         else{
-          a(this.generated_values, this.reactInterface);
+          a(this.reactInterface);
           }
         }
       else if(SC_Opcodes.ACTION_ON_EVENT_FOREVER_HALTED == inst.oc){
-        const act = inst.defaultAct;
-        if(null != act.f){
+        const act=inst.defaultAct;
+        if(act.f){
           const t=act.t;
           if(null==t){
             continue;
             }
-          if(undefined!==a.p){
+          if(a.p){
             t[act.f].call(t, a.p, this.reactInterface);
             }
           else{
@@ -5042,24 +5061,24 @@ On parcours la liste des sensors...
           }
         }
       }
-    const cal = this.cubeActions.length;
-    for(var i = 0; i < cal; i++){
-      const inst = this.cubeActions[i];
+    const cal=this.cubeActions.length;
+    for(var i=0; i<cal; i++){
+      const inst=this.cubeActions[i];
       inst.closure(this.reactInterface);
       }
-    const pcal = this.permanentCubeActions.length;
-    for(var i = 0; i < pcal; i++){
-      const inst = this.permanentCubeActions[i];
+    const pcal=this.permanentCubeActions.length;
+    for(var i=0; i<pcal; i++){
+      const inst=this.permanentCubeActions[i];
       inst.closure(this.reactInterface);
       }
-    for(var i = 0; i < this.actions.length; i++){
-      var act = this.actions[i];
-      if(null != act.f){
+    for(var i=0; i<this.actions.length; i++){
+      var act=this.actions[i];
+      if(act.f){
         var t=act.t;
         if(null==t){
           continue;
           }
-        if(undefined!==a.p){
+        if(a.p){
           t[act.f].call(t, a.p, this.reactInterface);
           }
         else{
@@ -5070,14 +5089,14 @@ On parcours la liste des sensors...
         act(this.reactInterface);
         }
       }
-    for(var i = 0; i < this.permanentActions.length; i++){
-      var act = this.permanentActions[i];
-      if(null!=act.f){
+    for(var i=0; i<this.permanentActions.length; i++){
+      var act=this.permanentActions[i];
+      if(act.f){
         var t=act.t;
         if(null==t){
           continue;
           }
-        if(undefined!==a.p){
+        if(a.p){
           t[act.f].call(t, a.p, this.reactInterface);
           }
         else{
@@ -5092,7 +5111,7 @@ On parcours la liste des sensors...
     for(var cell in this.cells){
       this.cells[cell].swap();
       }
-    for(var i = 0; i < this.parActions.length; i++){
+    for(var i=0; i<this.parActions.length; i++){
       this.parActions[i].computeAndAdd(this);
       }
     // Phase 5
@@ -5109,7 +5128,7 @@ On parcours la liste des sensors...
         this.dumpTraceFun(this.traceEvt.getValues(this));
         }
       else{
-        console.log.call(console, this.traceEvt.getValues(this));
+        console.log.call(console, this.instantNumber, this.traceEvt.getValues(this));
         }
       }
     this.instantNumber++;
@@ -7191,33 +7210,36 @@ ACT:  switch(inst.oc){
           caller = inst = inst.caller;
           break;
           }
+        case SC_Opcodes.CELL_INIT:{
+          inst.oc=SC_Opcodes.CELL;
+          }
         case SC_Opcodes.CELL:{
-          if(inst.TODO != this.getInstantNumber()){
-            inst.TODO = this.getInstantNumber();
+          if(inst.TODO!=this.getInstantNumber()){
+            inst.TODO=this.getInstantNumber();
             this.addCellFun(inst);
           }
-          st = SC_Instruction_State.TERM;
-          inst = caller;
+          st=SC_Instruction_State.TERM;
+          inst=caller;
           break;
           }
         case SC_Opcodes.CUBE_CELL_INIT:{
-          inst.caller = caller;
-          inst.cell = inst.cube[inst.cellName];
+          inst.caller=caller;
+          inst.cell=inst.cube[inst.cellName];
           }
         case SC_Opcodes.CUBE_CELL:{
-          caller = inst;
-          if(undefined != inst.cell){
-            inst.oc = SC_Opcodes.CUBE_CELL_BACK;
-            inst = inst.cell;
+          caller=inst;
+          if(undefined!=inst.cell){
+            inst.oc=SC_Opcodes.CUBE_CELL_BACK;
+            inst=inst.cell;
             break;
             }
           }
         case SC_Opcodes.CUBE_CELL_BACK:{
-          inst.oc = SC_Opcodes.CUBE_CELL;
-          if(SC_Instruction_State.TERM == st){
-            inst.oc = SC_Opcodes.CUBE_CELL;
+          inst.oc=SC_Opcodes.CUBE_CELL;
+          if(SC_Instruction_State.TERM==st){
+            inst.oc=SC_Opcodes.CUBE_CELL;
             }
-          caller = inst = inst.caller;
+          caller=inst=inst.caller;
           break;
           }
         case SC_Opcodes.DUMP_INIT:{
@@ -7286,7 +7308,7 @@ EOI:  switch(inst.oc){
           inst = caller;
           break;
           }
-        //case SC_Opcodes.RESET_ON:
+        case SC_Opcodes.RESET_ON:
         case SC_Opcodes.RESET_ON_WAIT:
         case SC_Opcodes.RESET_ON_OEOI:
         case SC_Opcodes.RESET_ON_WEOI:{
@@ -8149,19 +8171,19 @@ RST:  switch(/*oldInstOC = */inst.oc){
           break;
           }
         case SC_Opcodes.CELL:{
-          inst = caller;
+          inst=caller;
           break;
           }
         case SC_Opcodes.CUBE_CELL:{
-          inst.resetCaller = caller;
-          caller = inst;
-          inst.oc = SC_Opcodes.CUBE_CELL_BACK;
-          inst = inst.cell;
+          inst.resetCaller=caller;
+          caller=inst;
+          inst.oc=SC_Opcodes.CUBE_CELL_BACK;
+          inst=inst.cell;
           break;
           }
         case SC_Opcodes.CUBE_CELL_BACK:{
-          inst.oc = SC_Opcodes.CUBE_CELL;
-          inst = caller = inst.resetCaller;
+          inst.oc=SC_Opcodes.CUBE_CELL;
+          inst=caller=inst.resetCaller;
           break;
           }
         default:{ throw new Error("reset : undefined opcode "
@@ -8342,29 +8364,6 @@ var SC={
 , pauseRT: function(n){
     return new SC_PauseRT(_SC.b_(n));
     }
-, step: function(n){
-    return new SC_Step(_SC.b_(n));
-    }
-, pause: function(n){
-    return new SC_Pause(_SC.b_(n));
-    }
-, pauseUntil: function(cond){
-    if(undefined===cond || null===cond){
-      throw new Error('pauseUntil(): invalid condition: '+cond);
-      }
-    if(false===cond){
-      console.error("pauseUntil(): pauseForever for a false const.");
-      return this.pauseForever();
-      }
-    if(true===cond){
-      console.error("pauseUntil(): single pause for a true const.");
-      return this.pause();
-      }
-    if("function"!=typeof(cond) && !(cond instanceof SC_CubeBinding)){
-      throw new Error('pauseUntil(): invalid condition implementation: '+cond);
-      }
-    return new SC_PauseUntil(cond);
-    }
 , resetOn: function(config){
     var prgs=[];
     for(var i=1; i<arguments.length; i++){
@@ -8372,14 +8371,8 @@ var SC={
       if(p==SC_Nothing){ continue; }
       prgs.push(p);
       }
-    const t=new SC_Seq(prgs);
+    const t=this.seq.apply(this, prgs);
     return new SC_ResetOn(config, t);
-    }
-, await: function(config){
-    if(undefined == config){
-      throw new Error("config not defined");
-      }
-    return new SC_Await(_SC.b_(config));
     }
 , resetOnEach: function(params){
     if(undefined == params){
@@ -8389,10 +8382,10 @@ var SC={
           , this.seq(params.prg, this.pauseForever())
             );
     }
-, seq: function(){
-    return new SC_Seq(arguments);
-    }
 , action: function(fun, times){
+    if(undefined===fun){
+      throw new Error("invalid function arg "+fun);
+      }
     return new SC_Action(_SC.b_(fun), _SC.b_(times));
     }
 , actionWhen: function(c, fun, deffun){
@@ -8458,10 +8451,14 @@ var SC={
 , repeatIf: function(c){
     var prgs = [];
     var jump = 1;
-    prgs[0] = new SC_IfRepeatPoint(c);
-    for(var i = 1 ; i < arguments.length; i++){
-      const p = arguments[i];
-      if(p == SC_Nothing){ continue; }
+    if('function'!=typeof(c) && true!==c && false!==c && "object"!=typeof(c.t)
+          && "object"!=typeof(c.t) && 'string'!=typeof(c.f) && !(c instanceof SC_CubeBinding)){
+      throw new Error("invalid condition: "+c);
+      }
+    prgs[0]=new SC_IfRepeatPoint(c);
+    for(var i=1; i<arguments.length; i++){
+      const p=arguments[i];
+      if(undefined==p || p==SC_Nothing || !p.isAnSCProgram){ continue; }
       prgs.push(p);
       if(prgs[i] instanceof SC_Seq){
         jump+= prgs[i].seqElements.length;
@@ -8470,10 +8467,10 @@ var SC={
         jump++;
         }
       }
-    var end = new SC_RelativeJump(-jump);
-    prgs[prgs.length] = end;
-    prgs[0].end = jump+1;
-    var t = new SC_Seq(prgs);
+    var end=new SC_RelativeJump(-jump);
+    prgs[prgs.length]=end;
+    prgs[0].end=jump+1;
+    var t=new SC_Seq(prgs);
     return t;
     }
 , and: function(){
@@ -8686,57 +8683,25 @@ var SC={
 , log: function(msg){
     return new SC_Log(msg);
     }
-, cellify: function(tgt, nom, fun, el, sub){
-    var t = tgt;
-    if(Array.isArray(sub)){
-      for(var i = 0; i < sub.length; i++){
-        t = t[sub[i]];
-        }
-      }
-    else{
-      t = (undefined == sub)?tgt:tgt[sub];
-      }
-    if(undefined != fun){
-      tgt["_"+nom] = fun;
-      }
-    if(undefined == tgt["_"+nom]){
-      throw "no affectator for "+nom+" cell";
-      }
-    tgt["$"+nom] = SC.cell({target:t, field:nom, sideEffect: SC._(tgt,"_"+nom), eventList: el});
-    }
-, simpleCellFun: function(tgt, evt, trace){
-    return function(e, trace, val, evts){
-      var v = evts[e];
-      if(trace){
-        console.log("simpleFun", this, evts, evt)
-      }
-      if(undefined != v){
-        var newVal = v[0];
-        if(newVal instanceof SC_ValueWrapper){
-          newVal = newVal.getVal();
-          }
-        return newVal;
-        }
-      return val;
-      }.bind(tgt, evt, trace);
-    }
 , addCell: function(tgt, nom, init, el, fun){
     if(tgt instanceof SC_Cube){
-      tgt = tgt.o;
+      tgt=tgt.o;
       }
-    if(undefined !== fun){
-      tgt["_"+nom] = fun;
+    if(fun){
+      tgt["_scc_"+nom]=fun;
       }
-    if(undefined === tgt["_"+nom]){
+    if(undefined===tgt["_scc_"+nom]){
       throw "no affectator for "+nom+" cell is defined";
       }
-    tgt["$"+nom] = SC.cell({init:init, sideEffect: SC._(tgt,"_"+nom)
-                          , eventList: el, id: nom});
-    Object.defineProperty(tgt, nom,{get: (function(nom){
-      return tgt["$"+nom].val();
-    }).bind(tgt, nom)});
-    },
-  _: function(tgt, fun){
+    tgt["$_scc_"+nom]=SC.cell({ init: init
+                              , sideEffect: SC._(tgt,"_scc_"+nom)
+                              , eventList: el
+                              , id: nom});
+    Object.defineProperty(tgt, nom,{ get: (function(nom){
+      return tgt["$_scc_"+nom].val();
+      }).bind(tgt, nom)});
+    }
+, _: function(tgt, fun){
     return (tgt[fun]).bind(tgt);
     }
 , _my: function(name, pt){
@@ -8826,14 +8791,6 @@ Changing many things :
                             , writable: false
                               }
                           );
-  Object.defineProperty(SC, "newID"
-                          , { enumerable: false
-                            , value: function(){
-                                return nextID++;
-                                }
-                            , writable: false
-                              }
-                          );
   let animator=null;
   Object.defineProperty(SC, "animSensor"
                           , { value: function(){
@@ -8848,7 +8805,7 @@ Changing many things :
                           );
   Object.defineProperty(SC, "evt"
                           , { value: function(name, params){
-                                if(undefined!=name || "string"!=typeof(name)){
+                                if("string"!=typeof(name)){
                                   name="no_name";
                                   }
                                 if(undefined!=params){
@@ -8862,9 +8819,67 @@ Changing many things :
                             , writable: false
                               }
                           );
+  Object.defineProperty(SC, "toCell"
+                          , { value: function(p){
+                            // tgt, nom, fun, el, sub
+    if(!p || "object"!=typeof(p.target) || !p.name){
+      throw new Error("invalid parameters");
+      }
+    var t=p.target;
+    if(Array.isArray(p.sub)){ // sous champs...
+      for(var nd of p.sub){
+        t=t[nd];
+        if(undefined===t){
+          throw new Error("sub field doesn't seems to exist: "+p.sub);
+          }
+        }
+      }
+    else{
+      t=(undefined==p.sub)?p.target:p.target[p.sub];
+      }
+    if(undefined===t){
+      throw new Error("sub field doesn't seems to exist: "+p.sub);
+      }
+    p.store=("object"==typeof(p.store))?p.store:p.target;
+    const funn="_scc_"+p.name;
+    if(undefined!=p.fun){
+      p.store[funn]=p.fun.bind(p.target);
+      }
+    if("function"!=typeof(p.store[funn])){
+      throw new Error("no affectator for "+p.name+" cell");
+      }
+    const celln="$_scc_"+p.name;
+    p.store[celln]=SC.cell({ target: t
+                       , field: p.name
+                       , sideEffect: p.store[funn]//SC._(p.store, funn)
+                       , eventList: p.el
+                         });
+    }
+                            , writable: false
+                              }
+                          );
+  Object.defineProperty(SC, "toCellFun"
+  , { value: function(tgt, evt, trace){
+        return function(e, trace, val, re){
+          var v=re.getValuesOf(e);
+          if(trace){
+            console.log("toCellFun", this, re, evt)
+          }
+          if(v){
+            var newVal=v[0];
+            if(newVal instanceof SC_ValueWrapper){
+              newVal=newVal.getVal();
+              }
+            return newVal;
+            }
+          return val;
+          }.bind(tgt, evt, trace);
+        }
+    , writable: false
+      }
+    );
   Object.defineProperty(SC, "sampled"
-                          , { enumerable: false
-                            , value: function(name, params){
+                          , { value: function(name, params){
                                 if(undefined!=params){
                                   params.name=name;
                                   }
@@ -8877,8 +8892,7 @@ Changing many things :
                               }
                           );
   Object.defineProperty(SC, "sensor"
-                          , { enumerable: false
-                            , value: function(name, params){
+                          , { value: function(name, params){
                                 if(undefined!=params){
                                   params.name=name;
                                   }
@@ -8932,7 +8946,7 @@ Changing many things :
           p={};
           }
         if(undefined==p.name){
-          p.name=this.newID()+"_unanmed_machine"
+          p.name=(nextID++)+"_unanmed_machine"
           }
         else if("string"!=typeof(p.name)){
           throw new Error("invalid name : "+p.name);
@@ -9022,30 +9036,73 @@ Ici j'introduit l'équivalent de ton react multiple.
       }
     );
   Object.defineProperty(SC, "pauseForever"
-                          , { enumerable: false
-                            , value: function(name, params){
-                                return SC_PauseForEver;
-                                }
-                            , writable: false
-                              }
-                          );
+  , { value: function(name, params){
+        return SC_PauseForEver;
+        }
+    , writable: false
+      }
+    );
   Object.defineProperty(SC, "nothing"
-                          , { enumerable: false
-                            , value: function(name, params){
-                                return SC_Nothing;
-                                }
-                            , writable: false
-                              }
-                          );
-  Object.defineProperty(SC, "init"
-  , { 
-      value: function(p){
-        if(undefined==p){
-          p={};
+  , { value: function(name, params){
+        return SC_Nothing;
+        }
+    , writable: false
+      }
+    );
+  Object.defineProperty(SC, "pause"
+  , { value: function(n){
+        return new SC_Pause(_SC.b_(n));
+        }
+    , writable: false
+      }
+    );
+  Object.defineProperty(SC, "pauseUntil"
+  , { value: function(cond){
+          if(undefined==cond){
+            throw new Error('pauseUntil(): invalid condition: '+cond);
+            }
+          if(false===cond){
+            console.error("pauseUntil(): pauseForever for a false const.");
+            return this.pauseForever();
+            }
+          if(true===cond){
+            console.error("pauseUntil(): single pause for a true const.");
+            return this.pause();
+            }
+          if("function"!=typeof(cond) && !(cond instanceof SC_CubeBinding)){
+            throw new Error('pauseUntil(): invalid condition implementation: '
+                           +cond);
+            }
+          return new SC_PauseUntil(cond);
           }
-        if(p.modules){
-          /* chargement des modules */
+    , writable: false
+      }
+    );
+  Object.defineProperty(SC, "step"
+  , { value: function(n){
+        return new SC_Step(_SC.b_(n));
+        }
+    , writable: false
+      }
+    );
+  Object.defineProperty(SC, "await"
+  , { value: function(config){
+        if(!_SC.isConfig(config)){
+          throw new Error("config not defined");
           }
+        return new SC_Await(_SC.b_(config));
+        }
+    , writable: false
+      }
+    );
+  Object.defineProperty(SC, "seq"
+  , { value: function(){
+        for(var a of arguments){
+          if(("object"!=typeof(a)) || (!a.isAnSCProgram)){
+            throw new Error("invalid programs in seq "+arguments);
+            }
+          }
+        return new SC_Seq(arguments);
         }
     , writable: false
       }
@@ -9063,5 +9120,62 @@ Ici j'introduit l'équivalent de ton react multiple.
                               }
                           );
   this.SC=SC;
+  try{
+    const loadModule=new XMLHttpRequest();
+    var glob=this;
+    Object.defineProperty(SC, "init"
+    , { value: function(p={}){
+          if(p.tools){
+            const bd=p.tools.baseDir?p.tools.baseDir:"";
+            loadModule.open("GET", bd+"SC_Tools.js", false);
+            loadModule.send(null);
+            if(200==loadModule.status || 0==loadModule.status){
+              console.log("loading", bd+'SC_Tools.js');
+              eval(loadModule.responseText);
+              }
+            if(p.tools.list){
+              for(var url of p.tools.list){
+                loadModule.open("GET", bd+'SC_Tools_'+url+'.js', false);
+                loadModule.send(null);
+                if(200==loadModule.status || 0==loadModule.status){
+                  console.log("loading", bd+'SC_Tools_'+url+'.js');
+                  eval(loadModule.responseText);
+                  }
+                }
+              }
+            }
+          }
+      , writable: false
+        }
+      );
+    }
+  catch(e){
+    global.SC=SC;
+    const fs=require('fs');
+    function read(f) {
+      return fs.readFileSync(f).toString();
+      }
+    function include(f) {
+      eval.apply(glob, [read(f)]);
+      }
+    Object.defineProperty(global.SC, "init"
+    , { value: function(p={}){
+          if(p.tools){
+            const bd=p.tools.baseDir?p.tools.baseDir:"./";
+            //include(bd+"SC_Tools.js");
+            global.glob=global;
+            global.p=p;
+            require(bd+"SC_Tools.js");
+            if(p.tools.list){
+              for(var url of p.tools.list){
+                include(bd+'SC_Tools_'+url+'.js');
+                }
+              }
+            }
+          }
+      , writable: false
+        }
+      );
+    }
   }).call(this);
 

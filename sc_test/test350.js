@@ -3,8 +3,8 @@
        SC.par(
          SC.actionOn(
            e
-           , function(v){
-               var msgs = v[e];
+           , function(re){
+               var msgs=re.getValuesOf(e);
                for(var msg in msgs){
                  writeInConsole(msgs[msg]);
                  }
