@@ -22,14 +22,14 @@ var primitive_systemKeyUp = SC.sensorize({name:"primitive_systemKeyUp"
                                  });
 let systemKeyDown = SC.sensor("systemKeyDown");
 let systemKeyUp = SC.sensor("systemKeyUp");
-primitive_systemKeyDown.addToOwnProgram(
+primitive_systemKeyDown.addProgram(
   SC.repeatForever(
     SC.action( (m) => {
       systemKeyDown.newValue(m.sensorValueOf(primitive_systemKeyDown));
       })
     )
   );
-primitive_systemKeyUp.addToOwnProgram(
+primitive_systemKeyUp.addProgram(
   SC.repeatForever(
     SC.action( (m) => {
       systemKeyUp.newValue(m.sensorValueOf(primitive_systemKeyUp));

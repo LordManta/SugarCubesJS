@@ -1,13 +1,14 @@
 /*
- * SugarCubes.js
+ * SugarCubes_min.js
  * Authors : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
- * version : 5.0 alpha
- * implantation : 0.9.8
- * Copyleft 2014-2023.
+ * Part of the SugarCubes Project
+ * version : 5.0.25.alpha
+ * build: 25
+ * Copyleft 2014-2024.
  */
 ;
-(function(){ 
+(function(sc_global){ 
 const SC_Instruction_state_str=[
   "UNDF" 
 , "SUSP" 
@@ -53,17 +54,21 @@ const SC_Global_Manager={
       this.registeredMachines.splice(idx, 1);
       }
     else{
-      throw new Error("Internal error: trying to remove a not registered machine", m);
+      throw new Error(
+          "Internal error: trying to remove a not registered machine"
+	, m);
       }
     }
 , updateSensor:
     function(sensorId, val){
-    const ll=this.registeredMachines.length;
+    const rm=this.registeredMachines;
+    const ll=rm.length;
+    const sensName=sensorId.toString();
     for(var m=0 ; m<ll; m++){
-      const machine=this.registeredMachines[m];
-      machine.sampleSensor(sensorId, val);
+      const machine=rm[m];
+      machine.sampleSensor(sensName, val);
       }
-    const reactions=this.attachments[sensorId];
+    const reactions=this.attachments[sensName];
     if(reactions){
       for(var m of reactions){
         m();
@@ -485,7 +490,7 @@ function SC_SensorId(params){
                , { value: function(){
                      for(var i=0; i<this.n; i++){
                        this.async();
-                       SC_Global_Manager.updateSensor(this, i);
+                       SC_Global_Manager.updateSensor(this);
                        }
                }, writable: false } );
         }
@@ -494,10 +499,11 @@ function SC_SensorId(params){
       const b={};
       const animDetector=function(b, ts){
         SC_Global_Manager.updateSensor(this, ts);
-        window.requestAnimationFrame(b.ad);
+        if(sc_global.requestAnimationFrame)
+        sc_global.requestAnimationFrame(b.ad);
         }.bind(this, b);
       b.ad=animDetector;
-      window.requestAnimationFrame(animDetector);
+      sc_global.requestAnimationFrame(animDetector);
       }
     }
   else{
@@ -4018,11 +4024,6 @@ function SC_Machine(params){
                  }
                };
     }
-  Object.defineProperty(this, "sensorId"
-           , { value: params.sensorId
-             , writable: false
-             }
-           );
   Object.defineProperty(this, "id"
            , { value: "@_"+nextMachineID++
              , writable: false
@@ -4072,7 +4073,7 @@ function SC_Machine(params){
   this.reactInterface.getInstantNumber=this.getInstantNumber.bind(this);
   this.reactInterface.getTopLevelParallelBranchesNumber
                       =this.getTopLevelParallelBranchesNumber.bind(this);
-  this.reactInterface.addToOwnEntry=function(evtName, value){
+  this.reactInterface.addEntry=function(evtName, value){
       if(evtName instanceof SC_EventId){
         this.addEntry(evtName, value);
         }
@@ -4080,7 +4081,7 @@ function SC_Machine(params){
         throw new Error("invalid event Id : "+evtName);
         }
       }.bind(this);
-  this.reactInterface.addToOwnProgram=function(prg){
+  this.reactInterface.addProgram=function(prg){
     if(prg.isAnSCProgram){
       this.addProgram(prg);
       }
@@ -4175,9 +4176,9 @@ SC_Machine.prototype = {
     this.getTopLevelParallelBranchesNumber = function(){ return 0; };
     }
 , getEvent: function(id){
-    var res = this.environment[id];
-    if(undefined === res){
-      this.environment[id] = res = new SC_Event(id, this);
+    var res=this.environment[id];
+    if(undefined==res){
+      this.environment[id]=res=new SC_Event(id, this);
       }
     else if(!(res instanceof SC_Event)){
       throw new Error("invalid event type");
@@ -4185,9 +4186,9 @@ SC_Machine.prototype = {
     return res;
     }
 , getSensor: function(id){
-    var res = this.environment[id];
-    if(undefined === res){
-      this.environment[id] = res = new SC_Sensor(id);
+    var res=this.environment[id];
+    if(undefined==res){
+      this.environment[id]=res=new SC_Sensor(id);
       }
     else if(!(res instanceof SC_Sensor)){
       throw new Error("invalid sensor type");
@@ -4276,7 +4277,7 @@ SC_Machine.prototype = {
     }
 , react: function(){
    if(this.ended){ return !this.ended; }
-    this.generated_values = Object.assign({}, this.setSensors);
+    this.generated_values=Object.assign({}, this.setSensors);
     var res = SC_Instruction_State.STOP;
     if(0 < this.toContinue){
       this.burstMode = true;
@@ -4503,9 +4504,9 @@ SC_Machine.prototype = {
       this.collapse();
       SC_Global_Manager.removeFromRegisteredMachines(this);
       }
-    this.reactInterface.getValuesOf = NO_FUN;
-    this.reactInterface.presenceOf = NO_FUN;
-    this.burstMode = false;
+    this.reactInterface.getValuesOf=undefined;
+    this.reactInterface.presenceOf=undefined;
+    this.burstMode=false;
     return !this.ended;
     }
 , trace(){
@@ -8059,7 +8060,7 @@ var SC={
     }
 , send: function(m, evt, v){
     return SC.action(function(evt, v){
-      this.addToOwnEntry(evt, v);
+      this.addEntry(evt, v);
       }.bind(m, evt, v))
     }
 , next: function(count){
@@ -8093,7 +8094,7 @@ var SC={
     }
   };
   Object.defineProperty(SC, "sc_build"
-                          , { value: 2
+                          , { value: 4
                             , writable: false
                               }
                           );
@@ -8226,6 +8227,9 @@ var SC={
                                 p.name="processor";
                                 p.isPower=true;
                                 delete(p.delay);
+				if(undefined==p.n || 0>p.n){
+				  p.n=1;
+				  }
                                 return new SC_SensorId(p);
                                 }
                             , writable: false
@@ -8249,6 +8253,14 @@ var SC={
                             , writable: false
                               }
                           );
+  var newID=0;
+  Object.defineProperty(SC, "newID"
+  , { 
+      value: function(){
+	return newID++;
+        }
+      }
+    );
   Object.defineProperty(SC, "clock"
   , { 
       value: function(p){
@@ -8300,16 +8312,16 @@ var SC={
             throw new Error("invalid program : "+prg);
             }
           }.bind(ownMachine);
-    const reaction=function(){
-      do{
-        this.react();
-        if(this.ended){
-          return true;
-          }
-        }
-      while(this.toContinue>0);
-      return false;
-      }.bind(ownMachine);
+        const reaction=function(){
+          do{
+            this.react();
+            if(this.ended){
+              return true;
+              }
+            }
+          while(this.toContinue>0);
+          return false;
+          }.bind(ownMachine);
         var registrations={};
         res.bindTo=function(ream, registrations, sensor){
           if(registrations[sensor.toString()]){
@@ -8476,4 +8488,4 @@ var SC={
         }
       );
     }
-  }).call(this);
+  }).call(this, this);

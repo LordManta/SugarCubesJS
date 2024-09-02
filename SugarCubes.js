@@ -1,43 +1,44 @@
 /*
  * SugarCubes.js
- * Authors : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
- * Created : 2/12/2014 9:23
- * version : 5.0 alpha
- * implantation : 0.9.10
+ * Author : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
+ * Created : 2/12/2014 9:23 PM
+ * Part of the SugarCubes Project
+ * version : 5.0.25.alpha
+ * build: 25
  * Copyleft 2014-2024.
  */
 ;
-(function(){ //Chargement et identification du module
+(function(sc_global){ //Chargement et identification du module
 /*----------------------------------------------------------------------------*/
 /*
 SugarCubes internals.
-Many comments are made in french, as they are personal working notes. English
-comments should be more official, but it is still a work in progress...
- */
+Many comments are made in french, as they are personal working notes.
+English comments should be more official, but it is still a work in progress...
+*/
 /*
 Implementation notice: SugarCubesJS is used to build « reactive systems »
 executed in a dedicated execution model «à la Boussinot». They are made of
 reactive instructions built using reactive constructions. Reactive instructions
-allows one to build tree structures which implement abstract syntax trees of
-reactive programs. Reactive programs are executed by a reactive clock (shortly
-called reactive machine or machine).
+allows one to build tree structures which specifies abstract syntax trees of
+reactive programs. Reactive programs are executed by reactive clocks (also
+called reactive machines or machines).
 The reactive machine splits the execution of a whole reactive system into a
 succession of logical steps called "instants of execution", during which
 reactive instructions get activated according to their semantics.
 Each instant of execution is decomposed in four successive phases:
-  1. the reactive execution by itself during which reactive instruction are
+  1. the reactive execution by itself during which reactive instructions are
      activated to execute their operational semantics.
   2. a phase where event values for the current instant are collected across
-     the whole reactive system (visiting the whole abstract syntax tree of
-     the program).
+     the whole reactive system (visiting the whole abstract syntax tree of the
+     program).
   3. a phase where atomic operations are performed (ideally to compute new
      memory states)
   4. a phase where the memory state of the system is swapped with the newly
      computed one and becomes available for the next instant.
  */
 /*
-Here we mainly focus on the reactive phase (phase 1) of an instant of execution,
-which is itself is decomposed into 2 consecutive steps:
+Her, one mainly focusses on the reactive phase (phase 1) of an instant of
+execution, which is itself is decomposed into 2 consecutive steps:
   - the activation phase: during which each instruction get activated and
     executes its operational semantics. The activation propagates across the
     AST of the reactive program. The implementation of this phase is mainly
@@ -146,7 +147,9 @@ d'ordre sémantique... On va à nouveau dissocier machine et sensor.
       this.registeredMachines.splice(idx, 1);
       }
     else{
-      throw new Error("Internal error: trying to remove a not registered machine", m);
+      throw new Error(
+          "Internal error: trying to remove a not registered machine"
+	, m);
       }
     }
 , updateSensor:
@@ -156,12 +159,14 @@ On parcours les machines pour enregistrer la nouvelle valeur, d'un Sensor...
 C'est pas forcément l'idée du siècle, mais le but est de faciliter
 l'échantillonnage par les machines réactives...
  */
-    const ll=this.registeredMachines.length;
+    const rm=this.registeredMachines;
+    const ll=rm.length;
+    const sensName=sensorId.toString();
     for(var m=0 ; m<ll; m++){
-      const machine=this.registeredMachines[m];
-      machine.sampleSensor(sensorId, val);
+      const machine=rm[m];
+      machine.sampleSensor(sensName, val);
       }
-    const reactions=this.attachments[sensorId];
+    const reactions=this.attachments[sensName];
     if(reactions){
       for(var m of reactions){
         m();
@@ -843,7 +848,7 @@ function SC_SensorId(params){
                , { value: function(){
                      for(var i=0; i<this.n; i++){
                        this.async();
-                       SC_Global_Manager.updateSensor(this, i);
+                       SC_Global_Manager.updateSensor(this);
                        }
                }, writable: false } );
         }
@@ -852,10 +857,11 @@ function SC_SensorId(params){
       const b={};
       const animDetector=function(b, ts){
         SC_Global_Manager.updateSensor(this, ts);
-        window.requestAnimationFrame(b.ad);
+        if(sc_global.requestAnimationFrame)
+        sc_global.requestAnimationFrame(b.ad);
         }.bind(this, b);
       b.ad=animDetector;
-      window.requestAnimationFrame(animDetector);
+      sc_global.requestAnimationFrame(animDetector);
       }
     }
   else{
@@ -4605,7 +4611,6 @@ SC_ReactiveInterface.prototype={
   };
 /*
  * Parameters :
- *  - sensorID : le sensor id propriétaire de la machine.
  *  - name : machine name
  *  - init : the initial program
  *  - fun_stdout : the function that collects stdout messages
@@ -4621,11 +4626,11 @@ function SC_Machine(params){
                  }
                };
     }
-  Object.defineProperty(this, "sensorId"
+/*  Object.defineProperty(this, "sensorId"
            , { value: params.sensorId
              , writable: false
              }
-           );
+           );*/
   Object.defineProperty(this, "id"
            , { value: "@_"+nextMachineID++
              , writable: false
@@ -4667,6 +4672,7 @@ function SC_Machine(params){
   this.ips = 0;
   this.reactMeasuring = 0;
   this.environment={};
+  //this.environment=new Map();
   this.reactInterface=new SC_ReactiveInterface();
   this.reactInterface.getIPS=this.getIPS.bind(this);
   this.reactInterface.writeToStdout=function(s){
@@ -4675,7 +4681,7 @@ function SC_Machine(params){
   this.reactInterface.getInstantNumber=this.getInstantNumber.bind(this);
   this.reactInterface.getTopLevelParallelBranchesNumber
                       =this.getTopLevelParallelBranchesNumber.bind(this);
-  this.reactInterface.addToOwnEntry=function(evtName, value){
+  this.reactInterface.addEntry=function(evtName, value){
       if(evtName instanceof SC_EventId){
         this.addEntry(evtName, value);
         }
@@ -4683,7 +4689,7 @@ function SC_Machine(params){
         throw new Error("invalid event Id : "+evtName);
         }
       }.bind(this);
-  this.reactInterface.addToOwnProgram=function(prg){
+  this.reactInterface.addProgram=function(prg){
     if(prg.isAnSCProgram){
       this.addProgram(prg);
       }
@@ -4784,9 +4790,11 @@ SC_Machine.prototype = {
     this.getTopLevelParallelBranchesNumber = function(){ return 0; };
     }
 , getEvent: function(id){
-    var res = this.environment[id];
-    if(undefined === res){
-      this.environment[id] = res = new SC_Event(id, this);
+    var res=this.environment[id];
+    //var res=this.environment.get(id);
+    if(undefined==res){
+      this.environment[id]=res=new SC_Event(id, this);
+      //this.environment.set(id, res=new SC_Event(id, this));
       }
     else if(!(res instanceof SC_Event)){
       throw new Error("invalid event type");
@@ -4794,10 +4802,11 @@ SC_Machine.prototype = {
     return res;
     }
 , getSensor: function(id){
-    var res = this.environment[id];
-    if(undefined === res){
-      this.environment[id] = res = new SC_Sensor(id);
-      //this.setSensors[id]= undefined;
+    var res=this.environment[id];
+    //var res=this.environment.get(id);
+    if(undefined==res){
+      this.environment[id]=res=new SC_Sensor(id);
+      //this.environment.set(id, res=new SC_Sensor(id));
       }
     else if(!(res instanceof SC_Sensor)){
       throw new Error("invalid sensor type");
@@ -4893,7 +4902,7 @@ séparée de la gestion des événements classiques.
 /*
  * Claude : le fameux boolean...
  */
-    this.generated_values = Object.assign({}, this.setSensors);
+    this.generated_values=Object.assign({}, this.setSensors);
     //console.error('this.generated_values', this.generated_values);
     var res = SC_Instruction_State.STOP;
 /*
@@ -5151,9 +5160,9 @@ On parcours la liste des sensors...
       this.collapse();
       SC_Global_Manager.removeFromRegisteredMachines(this);
       }
-    this.reactInterface.getValuesOf = NO_FUN;
-    this.reactInterface.presenceOf = NO_FUN;
-    this.burstMode = false;
+    this.reactInterface.getValuesOf=undefined;
+    this.reactInterface.presenceOf=undefined;
+    this.burstMode=false;
     return !this.ended;
     }
 , trace(){
@@ -8730,7 +8739,7 @@ var SC={
     }
 , send: function(m, evt, v){
     return SC.action(function(evt, v){
-      this.addToOwnEntry(evt, v);
+      this.addEntry(evt, v);
       }.bind(m, evt, v))
     }
 , next: function(count){
@@ -8782,7 +8791,7 @@ Changing many things :
     want to build.
  */
   Object.defineProperty(SC, "sc_build"
-                          , { value: 2
+                          , { value: 4
                             , writable: false
                               }
                           );
@@ -8916,6 +8925,9 @@ Changing many things :
                                 p.name="processor";
                                 p.isPower=true;
                                 delete(p.delay);
+				if(undefined==p.n || 0>p.n){
+				  p.n=1;
+				  }
                                 return new SC_SensorId(p);
                                 }
                             , writable: false
@@ -8939,6 +8951,14 @@ Changing many things :
                             , writable: false
                               }
                           );
+  var newID=0;
+  Object.defineProperty(SC, "newID"
+  , { 
+      value: function(){
+	return newID++;
+        }
+      }
+    );
   Object.defineProperty(SC, "clock"
   , { 
       value: function(p){
@@ -9000,16 +9020,16 @@ Claude : partie intégrée dans la machine reactive. On distingue 2 notions :
 Je prends la liberté de renommer raf en sc_raf. Ok ?
 Ici j'introduit l'équivalent de ton react multiple.
  */
-    const reaction=function(){
-      do{
-        this.react();
-        if(this.ended){
-          return true;
-          }
-        }
-      while(this.toContinue>0);
-      return false;
-      }.bind(ownMachine);
+        const reaction=function(){
+          do{
+            this.react();
+            if(this.ended){
+              return true;
+              }
+            }
+          while(this.toContinue>0);
+          return false;
+          }.bind(ownMachine);
         var registrations={};
         res.bindTo=function(ream, registrations, sensor){
           if(registrations[sensor.toString()]){
@@ -9177,5 +9197,5 @@ Ici j'introduit l'équivalent de ton react multiple.
         }
       );
     }
-  }).call(this);
+  }).call(this, this);
 

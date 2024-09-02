@@ -3,9 +3,9 @@
  * Author : Jean-Ferdy Susini (MNF)
  * Created : 20/12/2014 18:46
  * Part of the SugarCubes Project
- * version : 5.0 alpha
- * implantation : 0.6
- * Copyleft 2014-2023.
+ * version : 5.0.25.alpha
+ * build: 25
+ * Copyleft 2014-2024.
  */
 ;
 if(SC && SC.sc_build>1 && undefined===SC.tools){
@@ -164,7 +164,7 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
         num+=min;
         return num;
         }
-    , gaussi: function(min, max, skew){
+    , gaussi: function(min=0, max=1, skew=0.5){
         return parseInt(this.gauss(parseInt(min), parseInt(max), skew));
         }
     , tick: function(){
@@ -217,15 +217,12 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
       if(params.tools.mainConfig){
         cfg=params.tools.mainConfig;
         }
-      main=SC.clock(cfg);
-      if(params.tools.mainConfig
-         && "function"==typeof(params.tools.mainConfig.stdout)){
-        main.setStdOut(params.tools.mainConfig.stdout);
+      main= SC.clock(cfg);
+      if(cfg && "function"==typeof(cfg.stdout)){
+        main.setStdOut(cfg.stdout);
         }
-      if(params.tools.mainConfig && !isNaN(params.tools.mainConfig.delay)
-          && 0<params.tools.mainConfig.delay){
-        console.log("init periodic control");
-        periodic=SC.periodic({ delay: params.tools.mainConfig.delay });
+      if(cfg && !isNaN(cfg.delay) && 0<cfg.delay){
+        periodic= SC.periodic({ delay: cfg.delay });
         main.bindTo(periodic);
         }
       }

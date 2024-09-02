@@ -2,9 +2,10 @@
  * SugarCubes.pegjs
  * Authors : Jean-Ferdy Susini (MNF)
  * Created : 2/12/2014 9:23 PM
- * version : 5.0 alpha
- * implantation : 0.9.8
- * Copyleft 2014-2023.
+ * Part of the SugarCubes Project
+ * version : 5.0.25.alpha
+ * build: 25
+ * Copyleft 2014-2024.
  */
 start= cmt:blank def:define? cmt2:blank prg:script cmt3:blank{
   var tmp =[];
