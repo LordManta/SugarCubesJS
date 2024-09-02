@@ -1,12 +1,16 @@
 # SugarCubesJS
-##### Authors : Jean-Ferdy Susini, Olivier Pons, Claude Lion
-##### Created : 2/12/2014 9:23 PM
-##### version : 5.0 alpha
-##### implantation : 0.9.9
-##### Copyright 2014-2023.
 
-A *Javascript* implementation of the reactive programming framework *SugarCubes* v5. It was originally designed on top of *Java*.
-It is based on Frederic Boussinot's *synchronous/reactive paradigm* proposed in the early 90's by Frédéric BOUSSINOT[Bo1], and allows one to write *reactive parallel/concurrent programs* on top of sequential *Javascript*.
+**Authors:** Jean-Ferdy Susini, Olivier Pons, Claude Lion\
+**Created:** 2/12/2014 9:23 PM\
+**Version:** 5.0.23.alpha\
+**Build:** 23\
+**Copyleft 2014-2024**
+
+A *Javascript* implementation of the reactive programming framework
+*SugarCubes* v5. It was originally designed on top of *Java*.
+It is based on Frederic Boussinot's *synchronous/reactive paradigm* proposed in
+the early 90's by Frédéric BOUSSINOT[Bo1], and allows one to write *reactive
+parallel/concurrent programs* on top of sequential *Javascript*.
 
 Quick start:
 ------------
@@ -38,8 +42,8 @@ So the primary environment for *SugarCubesJS* is a Web page.
 
 4. write programs using events previously declared :
    ```javascript
-   var program1=SC.repeat(4, SC.await(e), SC.write("event &e is generated !"));
-   var program2=SC.repeat(5, SC.pause(5), SC.generate(e));
+   var program1=SC.repeat(3, SC.await(e), SC.write("event &e is generated !"));
+   var program2=SC.repeat(3, SC.pause(5), SC.generate(e));
    ```
 
 5. add each program to the execution environment (each program will be added to execute in parallel each with the others) :
@@ -50,7 +54,7 @@ So the primary environment for *SugarCubesJS* is a Web page.
 
 6. build a sensor which is an interface in between classic Javascript execution model and SugarCubes execution model.
    ```javascript
-   var period=SC.periodic({ delay: 100 });
+   var period=SC.periodic({ delay: 1000 });
    ```
    The sensor period will produce a new value about every seconds.
 
@@ -96,12 +100,12 @@ main.setStdOut(SC.writeInConsole);
 /* Events declaration */
 var e=SC.evt("e");
 /* Programs declaration */
-var program1=SC.repeat(4, SC.await(e), SC.write("event &e is generated !"));
-var program2=SC.repeat(5, SC.pause(5), SC.generate(e));
+var program1=SC.repeat(3, SC.await(e), SC.write("event &e is generated !"));
+var program2=SC.repeat(3, SC.pause(5), SC.generate(e));
 main.addProgram(program1);
 main.addProgram(program2);
 /* Sensor declaration */
-var period=SC.periodic({ delay: 100 });
+var period=SC.periodic({ delay: 1000 });
 /* binding clock to sensor */
 main.bindTo(period);
 /* display management */
