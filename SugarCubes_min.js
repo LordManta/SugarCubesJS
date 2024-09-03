@@ -3,8 +3,8 @@
  * Authors : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.25.alpha
- * build: 25
+ * version : 5.0.34.alpha
+ * build: 34
  * Copyleft 2014-2024.
  */
 ;
@@ -102,8 +102,11 @@ SC_CubeBinding.prototype={
       throw new Error("cube is null or undefined !");
       }
     var tgt=this.cube[this.name];
-    if(undefined===tgt){
-      console.error("target not found");
+    if(undefined==tgt){
+      tgt=this.cube._sc_extension[this.name];
+      }
+    if(undefined==tgt){
+      console.error("target not found : ", this.name, this.cube);
       return this;
       }
     else if("function"==typeof(tgt)){
@@ -507,7 +510,12 @@ function SC_SensorId(params){
       }
     }
   else{
-    this.dom_targets=params.dom_targets;
+    if(params.dom_targets && Array.isArray(params.dom_targets)){
+      this.dom_targets=params.dom_targets;
+      }
+    else{
+      this.dom_targets=[];
+      }
     const handler=SC_Global_Manager.updateSensor.bind(SC_Global_Manager, this)
     Object.defineProperty(this, "release"
            , { value: function(handler, some){
@@ -8208,10 +8216,7 @@ var SC={
                                   params.name=name;
                                   }
                                 else{
-                                  throw new Error("SC.sensor(): undefined params "+params);
-                                  }
-                                if(undefined==params.dom_targets){
-                                  throw new Error("SC.sensor(): undefined dom_targets "+params);
+				  params= { name: name };
                                   }
                                 return new SC_SensorId(params);
                                 }

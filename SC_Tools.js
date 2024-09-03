@@ -3,8 +3,8 @@
  * Author : Jean-Ferdy Susini (MNF)
  * Created : 20/12/2014 18:46
  * Part of the SugarCubes Project
- * version : 5.0.25.alpha
- * build: 25
+ * version : 5.0.34.alpha
+ * build: 34
  * Copyleft 2014-2024.
  */
 ;
@@ -263,7 +263,7 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
     SC_ClientTools.addProgram=main.addProgram.bind(main);
     SC_ClientTools.generateEvent=main.addEntry.bind(main);
     return SC_ClientTools;
-    }).call(glob, p)
+    }).call(sc_global, p)
                             , writable: false
                               }
                           );

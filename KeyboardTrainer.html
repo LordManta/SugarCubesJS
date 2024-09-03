@@ -4,49 +4,17 @@
    <meta charset="utf-8"/>
    <script type="text/javascript" src="SugarCubes_min.js">
    </script>
-   <script type="text/javascript" src="SC_Tools.js">
-   </script>
    <script type="text/javascript">
-var primitive_systemKeyDown = SC.sensorize({name:"primitive_systemKeyDown"
-                                 , dom_targets:[
-                                       {target:window, evt:"keydown"}
-                                       ]
-				 , owned:true
-                                 });
-
-var primitive_systemKeyUp = SC.sensorize({name:"primitive_systemKeyUp"
-                                 , dom_targets:[
-                                       {target:window, evt:"keyup"}
-                                       ]
-				 , owned:true
-                                 });
-let systemKeyDown = SC.sensor("systemKeyDown");
-let systemKeyUp = SC.sensor("systemKeyUp");
-primitive_systemKeyDown.addProgram(
-  SC.repeatForever(
-    SC.action( (m) => {
-      systemKeyDown.newValue(m.sensorValueOf(primitive_systemKeyDown));
-      })
-    )
-  );
-primitive_systemKeyUp.addProgram(
-  SC.repeatForever(
-    SC.action( (m) => {
-      systemKeyUp.newValue(m.sensorValueOf(primitive_systemKeyUp));
-      })
-    )
-  );
-
-var SC_App_Config = {
-  //tickTime: 30
-    machineConfig:{
-        init: SC.pauseForever()
-      , dom_targets:[
-            {target:window, evt:"keydown"}
-          , {target:window, evt:"keyup"}
-            ]
-	}
-  , viewport:{
+SC.init({ tools: {
+            baseDir: ""
+	  , list: [ "AudioToolbox", "WebTools", "WebEnergize" ]
+          , mainConfig: {
+              init: SC.pauseForever()
+            , delay: 40
+              }
+            }
+  , appConfig: {
+    viewport:{
       width:"device-width"
       , height:"device-height"
       , init_scale:"1"
@@ -79,8 +47,18 @@ var SC_App_Config = {
                   +"and (orientation: landscape)"
           }
       ]
-  }
-SC.tools.appInit(SC_App_Config);
+          }
+});
+const main=SC.tools.main;
+main.setStdOut(SC.writeInConsole);
+var systemKeyDown= SC.sensor("systemKeyDown"
+                         , { dom_targets: [ { target: window, evt: "keydown" } ] });
+
+var systemKeyUp= SC.sensor("systemKeyUp"
+                                 , { dom_targets:[ { target: window, evt: "keyup" } ] });
+main.bindTo(systemKeyDown);
+main.bindTo(systemKeyUp);
+
 SC.tools.addProgram(
   SC.action(function(){
       window.addEventListener("touchstart"
@@ -135,30 +113,33 @@ body{
     const taille_espace=0.4;
     const startLeft = 0.3;
     const startTop = 5;
-    keyEvt = SC.evt("keyEvt");
-    groupViewEvt = SC.evt("groupViewEvt");
+    const Snd_toucheNormal=SC.tools.audioToolbox.addAudioFile({ src:'audio/mp3/touche.mp3', init: true, burst: true });
+    const Snd_toucheEspace=SC.tools.audioToolbox.addAudioFile({ src: 'audio/mp3/barreEspace.mp3', init: true, burst: true  });
+    keyEvt= SC.evt("keyEvt");
+    groupViewEvt= SC.evt("groupViewEvt");
     function makeKey(pos, startTop, data){
-        var tmp_stop_sensor = SC.sensor("on_touchStop");
-	var myKeyDown = SC.evt("myKeyDown "+data.lbl);
-	var myKeyUp = SC.evt("myKeyUp "+data.lbl);
-        var key = SC.tools.makeDiv({
-            inH:data.lbl
-            , cl:"touche_clavier"
-            , on_touchStart: SC.sensor("on_touchStart")
+        var tmp_stop_sensor= SC.sensor("on_touchStop");
+	var myKeyDown= SC.evt("myKeyDown "+data.lbl);
+	var myKeyUp= SC.evt("myKeyUp "+data.lbl);
+        var key= SC.tools.Web.makeDiv({
+            inH: data.lbl
+            , cl: "touche_clavier"
+            , on_touchStart: SC.sensor("touchStart")
             , on_touchStop: tmp_stop_sensor
             , on_touchCancel: tmp_stop_sensor
             , on_mouseDown: SC.sensor("on_mouseDown")
             , on_mouseUp: SC.sensor("on_mouseUp")
             , beh: SC.par(
                      SC.repeat(SC.forever
-                       , SC.await(SC.or("on_touchStartEvt","on_mouseDownEvt", myKeyDown))
-                       , SC.generate(SC.my("css_backgroundEvt"), "red")
-                       , SC.kill(SC.or("on_touchStopEvt","on_mouseUpEvt", myKeyUp)
+                       , SC.await(SC.or("Evt_touchStart", "Evt_on_mouseDown", myKeyDown))
+                       , SC.generate("Evt_css_background", "red")
+		       , SC.generate(data.Evt_snd)
+                       , SC.kill(SC.or("Evt_touchStop","Evt_on_mouseUp", myKeyUp)
                            ,SC.repeat(SC.forever
                               , SC.generateWrapped(keyEvt, "innerHTML")
                               )
                            )
-                       , SC.generate("css_backgroundEvt", "white")
+                       , SC.generate("Evt_css_background", "white")
                        )
                      , SC.repeat(SC.forever
                          , SC.await(groupViewEvt)
@@ -177,10 +158,10 @@ body{
                      )
           }
           );
-	key.code = data.code;
-	key.filter_key = function(key){
-	  var filtered = [];
-	  console.log(key, key.code, this.code, key.code == this.code);
+	//key.Evt_playSnd= data.Evt_snd;
+	key.code= data.code;
+	key.filter_key= function(key){
+	  var filtered= [];
 	  if(key.code == this.code){
 	    filtered.push(key);
 	    }
@@ -190,25 +171,25 @@ body{
            var vals = m.getValuesOf(groupViewEvt);
            if(vals
                && (0 != vals.length)){
-             SC.tools.generateEvent(this.css_displayEvt,(vals[0]>=my_group)?"":"none");
+             SC.tools.generateEvent(this._sc_getEvt('css_display'),(vals[0]>=my_group)?"":"none");
              }
            }.bind(key,data.group)
         if(undefined !== data.offH){
           SC.tools.addProgram(
-	    SC.generate(key.css_topEvt, ((startTop+data.offH)*screenRZ)+"cm")
+	    SC.generate(key._sc_getEvt('css_top'), ((startTop+data.offH)*screenRZ)+"cm")
             );
           }
 	else{
           SC.tools.addProgram(
-            SC.generate(key.css_topEvt, (startTop*screenRZ)+"cm")
+            SC.generate(key._sc_getEvt('css_top'), (startTop*screenRZ)+"cm")
             );
 	}
         SC.tools.addProgram(
-          SC.generate(key.css_leftEvt, (pos*screenRZ)+"cm")
+          SC.generate(key._sc_getEvt('css_left'), (pos*screenRZ)+"cm")
           );
         if(undefined !== data.w){
           SC.tools.addProgram(
-            SC.generate(key.css_widthEvt, (data.w*screenRZ)+"cm")
+            SC.generate(key._sc_getEvt('css_width'), (data.w*screenRZ)+"cm")
             );
             pos += (data.w+taille_espace);
           }
@@ -218,8 +199,8 @@ body{
         if(undefined !== data.h){
           SC.tools.addProgram(
             SC.par(
-	      SC.generate(key.css_heightEvt, (data.h*screenRZ)+"cm")
-              , SC.generate(key.css_lineHeightEvt, (data.h*screenRZ)+"cm")
+	      SC.generate(key._sc_getEvt('css_height'), (data.h*screenRZ)+"cm")
+              , SC.generate(key._sc_getEvt('css_lineHeight'), (data.h*screenRZ)+"cm")
 	      )
             );
           }
@@ -228,15 +209,16 @@ body{
     function rowOfKeysGenerator(row, startTop, startLeft){
       var pos = startLeft;
       for(var i = 0; i < row.length; i++){
-        var data = row[i];
-        var tmp_stop_sensor = SC.sensor("on_touchStop");
-        var res = makeKey(pos, startTop, data)
-	pos = res.pos;
+        var data= row[i];
+	data.Evt_snd= (data.Evt_snd)?data.Evt_snd:Snd_toucheNormal.Evt_play;
+        var tmp_stop_sensor= SC.sensor("on_touchStop");
+        var res= makeKey(pos, startTop, data)
+	pos= res.pos;
 	document.body.appendChild(res.key);
         }
       }
     var row = [
-      {lbl: 'tab', w:(1.5+0.4+0.5),group:10, code:"Tab"}
+      {lbl: 'tab', w:(1.5+0.4+0.5),group:10, code:"Tab", Evt_snd: Snd_toucheEspace.Evt_play }
       , {lbl:'A',group:2, code:"KeyQ"}
       , {lbl:'Z',group:2, code:"KeyW"}
       , {lbl:'E',group:2, code:"KeyE"}
@@ -252,7 +234,7 @@ body{
       ];
     rowOfKeysGenerator(row, 5, startLeft)
       row = [
-      {lbl:'⇪', w:(1.5+0.4+0.9), group:10, code:"Caps"}
+      {lbl:'⇪', w:(1.5+0.4+0.9), group:10, code:"Caps", Evt_snd: Snd_toucheEspace.Evt_play }
       , {lbl:'Q',group:0, code:"KeyA"}
       , {lbl:'S',group:0, code:"KeyS"}
       , {lbl:'D',group:0, code:"KeyD"}
@@ -268,7 +250,7 @@ body{
       ];
     rowOfKeysGenerator(row, 5+(taille_touche+taille_espace), startLeft)
     row = [
-      {lbl:'⇧', w:(1.5+0.4),group:10, code:"ShiftLeft"}
+      {lbl:'⇧', w:(1.5+0.4),group:10, code:"ShiftLeft", Evt_snd: Snd_toucheEspace.Evt_play }
       , {lbl:'<',group:9, code:"IntlBackslash"}
       , {lbl:'W',group:6, code:"KeyZ"}
       , {lbl:'X',group:6, code:"KeyX"}
@@ -280,20 +262,20 @@ body{
       , {lbl:';',group:9, code:"Comma"}
       , {lbl:':',group:9, code:"Period"}
       , {lbl:'=',group:9, code:"Slash"}
-      , {lbl:'⇧', w:(3+0.4+0.4), group:10, code:"ShiftRight"}
+      , {lbl:'⇧', w:(3+0.4+0.4), group:10, code:"ShiftRight", Evt_snd: Snd_toucheEspace.Evt_play }
       ];
     rowOfKeysGenerator(row, 5+2*(taille_touche+taille_espace), startLeft)
     row = [
-      {lbl:'fn',group:12, code:"fn"}
-      , {lbl:'ctrl',group:11, code:"ControlLeft"}
-      , {lbl:'alt',group:11, code:"AltLeft"}
-      , {lbl:'cmd', w:(1.5+0.4),group:11, code:"MetaLeft"}
-      , {lbl:'space', w:(4*(1.5+0.4)+1.5), group:7, code:"Space"}
-      , {lbl:'cmd', w:(1.5+0.4),group:11, code:"MetaRight"}
-      , {lbl:'alt',group:11, code:"AltRight"}
-      , {lbl:'◀︎',group:12,h:0.70,offH:0.80, code:"ArrowLeft"}
-      , {lbl:'▼',group:12,h:0.70,offH:0.80, code:"ArrowDown"}
-      , {lbl:'►',group:12,h:0.70,offH:0.80, code:"ArrowRight"}
+      {lbl:'fn',group:12, code:"fn", Evt_snd: Snd_toucheEspace.Evt_play }
+      , {lbl:'ctrl',group:11, code:"ControlLeft", Evt_snd: Snd_toucheEspace.Evt_play }
+      , {lbl:'alt',group:11, code:"AltLeft", Evt_snd: Snd_toucheEspace.Evt_play }
+      , {lbl:'cmd', w:(1.5+0.4),group:11, code:"MetaLeft", Evt_snd: Snd_toucheEspace.Evt_play }
+      , {lbl:'space', w:(4*(1.5+0.4)+1.5), group:7, code:"Space", Evt_snd: Snd_toucheEspace.Evt_play }
+      , {lbl:'cmd', w:(1.5+0.4),group:11, code:"MetaRight", Evt_snd: Snd_toucheEspace.Evt_play }
+      , {lbl:'alt',group:11, code:"AltRight", Evt_snd: Snd_toucheEspace.Evt_play }
+      , {lbl:'◀︎',group:12,h:0.70,offH:0.80, code:"ArrowLeft", Evt_snd: Snd_toucheEspace.Evt_play }
+      , {lbl:'▼',group:12,h:0.70,offH:0.80, code:"ArrowDown", Evt_snd: Snd_toucheEspace.Evt_play }
+      , {lbl:'►',group:12,h:0.70,offH:0.80, code:"ArrowRight", Evt_snd: Snd_toucheEspace.Evt_play }
       ];
     rowOfKeysGenerator(row, 5+3*(taille_touche+taille_espace), startLeft)
     row = [
@@ -313,11 +295,11 @@ body{
       , {lbl:'⟵',w:(1.5+0.4+0.5),group:10, code:"Backspace"}
       ];
     rowOfKeysGenerator(row, 5-(taille_touche+taille_espace), startLeft)
-    var res = makeKey(14*(taille_touche+taille_espace)-0.4,5,{lbl:"↩︎",h:(taille_touche*2+taille_espace),w:1.1,group:10, code:"Enter"});
+    var res = makeKey(14*(taille_touche+taille_espace)-0.4,5,{lbl:"↩︎",h:(taille_touche*2+taille_espace),w:1.1,group:10, code:"Enter" , Evt_snd: Snd_toucheEspace.Evt_play });
     document.body.appendChild(res.key);
-    res = makeKey(13*(taille_touche+taille_espace)-0.8,5+3*(taille_touche+taille_espace),{lbl:"▲",h:0.70,group:12, code:"ArrowUp"});
+    res = makeKey(13*(taille_touche+taille_espace)-0.8,5+3*(taille_touche+taille_espace),{lbl:"▲",h:0.70,group:12, code:"ArrowUp", Evt_snd: Snd_toucheEspace.Evt_play });
     document.body.appendChild(res.key);
-    var div_res = SC.tools.makeDiv({
+    var div_res = SC.tools.Web.makeDiv({
       beh:SC.repeat(SC.forever
               , SC.action(function(m){
                   var vals = m.getValuesOf(keyEvt);
@@ -335,14 +317,14 @@ body{
               )
       });
     for(var j=0; j < 13; j++){
-      var img = SC.tools.makeImage({
+      var img = SC.tools.Web.makeImage({
              src:"images/png/puce.png"
              , w:"32"
              , h:"32"
-             , on_mouseDown:SC.sensor("md")
-             , on_touchStart:SC.sensor("ts")
+             , on_mouseDown: SC.sensor("md")
+             , on_touchStart: SC.sensor("ts")
              , beh: SC.repeat(SC.forever
-                      , SC.await(SC.or("on_mouseDownEvt","on_touchStartEvt"))
+                      , SC.await(SC.or("Evt_on_mouseDown","Evt_touchStart"))
                       , SC.generate(groupViewEvt, j)
                       )
              });
