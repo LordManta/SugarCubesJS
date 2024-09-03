@@ -1,0 +1,233 @@
+@media print {
+.SC_question_bubble, .SC_bubble_text, .SC_bubble_text_0, .SC_bubble_text_1
+, .SC_bubble_text_2, .SC_bubble_text_3, .SC_bubble_text_4, .SC_bubble_text_5
+, .SC_bubble_text_6, .SC_bubble_text_7, .SC_bubble_text_8, .SC_bubble_text_9
+, .SC_bubble_text_10 , .SC_bubble_text_11, .SC_bubble_text_12, .SC_text_note{
+  box-shadow:none;
+  }
+}
+/** Bubbles **/
+.SC_bubble_textFrame{
+  position:absolute;
+  padding:0;
+  margin:0;
+  /*z-index:0;*/
+}
+.SC_question_bubble, .SC_bubble_text, .SC_bubble_text_0, .SC_bubble_text_1
+, .SC_bubble_text_2, .SC_bubble_text_3, .SC_bubble_text_4, .SC_bubble_text_5
+, .SC_bubble_text_6, .SC_bubble_text_7, .SC_bubble_text_8, .SC_bubble_text_9
+, .SC_bubble_text_10 , .SC_bubble_text_11, .SC_bubble_text_12, .SC_text_note{
+  color:black;
+  text-align:left;
+  background-color:white;
+  border:1px dashed black;  
+  padding:20px 20px 20px 20px;
+  border-radius:10px;
+  min-width:200px;
+  position:relative;
+  margin:0;
+  top:0px;
+  z-index:20;
+}
+@media screen{
+  .SC_question_bubble, .SC_bubble_text, .SC_bubble_text_0, .SC_bubble_text_1
+, .SC_bubble_text_2, .SC_bubble_text_3, .SC_bubble_text_4, .SC_bubble_text_5
+, .SC_bubble_text_6, .SC_bubble_text_7, .SC_bubble_text_8, .SC_bubble_text_9
+, .SC_question_bubble:before, .SC_bubble_text:before, .SC_text_note:before
+/*, .SC_bubble_text_1:before
+, .SC_bubble_text_2:before
+, .SC_bubble_text_3:before
+, .SC_bubble_text_4:before
+, .SC_bubble_text_5:before
+, .SC_bubble_text_6:before
+, .SC_bubble_text_7:before
+, .SC_bubble_text_8:before
+, .SC_bubble_text_9:before
+, .SC_bubble_text_10:before
+, .SC_bubble_text_11:before
+, .SC_bubble_text_12:before*/
+, .SC_bubble_text_10 , .SC_bubble_text_11, .SC_bubble_text_12, .SC_text_note{
+    box-shadow: 2px -3px 2px rgba(178, 178, 178, .4);
+    }
+  }
+
+.SC_question_bubble:before, .SC_bubble_text:before, .SC_bubble_text_1:before
+, .SC_bubble_text_2:before, .SC_bubble_text_3:before, .SC_bubble_text_4:before, .SC_bubble_text_5:before
+, .SC_bubble_text_6:before, .SC_bubble_text_7:before, .SC_bubble_text_8:before, .SC_bubble_text_9:before
+, .SC_bubble_text_10:before , .SC_bubble_text_11:before, .SC_bubble_text_12:before, .SC_text_note:before{
+  position:absolute;
+  z-index:19;
+  background-color:inherit;
+  content:"\00a0";
+  };
+.SC_question_bubble:before, .SC_bubble_text:before, .SC_text_note:before{
+  height:20px;
+  width:20px;
+  top:-10px;
+  left:20px;
+  transform:  rotate( 45deg ) skewX(15deg) skewY(15deg);
+  -webkit-transform: rotate( 45deg ) skewX(15deg) skewY(15deg);
+}
+/* top left */
+.SC_bubble_text_1:before{
+  border-top: 1px dashed black;  
+  border-left: 1px dashed black;  
+  height:20px;
+  width:20px;
+  top:-10px;
+  left:20px;
+  transform:  rotate( 45deg ) skewX(15deg) skewY(15deg);
+  -webkit-transform: rotate( 45deg ) skewX(15deg) skewY(15deg);
+}
+/* top middle */
+.SC_bubble_text_2:before{
+  border-top: 1px dashed black;  
+  border-left: 1px dashed black;  
+  height:20px;
+  width:20px;
+  top:-10px;
+  left:50%;
+  transform:  rotate( 45deg ) skewX(15deg) skewY(15deg);
+  -webkit-transform: rotate( 45deg ) skewX(15deg) skewY(15deg);
+}
+/* top right */
+.SC_bubble_text_3:before{
+  border-top: 1px dashed black;  
+  border-left: 1px dashed black;  
+  box-shadow: 0px -3px -2px rgba(178, 178, 178, .4);
+  height:20px;
+  width:20px;
+  top:-10px;
+  right:20px;
+  transform:  rotate( 45deg ) skewX(15deg) skewY(15deg);
+  -webkit-transform: rotate( 45deg ) skewX(15deg) skewY(15deg);
+}
+/* bottom right */
+.SC_bubble_text_6:before{
+  border-bottom: 1px dashed black;  
+  border-right: 1px dashed black;  
+  box-shadow: 0px -3px -2px rgba(178, 178, 178, .4);
+  height:20px;
+  width:20px;
+  bottom:-10px;
+  right:20px;
+  transform:  rotate( 45deg ) skewX(15deg) skewY(15deg);
+  -webkit-transform: rotate( 45deg ) skewX(15deg) skewY(15deg);
+}
+/* bottom left */
+.SC_bubble_text_4:before{
+  border-bottom: 1px dashed black;  
+  border-right: 1px dashed black;  
+  box-shadow: 0px -3px -2px rgba(178, 178, 178, .4);
+  height:20px;
+  width:20px;
+  bottom:-10px;
+  left:20px;
+  transform:  rotate( 45deg ) skewX(15deg) skewY(15deg);
+  -webkit-transform: rotate( 45deg ) skewX(15deg) skewY(15deg);
+}
+/* bottom middle */
+.SC_bubble_text_5:before{
+  border-bottom: 1px dashed black;  
+  border-right: 1px dashed black;  
+  box-shadow: 0px -3px -2px rgba(178, 178, 178, .4);
+  height:20px;
+  width:20px;
+  bottom:-10px;
+  left:50%;
+  transform:  rotate( 45deg ) skewX(15deg) skewY(15deg);
+  -webkit-transform: rotate( 45deg ) skewX(15deg) skewY(15deg);
+}
+/* left top */
+.SC_bubble_text_7:before{
+  border-left: 1px dashed black;  
+  border-top: 1px dashed black;  
+  height:20px;
+  width:20px;
+  top:+20px;
+  left:-8px;
+  transform:  rotate( -45deg ) skewX(15deg) skewY(15deg);
+  -webkit-transform: rotate( -45deg ) skewX(15deg) skewY(15deg);
+}
+/* left middle */
+.SC_bubble_text_8:before{
+  border-left: 1px dashed black;  
+  border-top: 1px dashed black;  
+  height:20px;
+  width:20px;
+  top:50%;
+  left:-8px;
+  transform:  rotate( -45deg ) skewX(15deg) skewY(15deg);
+  -webkit-transform: rotate( -45deg ) skewX(15deg) skewY(15deg);
+}
+/* left bottom */
+.SC_bubble_text_9:before{
+  border-left: 1px dashed black;  
+  border-top: 1px dashed black;  
+  height:20px;
+  width:20px;
+  bottom:+20px;
+  left:-8px;
+  transform:  rotate( -45deg ) skewX(15deg) skewY(15deg);
+  -webkit-transform: rotate( -45deg ) skewX(15deg) skewY(15deg);
+}
+/* right top */
+.SC_bubble_text_10:before{
+  border-right: 1px dashed black;  
+  border-bottom: 1px dashed black;  
+  height:20px;
+  width:20px;
+  top:+20px;
+  right:-8px;
+  transform:  rotate( -45deg ) skewX(15deg) skewY(15deg);
+  -webkit-transform: rotate( -45deg ) skewX(15deg) skewY(15deg);
+}
+/* right middle */
+.SC_bubble_text_11:before{
+  border-right: 1px dashed black;  
+  border-bottom: 1px dashed black;  
+  height:20px;
+  width:20px;
+  top:50%;
+  right:-8px;
+  transform:  rotate( -45deg ) skewX(15deg) skewY(15deg);
+  -webkit-transform: rotate( -45deg ) skewX(15deg) skewY(15deg);
+}
+/* left bottom */
+.SC_bubble_text_12:before{
+  border-right: 1px dashed black;  
+  border-bottom: 1px dashed black;  
+  height:20px;
+  width:20px;
+  bottom:+20px;
+  right:-8px;
+  transform:  rotate( -45deg ) skewX(15deg) skewY(15deg);
+  -webkit-transform: rotate( -45deg ) skewX(15deg) skewY(15deg);
+}
+.SC_text_note, .SC_text_note:before{
+  background-color:lightgrey;
+}
+.SC_question_bubble, .SC_question_bubble:before{
+  background-color:orange;
+}
+.SC_bubble_text div{
+  margin:0;
+  padding:0;
+  border:0;
+}
+.SC_bubble_sendForm{
+  margin:0;
+  padding:2px;
+  color:black;
+  background-color:whitesmoke;
+  border: 1px solid black;
+  border-radius:4px;
+  float:right;
+}
+.SC_bubble_textHighlightMove{
+  background-color:yellow;
+}
+.SC_bubble_textHighlight{
+  background-color:yellow;
+}
+

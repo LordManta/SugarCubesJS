@@ -1,0 +1,54 @@
+/*
+ * SC_Tools_Panel.css
+ * Author : Jean-Ferdy Susini
+ * Created : 15/02/2015 19:53
+ * Part of the SugarCubes Project
+ * version : 5.0 alpha
+ * implantation : 0.2
+ * Copyright 2014-2023.
+ */
+
+/*
+ * Styles used in the ControlPanel.
+ */
+#SC_console {
+  width:300px;
+  height:200px;
+  background-color:white;
+  color:black;
+  border: solid 1px black;
+  overflow: scroll;  
+  font-size:10px;
+  unicode-bidi: embed;
+  font-family: monospace;
+  white-space: pre;
+}
+#SC_ScreenShot_pic{
+  width:64px;
+  height:40px;
+  border: solid 1px black;
+  vertical-align:middle;
+}
+#SC_mouse_tracker{
+  display:inline-block;
+  border-collapse: collapse;
+  border:solid 1px black;
+  width:110px;
+}
+#SC_reactive_machine_info{
+  width:198px;
+  display:inline-block;
+  border-collapse: collapse;
+  border:solid 1px black;
+}
+#SC_ControlPanel{
+  position:fixed;
+  display:inline-block;
+  background-color:rgba(0,0,0,0.45);
+  color:white;
+  padding:5px;
+  margin:0;
+  top:0;
+  left:0;
+  border-bottom-right-radius: 10px;
+  }

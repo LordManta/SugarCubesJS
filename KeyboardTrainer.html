@@ -32,7 +32,7 @@ SC.init({ tools: {
       , start:"Démarrer !"
       , startEvt: SC.evt("evt")
       }
-  , controler_style:"SC_Panel.css"
+  , controler_style:"SC_Tools_Panel.css"
   , startup_img: [
       {
         rsrc:"images/png/st_1536x2008.png"
@@ -113,8 +113,11 @@ body{
     const taille_espace=0.4;
     const startLeft = 0.3;
     const startTop = 5;
-    const Snd_toucheNormal=SC.tools.audioToolbox.addAudioFile({ src:'audio/mp3/touche.mp3', init: true, burst: true });
-    const Snd_toucheEspace=SC.tools.audioToolbox.addAudioFile({ src: 'audio/mp3/barreEspace.mp3', init: true, burst: true  });
+    const Snd_toucheNormal= SC.tools.audioToolbox.addAudioFile({ src:'audio/mp3/touche.mp3', init: true, burst: true });
+    const Snd_toucheEspace= SC.tools.audioToolbox.addAudioFile({ src: 'audio/mp3/barreEspace.mp3', init: true, burst: true  });
+    const Snd_carriage= SC.tools.audioToolbox.addAudioFile({ src: 'audio/mp3/carriage.mp3', init: true, burst: true  });
+    const Snd_ting= SC.tools.audioToolbox.addAudioFile({ src: 'audio/mp3/ding.mp3', init: true, burst: true  });
+    const Snd_error= SC.tools.audioToolbox.addAudioFile({ src: 'audio/mp3/error.mp3', init: true, burst: true  });
     keyEvt= SC.evt("keyEvt");
     groupViewEvt= SC.evt("groupViewEvt");
     function makeKey(pos, startTop, data){
@@ -132,8 +135,22 @@ body{
             , beh: SC.par(
                      SC.repeat(SC.forever
                        , SC.await(SC.or("Evt_touchStart", "Evt_on_mouseDown", myKeyDown))
-                       , SC.generate("Evt_css_background", "red")
-		       , SC.generate(data.Evt_snd)
+                       , SC.generate("Evt_css_background", "green")
+		       , SC.test(SC.my("kt_isValid")
+		         , SC.generate(data.Evt_snd)
+		         , SC.seq(SC.generate(Snd_error.Evt_play)
+			   , SC.generate("SC_cubeAddBehaviorEvt"
+			     , SC.seq(
+			         SC.generate("Evt_css_display", "")
+                               , SC.generate("Evt_css_background", "red")
+			       , SC.pause(3)
+                               , SC.generate("Evt_css_background", "white")
+			       , SC.pause(3)
+                               , SC.generate("Evt_css_background", "red")
+			       , SC.pause(3)
+                               , SC.generate("Evt_css_background", "white")
+			       , SC.generate("Evt_css_display", "none")
+			         ))))
                        , SC.kill(SC.or("Evt_touchStop","Evt_on_mouseUp", myKeyUp)
                            ,SC.repeat(SC.forever
                               , SC.generateWrapped(keyEvt, "innerHTML")
@@ -158,8 +175,11 @@ body{
                      )
           }
           );
-	//key.Evt_playSnd= data.Evt_snd;
+	key.kt_isValid=function(re){
+	  return this.kt_visible;
+	  };
 	key.code= data.code;
+	key.kt_visible=false;
 	key.filter_key= function(key){
 	  var filtered= [];
 	  if(key.code == this.code){
@@ -167,11 +187,12 @@ body{
 	    }
 	  return (filtered.length > 0)?filtered:undefined;
 	  }
-        key.filter_display_group = function(my_group, m){
-           var vals = m.getValuesOf(groupViewEvt);
+        key.filter_display_group = function(my_group, re){
+           var vals = re.getValuesOf(groupViewEvt);
            if(vals
                && (0 != vals.length)){
-             SC.tools.generateEvent(this._sc_getEvt('css_display'),(vals[0]>=my_group)?"":"none");
+	     this.kt_visible=(vals[0]>=my_group);
+             re.addEntry(this._sc_getEvt('css_display'), this.kt_visible?"":"none");
              }
            }.bind(key,data.group)
         if(undefined !== data.offH){
@@ -204,7 +225,7 @@ body{
 	      )
             );
           }
-      return {key:key, pos:pos};
+      return { key: key, pos: pos };
       }
     function rowOfKeysGenerator(row, startTop, startLeft){
       var pos = startLeft;
@@ -292,10 +313,10 @@ body{
       , {lbl:'à',group:9, code:"Digit0"}
       , {lbl:')',group:9, code:"Minus"}
       , {lbl:'-',group:9, code:"Equal"}
-      , {lbl:'⟵',w:(1.5+0.4+0.5),group:10, code:"Backspace"}
+      , {lbl:'⟵',w:(1.5+0.4+0.5),group:10, code:"Backspace", Evt_snd: Snd_toucheEspace.Evt_play }
       ];
     rowOfKeysGenerator(row, 5-(taille_touche+taille_espace), startLeft)
-    var res = makeKey(14*(taille_touche+taille_espace)-0.4,5,{lbl:"↩︎",h:(taille_touche*2+taille_espace),w:1.1,group:10, code:"Enter" , Evt_snd: Snd_toucheEspace.Evt_play });
+    var res = makeKey(14*(taille_touche+taille_espace)-0.4,5,{lbl:"↩︎",h:(taille_touche*2+taille_espace),w:1.1,group:10, code:"Enter" , Evt_snd: Snd_carriage.Evt_play });
     document.body.appendChild(res.key);
     res = makeKey(13*(taille_touche+taille_espace)-0.8,5+3*(taille_touche+taille_espace),{lbl:"▲",h:0.70,group:12, code:"ArrowUp", Evt_snd: Snd_toucheEspace.Evt_play });
     document.body.appendChild(res.key);

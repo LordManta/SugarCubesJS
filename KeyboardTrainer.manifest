@@ -1,15 +1,18 @@
 CACHE MANIFEST
 
-# Version: 194
+# Version: 195
 
 CACHE:
 # Main page
 /KeyboardTrainer.html
 # Javascript files
-SugarCubes.js
+SugarCubes_min.js
 SC_Tools.js
+SC_Tools_AudioToolbox.js
+SC_Tools_WebTools.js
+SC_Tools_WebEnergize.js
 # CSS files
-SC_Panel.css
+SC_Tools_Panel.css
 # Images files
 images/png/bg-test.png
 
