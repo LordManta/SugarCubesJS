@@ -1,13 +1,19 @@
 CACHE MANIFEST
 
-# Version: 91
+# Version: 92
 
 CACHE:
 # Main page
 TestTools.html
 # Javascript files
-#SugarCubes.js
-#SC_Tools.js
+SugarCubes_min.js
+SC_Tools.js
+SC_Tools_AudioToolbox.js
+SC_Tools_Panel.css
+SC_Tools_Splash.css
+SC_Tools_WebEnergize.js
+SC_Tools_WebTools.js
+SC_Tools_WebTools.css
 # CSS files
 #SC_Panel.css
 # Images files

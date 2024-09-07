@@ -3,9 +3,9 @@
  * Author : Jean-Ferdy Susini (MNF)
  * Created : 20/12/2014 18:46
  * Part of the SugarCubes Project
- * version : 5.0 alpha
- * implantation : 0.6
- * Copyleft 2014-2023.
+ * version : 5.0.44.alpha
+ * build: 44
+ * Copyleft 2014-2024.
  */
 ;
 if(SC && SC.sc_build>1 && undefined===SC.tools){
@@ -164,7 +164,7 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
         num+=min;
         return num;
         }
-    , gaussi: function(min, max, skew){
+    , gaussi: function(min=0, max=1, skew=0.5){
         return parseInt(this.gauss(parseInt(min), parseInt(max), skew));
         }
     , tick: function(){
@@ -263,7 +263,7 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
     SC_ClientTools.addProgram=main.addProgram.bind(main);
     SC_ClientTools.generateEvent=main.addEntry.bind(main);
     return SC_ClientTools;
-    }).call(glob, p)
+    }).call(sc_global, p)
                             , writable: false
                               }
                           );
