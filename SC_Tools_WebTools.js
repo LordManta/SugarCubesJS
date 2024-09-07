@@ -246,7 +246,9 @@ Zone de control
                 throw new Error("initialize tools first");
                 }
               if(undefined!=this.controlPanel){
-                throw new Error("panel already init");
+                //throw new Error("panel already init");
+                console.warn("panel already init");
+                return;
                 }
               // <link rel="stylesheet" href="mesStyles.css">
               const cssLink=document.createElement("link");
@@ -369,16 +371,18 @@ Zone de control
               controlPanel.content.appendChild(tmpTable);
               controlPanel.content.appendChild(document.createElement("br"));
               controlPanel.content.appendChild(controlPanel.console);
-              controlPanel.setInspectorBtn=function(){
-                var inspector_btn=document.createElement("button");
-                inspector_btn.innerHTML="Element Inspector";
-                inspector_btn.onclick=function(){
-                  SC.tools.generateEvent(
-                    SC.tools.elementInspector.setIcobjUnderInspectionEvt
-                  , null);
+              controlPanel.setInspectorBtn= function(){
+                const inspector_btn= document.createElement("button");
+                inspector_btn.innerHTML= "Element Inspector";
+                inspector_btn.onclick= function(){
+                  if(SC.tools.elementInspector){
+                    SC.tools.generateEvent(
+                      SC.tools.elementInspector.Evt_setIcobjUnderInspection
+                    , null);
+                    }
                   };
                 this.content.appendChild(inspector_btn);
-                }
+                };
               if(undefined !== this.elementInspector){
                 this.controlPanel.setInspectorBtn();
                 }
@@ -648,6 +652,9 @@ Zone de control
             if(config.controler_closed){
               SC.tools.controlPanel.toggle(false);
               }
+            if(config.controler_inspectorEnabled){
+              SC.tools.controlPanel.setInspectorBtn();
+              }
             }
           if(config.splashConfig){
             const cssLink=document.createElement("link");
@@ -680,7 +687,7 @@ Zone de control
                             :"")
                     +">"+config.splashConfig.title+"</span></div> "
                     +"<img id='SC_splash_FB_loading'"
-                    +" src='/images/gif/CP48_spinner.gif'/>"
+                    +" src='images/gif/CP48_spinner.gif'/>"
                     +"<div class='SC_splashH3' style='display:none;'>"
                     +config.splashConfig.start
                     +"</div></div>";
@@ -737,9 +744,9 @@ Zone de control
               SC.seq(SC.pause(10), SC.generate((SC.globals.Evt_appStarted)))
               );
             }
-          if(config.inspectorEnabled){
-            this.initInspector();
-            }
+          //if(config.inspectorEnabled){
+          //  SC.tools.initPanel();
+          //  }
           }
 //        }
         if("complete"!=document.readyState){
@@ -927,7 +934,7 @@ Define globals and WebTools
                       const selectable=(("pre"==wrapTag)&&((""==tag.getAttribute("selectable"))
                                ||("true"==tag.getAttribute("selectable"))));
                       const limitH=(("pre"==wrapTag)&&(tag.getAttribute("limitH")))?tag.getAttribute("limitH"):undefined;
-		      if((""==tag.getAttribute("hlapi"))
+                      if((""==tag.getAttribute("hlapi"))
                                ||("true"==tag.getAttribute("hlapi"))){
                         switch(langAtt.toUpperCase()){
                           case "C":{
@@ -943,7 +950,7 @@ Define globals and WebTools
                             break;
                             }
                           }
-		        }
+                        }
                       if(("" == tag.getAttribute("useapi"))
                                ||("true"  == tag.getAttribute("useapi"))){
                         tag.innerHTML='';
@@ -1542,7 +1549,7 @@ Bubble view utility funs
             );            
           };
         function simpleCommentBubble(params={}){
-	  //console.log("make bubble...", params);
+          //console.log("make bubble...", params);
           if(undefined===this.scc_bubbles_link){
             loadBubbleCSS();
             }
@@ -1705,7 +1712,7 @@ Bubble view utility funs
             const entry=re.getValuesOf(this.Evt_display);
             if(entry){
               const data=entry[0];
-	      //console.log("bubble display", data);
+              //console.log("bubble display", data);
               if("function"==typeof(data.ficn)){
                 data.icn=data.ficn();
                 }

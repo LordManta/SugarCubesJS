@@ -3,8 +3,8 @@
  * Authors : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.35.alpha
- * build: 35
+ * version : 5.0.43.alpha
+ * build: 43
  * Copyleft 2014-2024.
  */
 ;
@@ -56,7 +56,7 @@ const SC_Global_Manager={
     else{
       throw new Error(
           "Internal error: trying to remove a not registered machine"
-	, m);
+        , m);
       }
     }
 , updateSensor:
@@ -7732,12 +7732,6 @@ var SC={
       }
     return new SC_ActionOnEvent(_SC.b_(c), _SC.b_(fun), _SC.b_(deffun), this.forever);
     }
-, actionOn: function(c, fun, deffun, times){
-    if(undefined==c){
-      throw new Error("config not defined");
-      }
-    return new SC_ActionOnEvent(_SC.b_(c), _SC.b_(fun), _SC.b_(deffun), _SC.b_(times));
-    }
 , par: function(){
     return new SC_Par(arguments, undefined);
     }
@@ -8045,7 +8039,7 @@ var SC={
 , _my: function(name, pt){
     if((undefined!=name)&&("string"==typeof(name))&&(""!=name)){
       try{
-        if((undefined!=pt)&&("string"==typeof(pt))&&(""!=pt)){
+        if(undefined!=pt && "string"==typeof(pt) && ""!=pt){
           return new SC_CubeBinding(name, {tp: pt});
           }
         return new SC_CubeBinding(name);
@@ -8055,12 +8049,12 @@ var SC={
     throw new Error("invalid object property name", name);
     }
 , my: function(name, p){
-    if((undefined!=name)&&("string"==typeof(name))&&(""!=name)){
+    if(undefined!=name && "string"==typeof(name) && ""!=name){
       try{
         if(undefined===p){
           return new SC_CubeBinding(name);
           }
-        return new SC_CubeBinding(name, {p: p});
+        return new SC_CubeBinding(name, { p: p });
         }
       catch(e){}
       }
@@ -8102,7 +8096,7 @@ var SC={
     }
   };
   Object.defineProperty(SC, "sc_build"
-                          , { value: 35
+                          , { value: 43
                             , writable: false
                               }
                           );
@@ -8144,7 +8138,7 @@ var SC={
     if(!p || "object"!=typeof(p.target) || !p.name){
       throw new Error("invalid parameters");
       }
-    var t=p.target;
+    var t= p.target;
     if(Array.isArray(p.sub)){ 
       for(var nd of p.sub){
         t=t[nd];
@@ -8212,13 +8206,24 @@ var SC={
                           );
   Object.defineProperty(SC, "sensor"
                           , { value: function(name, params){
-                                if(undefined!=params){
-                                  params.name=name;
+                                const p= {};
+                                if(undefined==name){
+                                  throw new Error("Invalid parameters: "+arguments);
                                   }
-                                else{
-				  params= { name: name };
+                                else if("string"==typeof(name)){
+                                  p.name= name;
                                   }
-                                return new SC_SensorId(params);
+                                else if(name.name){
+                                  params= name;
+                                  }
+                                if(params){
+                                  p.isPower= params.isPower;
+                                  p.n= params.n;
+                                  p.delay= params.delay;
+                                  p.async= params.async;
+                                  p.dom_targets= params.dom_targets;
+                                  }
+                                return new SC_SensorId(p);
                                 }
                             , writable: false
                               }
@@ -8232,9 +8237,9 @@ var SC={
                                 p.name="processor";
                                 p.isPower=true;
                                 delete(p.delay);
-				if(undefined==p.n || 0>p.n){
-				  p.n=1;
-				  }
+                                if(undefined==p.n || 0>p.n){
+                                  p.n=1;
+                                  }
                                 return new SC_SensorId(p);
                                 }
                             , writable: false
@@ -8262,7 +8267,7 @@ var SC={
   Object.defineProperty(SC, "newID"
   , { 
       value: function(){
-	return newID++;
+        return newID++;
         }
       }
     );
@@ -8348,6 +8353,38 @@ var SC={
                                     }
                                 );
         return res;
+        }
+    , writable: false
+      }
+    );
+  Object.defineProperty(SC, "actionOn"
+  , { value: function(c, fun, deffun, times){
+        if(undefined==c){
+          throw new Error("invalid parameters : "+arguments);
+          }
+        const prm={};
+        if(1==arguments.length && "object"==typeof(c)){
+          if(undefined==c.config){
+            throw new Error("invalid parameters : "+c);
+            }
+          prm.c= c.config;
+          if(undefined==c.fun && undefined== c.deffun){
+            throw new Error("invalid parameters : "+c);
+            }
+          prm.fun= c.fun;
+          prm.deffun= c.deffun;
+          prm.times= c.times;
+          }
+        else{
+          if(undefined==fun && undefined== deffun){
+            throw new Error("invalid parameters : fun="+fun+" deffun="+deffun);
+            }
+          prm.c= c;
+          prm.fun= fun;
+          prm.deffun= deffun;
+          prm.times= times;
+          }
+        return new SC_ActionOnEvent(_SC.b_(prm.c), _SC.b_(prm.fun), _SC.b_(prm.deffun), _SC.b_(prm.times));
         }
     , writable: false
       }

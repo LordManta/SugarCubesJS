@@ -85,7 +85,7 @@ On crée un AudioContext commun à tous les players.
 Jouer des sons grace aux objets AudioChunk
 */
     function AudioChunk(data){
-      if(undefined===sharedContext){
+      if(undefined===SC.tools.audioContext){
         console.error("no Web Audio API");
         return false;
         }
@@ -100,7 +100,7 @@ Jouer des sons grace aux objets AudioChunk
       this.Evt_pause=SC.evt("Evt_pause");
       this.Evt_resume=SC.evt("Evt_resume");
       this.Evt_stop=SC.evt("Evt_stop");
-      SC_ClientTools.addProgram(
+      SC.tools.main.addProgram(
         SC.seq(
           SC.await(this.Samp_loaded)
         , SC.repeatForever(

@@ -4,43 +4,50 @@
    <meta charset="utf-8"/>
    <script type="text/javascript" src="SugarCubes_min.js">
    </script>
-   <script type="text/javascript" src="SC_Tools.js">
-   </script>
    <script type="text/javascript">
-var SC_App_Config = {
-  tickTime: 30
-  , machineConfig:{init: SC.pauseForever()}
-  , audioSupport:true
-  , appTitle:"SC_ToolsTest"
-  , appAuthors:"Jean-Ferdy Susini"
-  , appDescription:""
-  , splashConfig:{
-      title:"Ma WebApp SugarCubes"
-      , title_style:"background-color: rgba(255,255,255, 0.6);font-size:12vh;font-weight:bold; text-shadow:0.5vw 0.5vh 0.5vmax white; padding:10px"
-      , start:"Démarrer !"
-      , startEvt: SC.evt("evt")
-      , background:"url(images/png/bg-test.png) no-repeat center"
-      }
-  , controler:true
-  , controler_closed:true
-  , controler_style:"SC_Panel.css"
-  , inspectorEnabled:true
-  , startup_img: [
-      {
-        rsrc:"images/png/st_1536x2008.png"
-        , media:"(device-width: 768px) and (device-height: 1024px)"
-                +"and (-webkit-device-pixel-ratio: 2)"
-                +"and (orientation: portrait)"
+SC.init({
+  tools: {
+            baseDir: ""
+	  , list: [ "AudioToolbox", "WebTools", "WebEnergize" ]
+          , mainConfig: {
+              init: SC.pauseForever()
+            , delay: 30
+              }
+            }
+  , appConfig: {
+      audioSupport: true
+    , appTitle: "SC_ToolsTest"
+    , appAuthors: "Jean-Ferdy Susini"
+    , appDescription: ""
+    , splashConfig: {
+        title: "Ma WebApp SugarCubes"
+        , title_style: "background-color: rgba(255,255,255, 0.6);font-size:12vh;font-weight:bold; text-shadow:0.5vw 0.5vh 0.5vmax white; padding:10px"
+        , start: "Démarrer !"
+        , startEvt: SC.evt("evt")
+        , background: "url(images/png/bg-test.png) no-repeat center"
         }
-      , {
-          rsrc:"images/png/st_1496x2048.png"
-          , media:"(device-width: 768px) and (device-height: 1024px)"
+    , controler: true
+    , controler_closed: true
+    , controler_style: "SC_Tools_Panel.css"
+    , controler_inspectorEnabled: true
+    , startup_img: [
+        {
+          rsrc: "images/png/st_1536x2008.png"
+          , media: "(device-width: 768px) and (device-height: 1024px)"
                   +"and (-webkit-device-pixel-ratio: 2)"
-                  +"and (orientation: landscape)"
+                  +"and (orientation: portrait)"
           }
-      ]
-  }
-SC.tools.appInit(SC_App_Config);
+        , {
+            rsrc: "images/png/st_1496x2048.png"
+            , media: "(device-width: 768px) and (device-height: 1024px)"
+                    +"and (-webkit-device-pixel-ratio: 2)"
+                    +"and (orientation: landscape)"
+            }
+        ]
+      }
+  });
+SC.tools.main.setStdOut(SC.writeInConsole);
+SC.tools.Web.initInspector();
    </script>
    <style>
 .toto{
@@ -50,58 +57,40 @@ SC.tools.appInit(SC_App_Config);
  </head>
  <body>
   <script type="text/javascript" >
-  SC.tools.displaySplash();
-  SC.tools.m.setStdOut(console.log.bind(console));
-  </script>
-   <script type="text/javascript">
-var imgClick = SC.sensor('image_click');
+SC.tools.displaySplash();
+
+var Samp_imgClick= SC.sampled('image_click');
+var t= [];
 window.addEventListener("load", function(){
- SC.tools.t.push(SC.tools.makeImage({
+ t.push(SC.tools.Web.makeImage({
            src : "images/png/banane.png"
            , title : "GROAR !"
            , cl : "toto"
-           , evt_click: imgClick
+           , evt_click: Samp_imgClick
            , m : SC.tools.m
            }));
- var tmp = SC.tools.t[SC.tools.t.length-1]
+ var tmp = t[t.length-1]
  document.body.appendChild(tmp);
- SC.tools.t.push(SC.tools.makeP({
+ t.push(SC.tools.Web.makeP({
            inH : "Hello World !"
            , title : "Ceci est un paragraphe !"
            , cl : "toto"
            }));
- tmp = SC.tools.t[SC.tools.t.length-1]
+ tmp = t[t.length-1]
  document.body.appendChild(tmp);
  });
    </script>
 <table>
 </table>
 <script>
-SC_ify({
+SC.tools.Web.energize({
   inH:"<caption> Hello! </caption><tr><td>Hello</td><td>World !</td></tr>"
   , title:"Essai"
   });
 </script>
-<script type="text/javascript" src="sounds.js">
+<script defer type="text/javascript" src="sounds.js">
 </script>
-<script type="text/javascript">
-var windSnd = SC.tools.audioToolbox.newAudioChunck(audioData.wind);
-var voiceSnd = SC.tools.audioToolbox.newAudioChunck(audioData.voice);
-SC.tools.addProgram(
-   SC.repeat(SC.forever
-     , SC.await(imgClick)
-     , SC.generate(windSnd.playEvt)
-     , SC.log("click")
-     , SC.pause()
-     , SC.kill(imgClick, SC.await(windSnd.endedEvt), SC.generate(windSnd.stopEvt))
-     )
-   );
-SC.tools.addProgram(
-   SC.action(function(m){
-     filter = SC.tools.audioToolbox.mkBQFilter({});
-     }
-     )
-   );
+<script defer type="text/javascript" src="sc_app_testtools.js">
 </script>
  </body>
 </html>

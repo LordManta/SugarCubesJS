@@ -151,7 +151,7 @@ if(SC && SC.sc_build>1 && SC.tools){
         if(SC.tools.Web.elementInspector){
           if(SC.tools.Web.elementInspector.sc_vis || (4===evt.detail)){
             SC.tools.generateEvent(
-                SC.tools.Web.elementInspector.setIcobjUnderInspectionEvt
+                SC.tools.Web.elementInspector._sc_extension.Evt_setIcobjUnderInspection
               , this);
             }
           }
@@ -205,7 +205,7 @@ if(SC && SC.sc_build>1 && SC.tools){
           }
         else{
           elt.addEventListener(jsevt
-             , mkListener(elt.evt_click
+             , mkListener(evt
                        , (p.m?p.m:SC.tools.main)));
           }
         }
@@ -298,7 +298,7 @@ if(SC && SC.sc_build>1 && SC.tools){
           }
         }
       elt._sc_getEvt= function(name){
-	return this._sc_extension['Evt_'+name];
+        return this._sc_extension['Evt_'+name];
         }
       return elt;
       };
@@ -327,199 +327,202 @@ if(SC && SC.sc_build>1 && SC.tools){
       if(undefined==SC.tools.main){
         throw new Error("tools not initialized");
         }
-      this.elementInspector=document.createElement("div");
-      this.elementInspector.style.display="inline-block";
-      this.elementInspector.style.position="fixed";
-      this.elementInspector.style.color="rgba(255,255,255,0.9)";
-      this.elementInspector.style.backgroundColor="rgba(0,0,0,0.6)";
-      this.elementInspector.style.borderRadius="10px";
-      this.elementInspector.style.padding="5px";
-      this.elementInspector.set_xyEvt = SC.evt("panel_set_xy");
-      this.elementInspector.showEvt = SC.evt("show");
-      this.elementInspector.hideEvt = SC.evt("hide");
-      this.elementInspector.makeCell = function(nom, init, el){
-        this["$"+nom] = SC.cell({ init: init
-                                , sideEffect: this["_"+nom].bind(this)
+      const elementInspector= this.elementInspector= document.createElement("div");
+      elementInspector.style.display= "inline-block";
+      elementInspector.style.position= "fixed";
+      elementInspector.style.color= "rgba(255,255,255,0.9)";
+      elementInspector.style.backgroundColor= "rgba(0,0,0,0.6)";
+      elementInspector.style.borderRadius= "10px";
+      elementInspector.style.padding= "5px";
+      elementInspector._sc_extension= {};
+      elementInspector._sc_extension.Evt_set_xy= SC.evt("panel_set_xy");
+      elementInspector._sc_extension.Evt_show= SC.evt("show");
+      elementInspector._sc_extension.Evt_hide= SC.evt("hide");
+      elementInspector._sc_makeCell= function(nom, init, el){
+        this._sc_extension["$_scc_"+nom]= SC.cell({ init: init
+                                , sideEffect: this._sc_extension["_scc_"+nom].bind(this)
                                 , eventList: el});
-        Object.defineProperty(this, nom,{get : (function(nom){
-          return this["$"+nom].val();
+        Object.defineProperty(this, nom,{get: (function(nom){
+          return this._sc_extension["$_scc_"+nom].val();
         }).bind(this, nom)});
         }
-      this.elementInspector._updatePanel = function(val, evts){
-        var pos = evts[this.set_xyEvt];
-        if(undefined === pos){
-          return null;
-          }
-        if((pos[0].x-this.panel_mid) > 0){
-          if((pos[0].x-this.panel_mid) < window.innerWidth-80){
-            this.style.left = (pos[0].x-this.panel_mid)+"px";
+      elementInspector._sc_extension._scc_updatePanel= function(val, re){
+        const pos= re.getValuesOf(this._sc_extension.Evt_set_xy);
+        if(pos){
+          const psn= pos[0];
+          if(0<(psn.x-this.panel_mid)){
+            if((psn.x-this.panel_mid)<(window.innerWidth-80)){
+              this.style.left= (psn.x-this.panel_mid)+"px";
+              }
+            else{
+              this.style.left= (window.innerWidth-80)+"px";
+              }
             }
           else{
-            this.style.left = (window.innerWidth-80)+"px";
+            this.style.left= "1px";
             }
-          }
-        else{
-          this.style.left = "1px";
-          }
-        if(pos[0].y > 0){
-          if(pos[0].y < window.innerHeight-10){
-            this.style.top = pos[0].y+"px";
+          if(psn.y>0){
+            if(psn.y<window.innerHeight-10){
+              this.style.top= psn.y+"px";
+              }
+            else{
+              this.style.top= (window.innerHeight-10)+"px";
+              }
             }
           else{
-            this.style.top = (window.innerHeight-10)+"px";
+            this.style.top = "1px";
             }
-          }
-        else{
-          this.style.top = "1px";
           }
         };
     /* ---- */
-      this.elementInspector.icobjListener = function(nom, evt){
-        return SC.repeat(SC.forever
-                 , SC.await(evt)
-                 , SC.actionOn(evt, function(n, e, vals){
-                     this[n].value = vals[e][0];
-                     }.bind(this, nom, evt))
-                 );
+      elementInspector._sc_icobjListener= function(nom, evt){
+        return SC.actionOn(evt, function(n, e, re){
+                   this['scis_'+n].value= re.getValuesOf(e)[0];
+                   }.bind(this, nom, evt), undefined, SC.forever);
       }
-      this.elementInspector.setIcobjUnderInspectionEvt = SC.evt("setIcobjUnderInspection");
-      this.elementInspector.setIcobjNoMoreInspectionEvt = SC.evt("setIcobjNoMoreInspection");
-      this.elementInspector._icobjControled = function(val, evts){
-        var e = evts[this.setIcobjUnderInspectionEvt];
-        var i = val;
-        if(undefined === e){
-          e = evts[this.setIcobjNoMoreInspectionEvt];
-          if(undefined === e){
+      this.elementInspector._sc_extension.Evt_setIcobjUnderInspection= SC.evt("setIcobjUnderInspection");
+      this.elementInspector._sc_extension.Evt_setIcobjNoMoreInspection= SC.evt("setIcobjNoMoreInspection");
+      this.elementInspector._sc_extension._scc_icobjControled= function(val, re){
+        var e= re.getValuesOf(this._sc_extension.Evt_setIcobjUnderInspection);
+        var i= val;
+        if(undefined===e){
+          e= evts[this._sc_extension.Evt_setIcobjNoMoreInspection];
+          if(undefined===e){
             return val;
             }
-          if(e[0] == val){
-            this.background.value = "";
-            this.position.value = "";
-            this.display.value = "";
-            this.left.value = "";
-            this.top.value = "";
-            this.color.value = "";
-            this.opacity.value = "";
-            this.font.value = "";
-            this.border.value = "";
-            this.borderRadius.value = "";
-            this.width.value = "";
-            this.height.value = "";
-            this.padding.value = "";
-            this.boxSizing.value = "";
-            this.boxShadow.value = "";
-            this.filter.value = "";
-            this.outline.value = "";
-            this.overflowX.value = "";
-            this.overflowY.value = "";
-            this.zoom.value = "";
-            this.sc_title.value = "";
-            this.sc_src.value = "";
-            i = null;
+          if(e[0]==val){
+            this.scis_background.value= "";
+            this.scis_position.value= "";
+            this.scis_display.value= "";
+            this.scis_left.value= "";
+            this.scis_top.value= "";
+            this.scis_color.value= "";
+            this.scis_opacity.value= "";
+            this.scis_font.value= "";
+            this.scis_border.value= "";
+            this.scis_borderRadius.value= "";
+            this.scis_width.value= "";
+            this.scis_height.value= "";
+            this.scis_padding.value= "";
+            this.scis_boxSizing.value= "";
+            this.scis_boxShadow.value= "";
+            this.scis_filter.value= "";
+            this.scis_outline.value= "";
+            this.scis_overflowX.value= "";
+            this.scis_overflowY.value= "";
+            this.scis_zoom.value= "";
+            this.scis_sc_title.value= "";
+            this.scis_sc_src.value= "";
+            i= null;
             }
           else{
             return val;
             }
           }
         else{
-          i = e[0];
+          i= e[0];
           }
-        this.controlTitle.innerHTML = (null == i)?"--":i.tagName;
-        if(null !== i){
-          this.background.value = i.style.background;
-          this.position.value = i.style.position;
-          this.display.value = i.style.display;
-          this.left.value = i.style.left;
-          this.top.value = i.style.top;
-          this.color.value = i.style.color;
-          this.opacity.value = i.style.opacity;
-          this.font.value = i.style.font;
-          this.border.value = i.style.border;
-          this.borderRadius.value = i.style.borderRadius;
-          this.width.value = i.style.width;
-          this.height.value = i.style.height;
-          this.padding.value = i.style.padding;
-          this.margin.value = i.style.margin;
-          this.boxSizing.value = i.style.boxSizing;
-          this.boxShadow.value = i.style.boxShadow;
-          this.filter.value = (undefined === i.style.WebkitFilter)?i.style.filter
-                                   :i.style.WebkitFilter;
-          this.outline.value = i.style.outline;
-          this.overflowX.value = i.style.overflowX;
-          this.overflowY.value = i.style.overflowY;
-          this.zoom.value = i.style.zoom;
-          this.sc_title.value = i.title;
-          this.sc_src.value = (undefined === i.src)?"":i.src;
+        this.controlTitle.innerHTML= i?i.tagName:"--";
+        if(i){
+          this.scis_background.value= i.style.background;
+          this.scis_position.value= i.style.position;
+          this.scis_display.value= i.style.display;
+          this.scis_left.value= i.style.left;
+          this.scis_top.value= i.style.top;
+          this.scis_color.value= i.style.color;
+          this.scis_opacity.value= i.style.opacity;
+          this.scis_font.value= i.style.font;
+          this.scis_border.value= i.style.border;
+          this.scis_borderRadius.value= i.style.borderRadius;
+          this.scis_width.value= i.style.width;
+          this.scis_height.value= i.style.height;
+          this.scis_padding.value= i.style.padding;
+          this.scis_margin.value= i.style.margin;
+          this.scis_boxSizing.value= i.style.boxSizing;
+          this.scis_boxShadow.value= i.style.boxShadow;
+          this.scis_filter.value= (i.style.WebkitFilter)?i.style.WebkitFilter
+                                   :i.style.filter;
+          this.scis_outline.value= i.style.outline;
+          this.scis_overflowX.value= i.style.overflowX;
+          this.scis_overflowY.value= i.style.overflowY;
+          this.scis_zoom.value= i.style.zoom;
+          this.scis_sc_title.value= i.title;
+          this.scis_sc_src.value= i.src?i.src:"";
           SC.tools.addProgram(
-            SC.kill(SC.or(this.setIcobjUnderInspectionEvt,this.setIcobjNoMoreInspectionEvt)
+            SC.kill(SC.or(this._sc_extension.Evt_setIcobjUnderInspection
+                         ,this._sc_extension.Evt_setIcobjNoMoreInspection)
               , SC.par(
-                  this.icobjListener("background", i.css_backgroundEvt)
-                  , this.icobjListener("position", i.css_positionEvt)
-                  , this.icobjListener("display", i.css_displayEvt)
-                  , this.icobjListener("top", i.css_topEvt)
-                  , this.icobjListener("left", i.css_leftEvt)
-                  , this.icobjListener("color", i.css_colorEvt)
-                  , this.icobjListener("opacity", i.css_opacityEvt)
-                  , this.icobjListener("font", i.css_fontEvt)
-                  , this.icobjListener("border", i.css_borderEvt)
-                  , this.icobjListener("borderRadius", i.css_borderRadiusEvt)
-                  , this.icobjListener("width", i.css_widthEvt)
-                  , this.icobjListener("height", i.css_heightEvt)
-                  , this.icobjListener("padding", i.css_paddingEvt)
-                  , this.icobjListener("margin", i.css_marginEvt)
-                  , this.icobjListener("boxSizing", i.css_boxSizingEvt)
-                  , this.icobjListener("boxShadow", i.css_boxShadowEvt)
-                  , ((undefined === i.style.WebkitFilter)?this.icobjListener("filter", i.css_filterEvt)
-                       :this.icobjListener("filter", i.css_WebkitFilterEvt))
-                  , this.icobjListener("outline", i.css_outlineEvt)
-                  , this.icobjListener("overflowX", i.css_overflowXEvt)
-                  , this.icobjListener("overflowY", i.css_overflowYEvt)
-                  , (undefined === i.css_zoomEvt)?SC.nothing()
-                      :this.icobjListener("zoom", i.css_zoomEvt)
-                  )
-                  , this.icobjListener("sc_title", i.titleEvt)
-                  , (undefined === i.srcEvt)?SC.nothing()
-                                                 :this.icobjListener("sc_src", i.srcEvt)
+                  this._sc_icobjListener("background", i._sc_getEvt('css_background'))
+                , this._sc_icobjListener("position", i._sc_getEvt('css_position'))
+                , this._sc_icobjListener("display", i._sc_getEvt('css_display'))
+                , this._sc_icobjListener("top", i._sc_getEvt('css_top'))
+                , this._sc_icobjListener("left", i._sc_getEvt('css_left'))
+                , this._sc_icobjListener("color", i._sc_getEvt('css_color'))
+                , this._sc_icobjListener("opacity", i._sc_getEvt('css_opacity'))
+                , this._sc_icobjListener("font", i._sc_getEvt('css_font'))
+                , this._sc_icobjListener("border", i._sc_getEvt('css_border'))
+                , this._sc_icobjListener("borderRadius", i._sc_getEvt('css_borderRadius'))
+                , this._sc_icobjListener("width", i._sc_getEvt('css_width'))
+                , this._sc_icobjListener("height", i._sc_getEvt('css_height'))
+                , this._sc_icobjListener("padding", i._sc_getEvt('css_padding'))
+                , this._sc_icobjListener("margin", i._sc_getEvt('css_margin'))
+                , this._sc_icobjListener("boxSizing", i._sc_getEvt('css_boxSizing'))
+                , this._sc_icobjListener("boxShadow", i._sc_getEvt('css_boxShadow'))
+                , (i.style.WebkitFilter
+                     ?this._sc_icobjListener("filter", i._sc_getEvt('css_WebkitFilter'))
+                     :this._sc_icobjListener("filter", i._sc_getEvt('css_filter')))
+                , this._sc_icobjListener("outline", i._sc_getEvt('css_outline'))
+                , this._sc_icobjListener("overflowX", i._sc_getEvt('css_overflowX'))
+                , this._sc_icobjListener("overflowY", i._sc_getEvt('css_overflowY'))
+                , i._sc_getEvt('css_zoom')?this._sc_icobjListener("zoom", i._sc_getEvt('css_zoom'))
+                    :SC.nothing()
+                , this._sc_icobjListener("sc_title", i._sc_getEvt('title'))
+                , i._sc_getEvt('src')?this._sc_icobjListener("sc_src", i._sc_extension.Evt_src)
+                                     :SC.nothing()
+                )
               )
           );
         }
-        var mid = parseInt(window.getComputedStyle(this.controlTitle.parentNode).width)/2;
-        this.panel_mid = isNaN(mid)?this.panel_mid:mid;
+        var mid= parseInt(window.getComputedStyle(this.controlTitle.parentNode).width)/2;
+        this.panel_mid= isNaN(mid)?this.panel_mid:mid;
         return i;
         }
       /* the icobj under inspection */
-      this.elementInspector.makeCell("icobjControled", null, [this.elementInspector.setIcobjUnderInspectionEvt
-                                                             , this.elementInspector.setIcobjNoMoreInspectionEvt]);
+      this.elementInspector._sc_makeCell("icobjControled", null
+                        , [ this.elementInspector._sc_extension.Evt_setIcobjUnderInspection
+                          , this.elementInspector._sc_extension.Evt_setIcobjNoMoreInspection]);
       /* mise à jour de la position du panel */
-      this.elementInspector.makeCell("updatePanel", null, [this.elementInspector.set_xyEvt]);
-      this.elementInspector.sc_vis = false;
-      this.elementInspector._display = function(val, evts){
-          var tmp = evts[this.showEvt];
-          if(undefined != tmp){
-            this.sc_vis = true;
+      this.elementInspector._sc_makeCell("updatePanel", null
+                                           , [this.elementInspector._sc_extension.Evt_set_xy]);
+      this.elementInspector.sc_vis= false;
+      this.elementInspector._sc_extension._scc_display= function(val, re){
+          if(re.presenceOf(SC.tools.Web.elementInspector._sc_extension.Evt_show)){
+            SC.tools.Web.elementInspector.sc_vis= true;
             return "";
             }
-          var tmp = evts[this.hideEvt];
-          if(undefined != tmp){
-            this.sc_vis = false;
+          if(re.presenceOf(SC.tools.Web.elementInspector._sc_extension.Evt_hide)){
+            SC.tools.Web.elementInspector.sc_vis= false;
             return "none";
             }
           return val;
-        }
-      SC.cellify(this.elementInspector
-               , "display"
-               , undefined
-               , [this.elementInspector.showEvt, this.elementInspector.hideEvt]
-               , "style"
+          };
+      SC.toCell({ target: this.elementInspector
+               , name: "display"
+               , fun: undefined
+               , el: [ this.elementInspector._sc_extension.Evt_show
+                     , this.elementInspector._sc_extension.Evt_hide ]
+               , store: this.elementInspector._sc_extension
+               , sub: [ "style" ]
+                 }
                );
       /* fonction pour créer des entrées dans l'inspector */
       function pilot(p/*{tr, title, ctrl_kind, lst, help}*/){
-        if(undefined == p.title){
-          throw 'no title provided';
+        if(undefined==p.title){
+          throw new Error('no title provided');
           }
-        var tr = (undefined == p.tr)?document.createElement("tr"):p.tr;
-        tr.innerHTML ="<th>"+p.title+"</th><td></td>";
-        var css_control = null;
+        var tr= p.tr?p.tr:document.createElement("tr");
+        tr.innerHTML= "<th>"+p.title+"</th><td></td>";
+        var css_control= null;
         switch(p.ctrl_kind){
           case 1 : {
               css_control = document.createElement("select");
@@ -557,195 +560,191 @@ if(SC && SC.sc_build>1 && SC.tools){
         if(p.numeric){
           css_control.onchange = function(evt){
             if(null != this.icobjControled){
-              SC.tools.generateEvent(this.icobjControled[p.targetEventName], parseInt(evt.target.value));
+              SC.tools.generateEvent(this.icobjControled._sc_getEvt(p.targetEventName), parseInt(evt.target.value));
               }
-            }.bind(SC_ClientTools.elementInspector);
+            }.bind(SC.tools.Web.elementInspector);
           }
         else{
           css_control.onchange = function(evt){
             if(null != this.icobjControled){
-              SC.tools.generateEvent(this.icobjControled[p.targetEventName], evt.target.value);
+              SC.tools.generateEvent(this.icobjControled._sc_getEvt(p.targetEventName), evt.target.value);
               }
-            }.bind(SC_ClientTools.elementInspector);
+            }.bind(SC.tools.Web.elementInspector);
           }
-        SC_ClientTools.elementInspector[p.title] = css_control;
+        SC.tools.Web.elementInspector['scis_'+p.title] = css_control;
         //JFS.inspector["v_"+p.title] = tr.children[1];
         tr.title = (undefined == p.help)?"an icobj css control":p.help;
         //tr.children[2].appendChild(css_control);
         tr.children[1].appendChild(css_control);
         return tr;
-        }
+        };
       /* on ajout l'inspecteur dans la page */
-      this.elementInspector.innerHTML = "<div style='text-align:center;border-bottom:2px solid white;'>"
+      this.elementInspector.innerHTML= "<div style='text-align:center;border-bottom:2px solid white;'>"
              +"<img src='images/png/hideBtn.png' style='float:left;width:16px;'/>Element inspector on <em> </em></div>"
              +"<table>"
              +"<tr></t></table>"
-      var table = SC_ClientTools.elementInspector.children[1];
-      table.style.maxHeight = "50vh";
-      table.style.height = "50vh";
-      table.style.overflowY = "scroll";
-      table.style.display = "inline-block";
-      this.addProgram(
-          SC.action(function(){
+      var table= SC.tools.Web.elementInspector.children[1];
+      table.style.maxHeight= "50vh";
+      table.style.height= "50vh";
+      table.style.overflowY= "scroll";
+      table.style.display= "inline-block";
+      SC.tools.addProgram(
+          SC.action(function(re){
             document.body.appendChild(this.elementInspector);
-            this.elementInspector.panel_mid = parseInt(window.getComputedStyle(this.elementInspector.children[0]).width)/2;
-            this.elementInspector.style.display="none";
+            this.elementInspector.panel_mid= parseInt(window.getComputedStyle(this.elementInspector.children[0]).width)/2;
+            this.elementInspector.style.display= "none";
             }.bind(this))
           );
-      this.elementInspector.hideClickSensor
-                = SC.sensorize({name:"hideClickSensor"
-                             , dom_targets:[
-                                   {target:SC_ClientTools.elementInspector
-                                              .children[0].children[0], evt:"click"}
-                                           ]
+      this.elementInspector._sc_extension.Sens_hideClick= SC.sensor({ name: "hideClickSensor"
+                             , dom_targets: [
+                                   { target: this.elementInspector.children[0].children[0]
+                                   , evt: "click" }
+                                   ]
                              });
       this.elementInspector.children[0].children[0].addEventListener("mousedown", function(evt){
         evt.preventDefault();
         });
-      this.elementInspector.controlTitle = this.elementInspector.children[0].children[1];
+      this.elementInspector.controlTitle= this.elementInspector.children[0].children[1];
       /* une entrée */
-      var tr = table.children[0].children[0];
-      pilot({tr:tr
-           , ctrl_kind:1
-           , title:"display"
-           , lst:["", "none", "flex", "block", "inline", "inline-block"]
+      var tr= table.children[0].children[0];
+      pilot({tr: tr
+           , ctrl_kind: 1
+           , title: "display"
+           , lst: [ "", "none", "flex", "block", "inline", "inline-block" ]
            , help: "the css display field"
-           , targetEventName:"css_displayEvt"});
-      var propTable = [
-        {ctrl_kind:1
-             , title:"position"
-             , lst:["", "static", "relative", "absolute", "fixed"]
+           , targetEventName: "css_display"});
+      var propTable= [
+        { ctrl_kind: 1
+             , title: "position"
+             , lst: [ "", "static", "relative", "absolute", "fixed" ]
              , help: "the css position field"
-             , targetEventName:"css_positionEvt"
+             , targetEventName: "css_position"
              }
-        , {ctrl_kind:2
-             , title:"background"
+        , { ctrl_kind: 2
+             , title: "background"
              , help: "the css background field"
-             , targetEventName:"css_backgroundEvt"
-             , suggestions:["yellow", "pink", "blue", "green", "olive"]
+             , targetEventName: "css_background"
+             , suggestions: [ "yellow", "pink", "blue", "green", "olive" ]
              }
-        , {ctrl_kind:2
-             , title:"left"
+        , { ctrl_kind: 2
+             , title: "left"
              , help: "the css left property"
-             , targetEventName:"css_leftEvt"
+             , targetEventName: "css_left"
              }
-        , {ctrl_kind:2
-             , title:"top"
+        , {ctrl_kind: 2
+             , title: "top"
              , help: "the css top property"
-             , targetEventName:"css_topEvt"
+             , targetEventName: "css_top"
              }
-        , {ctrl_kind:2
-             , title:"color"
+        , {ctrl_kind: 2
+             , title: "color"
              , help: "the css color property"
-             , targetEventName:"css_colorEvt"
+             , targetEventName: "css_color"
              }
-        , {ctrl_kind:2
-             , title:"opacity"
+        , {ctrl_kind: 2
+             , title: "opacity"
              , help: "the css opacity property"
-             , targetEventName:"css_opacityEvt"
+             , targetEventName: "css_opacity"
              }
-        , {ctrl_kind:2
-             , title:"font"
+        , {ctrl_kind: 2
+             , title: "font"
              , help: "the css font property"
-             , targetEventName:"css_fontEvt"
+             , targetEventName: "css_font"
              }
-        , {ctrl_kind:2
-             , title:"border"
+        , {ctrl_kind: 2
+             , title: "border"
              , help: "the css border property"
-             , targetEventName:"css_borderEvt"
+             , targetEventName: "css_border"
              }
-        , {ctrl_kind:2
-             , title:"borderRadius"
+        , {ctrl_kind: 2
+             , title: "borderRadius"
              , help: "the css border-radius property"
-             , targetEventName:"css_borderRadiusEvt"
+             , targetEventName: "css_borderRadius"
              }
         , {ctrl_kind:2
              , title:"width"
              , help: "the css width property"
-             , targetEventName:"css_widthEvt"
+             , targetEventName:"css_width"
              }
         , {ctrl_kind:2
              , title:"height"
              , help: "css height property"
-             , targetEventName:"css_heightEvt"
+             , targetEventName:"css_height"
              }
         , {ctrl_kind:2
              , title:"padding"
              , help: "the css padding property"
-             , targetEventName:"css_paddingEvt"
+             , targetEventName:"css_padding"
              }
         , {ctrl_kind:2
              , title:"margin"
              , help: "the css margin property"
-             , targetEventName:"css_marginEvt"
+             , targetEventName:"css_margin"
              }
         , {ctrl_kind:1
              , title:"boxSizing"
              , lst:["", "intial", "inherit", "content-box", "border-box"]
              , help: "the css box-sizing property"
-             , targetEventName:"css_boxSizingEvt"
+             , targetEventName:"css_boxSizing"
              }
         , {ctrl_kind:2
              , title:"boxShadow"
              , help: "the css box-shadow property"
-             , targetEventName:"css_boxShadowEvt"
+             , targetEventName:"css_boxShadow"
              }
         , {ctrl_kind:2
              , title:"filter"
              , help: "the css filter property"
-             , targetEventName:(undefined === this.elementInspector.style.WebkitFilter)?"css_filterEvt":"css_WebkitFilterEvt"
+             , targetEventName: this.elementInspector.style.WebkitFilter?"css_WebkitFilter"
+                                                                        :"css_filter"
              }
         , {ctrl_kind:2
              , title:"outline"
              , help: "the css outline property"
-             , targetEventName:"css_outlineEvt"
+             , targetEventName:"css_outline"
              }
         , {ctrl_kind:1
              , title:"overflowX"
              , lst:["", "visible", "hidden", "scroll", "auto", "initial", "inherit"]
              , help: "the css overflow-x property"
-             , targetEventName:"css_overflowXEvt"
+             , targetEventName:"css_overflowX"
              }
         , {ctrl_kind:1
              , title:"overflowY"
              , lst:["", "visible", "hidden", "scroll", "auto", "initial", "inherit"]
              , help: "the css overflow-y property"
-             , targetEventName:"css_overflowYEvt"
+             , targetEventName:"css_overflowY"
              }
         , {ctrl_kind:2
              , title:"zoom"
              , help: "the css zoom property"
-             , targetEventName:"css_zoomEvt"
+             , targetEventName:"css_zoom"
              }
         , {ctrl_kind:2
              , title:"sc_title"
              , help: "the title property"
-             , targetEventName:"titleEvt"
+             , targetEventName:"title"
              }
         , {ctrl_kind:2
              , title:"sc_src"
              , help: "the title property"
-             , targetEventName:"srcEvt"
+             , targetEventName:"src"
              }
         ];
       for(var i in propTable){
         table.children[0].appendChild(pilot(propTable[i]));
         }
-      this.elementInspector.panel_mdSensor = SC.sensorize({name:"panel_mdSensor"
-                             , dom_targets:[
-                                   {
-                                     target:this.elementInspector.children[0]
-                                   , evt:"mousedown"
-                                   }
-                                           ]
+      this.elementInspector._sc_extension.Sens_panel_md= SC.sensor({ name: "panel_md"
+                             , dom_targets: [
+                                   { target: this.elementInspector.children[0]
+                                   , evt: "mousedown" }
+                                   ]
                              });
-      this.elementInspector.panel_tsSensor = SC.sensorize({name:"panel_tsSensor"
-                             , dom_targets:[
-                                   {
-                                     target:this.elementInspector.children[0]
-                                   , evt:"touchstart"
-                                   }
-                                           ]
+      this.elementInspector._sc_extension.Sens_panel_ts= SC.sensor({ name: "panel_ts"
+                             , dom_targets: [
+                                   { target: this.elementInspector.children[0]
+                                   , evt: "touchstart" }
+                                   ]
                              });
       this.elementInspector.children[0].addEventListener("mousedown", function(evt){
         evt.preventDefault();
@@ -753,20 +752,18 @@ if(SC && SC.sc_build>1 && SC.tools){
       this.elementInspector.children[0].addEventListener("touchstart", function(evt){
         evt.preventDefault();
         });
-      this.elementInspector.onMousePanelMove = function(pos){
+      this.elementInspector.onMousePanelMove= function(pos){
         if(pos){
-          return {x : pos.clientX, y: pos.clientY};
+          return { x : pos.clientX, y: pos.clientY };
           }
         }
-      this.touchStart = SC.sensorize({name:"touchStart"
-                             , dom_targets:[
-                                   {
-                                     target:document
-                                   , evt:"touchstart"
-                                   }
-                                           ]
+      this.touchStart = SC.sensor({ name: "touchStart"
+                             , dom_targets: [
+                                   { target: document
+                                   , evt: "touchstart" }
+                                   ]
                              });
-      this.touchMove = SC.sensorize({name:"touchMove"
+      this.touchMove = SC.sensor({name:"touchMove"
                              , dom_targets:[
                                    {
                                      target:document
@@ -774,7 +771,7 @@ if(SC && SC.sc_build>1 && SC.tools){
                                    }
                                            ]
                              });
-      this.touchEnd = SC.sensorize({name:"touchEnd"
+      this.touchEnd = SC.sensor({name:"touchEnd"
                              , dom_targets:[
                                    {
                                      target:document
@@ -782,7 +779,7 @@ if(SC && SC.sc_build>1 && SC.tools){
                                    }
                                            ]
                              });
-      this.mmSensor = SC.sensorize({name:"mmSensor"
+      this.mmSensor = SC.sensor({name:"mmSensor"
                              , dom_targets:[
                                    {
                                      target:document
@@ -790,7 +787,7 @@ if(SC && SC.sc_build>1 && SC.tools){
                                    }
                                            ]
                              });
-      this.muSensor = SC.sensorize({name:"muSensor"
+      this.muSensor = SC.sensor({name:"muSensor"
                              , dom_targets:[
                                    {
                                      target:document
@@ -800,52 +797,50 @@ if(SC && SC.sc_build>1 && SC.tools){
                              });
       SC.tools.addProgram(SC.par(
           SC.repeat(SC.forever
-                  , SC.await(SC.or(this.elementInspector.panel_mdSensor, this.elementInspector.panel_tsSensor))
+                  , SC.await(SC.or(this.elementInspector._sc_extension.Sens_panel_md
+                                 , this.elementInspector._sc_extension.Sens_panel_ts))
                   , SC.kill(SC.or(this.muSensor, this.touchEnd)
                       , SC.par(
                           SC.filter(this.mmSensor
-                              , this.elementInspector.set_xyEvt
+                              , this.elementInspector._sc_extension.Evt_set_xy
                               , SC._(this.elementInspector , "onMousePanelMove")
                               , SC.forever
                               )
                           , SC.filter(this.touchMove
-                              , this.elementInspector.set_xyEvt
+                              , this.elementInspector._sc_extension.Evt_set_xy
                               , SC._(this.elementInspector, "onMousePanelMove")
                               , SC.forever
                               )
                           )
                       )
                   )
-          , SC.repeat(SC.forever
-              , SC.await(this.elementInspector.set_xyEvt)
-              , this.elementInspector.$updatePanel
+          , SC.repeatForever(
+                SC.await(this.elementInspector._sc_extension.Evt_set_xy)
+              , this.elementInspector._sc_extension.$_scc_updatePanel
               )
-          , SC.repeat(SC.forever
-              , SC.await(SC.or(this.elementInspector.showEvt
-                            , this.elementInspector.hideEvt))
-              , this.elementInspector.$display
+          , SC.repeatForever(
+                SC.await(SC.or(this.elementInspector._sc_extension.Evt_show
+                            , this.elementInspector._sc_extension.Evt_hide))
+              , this.elementInspector._sc_extension.$_scc_display
               )
-          , SC.repeat(SC.forever
-              , SC.await(SC.or(this.elementInspector.setIcobjUnderInspectionEvt
-                            , this.elementInspector.setIcobjNoMoreInspectionEvt))
-              , this.elementInspector.$icobjControled
+          , SC.repeatForever(
+                SC.await(SC.or(this.elementInspector._sc_extension.Evt_setIcobjUnderInspection
+                            , this.elementInspector._sc_extension.Evt_setIcobjNoMoreInspection))
+              , this.elementInspector._sc_extension.$_scc_icobjControled
               )
-          , SC.repeat(SC.forever
-              , SC.await(this.elementInspector.setIcobjUnderInspectionEvt)
-              , SC.generate(this.elementInspector.showEvt)
+          , SC.repeatForever(
+                SC.await(this.elementInspector._sc_extension.Evt_setIcobjUnderInspection)
+              , SC.generate(this.elementInspector._sc_extension.Evt_show)
               )
-          , SC.repeat(SC.forever
-              , SC.await(this.elementInspector.setIcobjNoMoreInspectionEvt)
-              , SC.generate(this.elementInspector.hideEvt)
+          , SC.repeatForever(
+                SC.await(this.elementInspector._sc_extension.Evt_setIcobjNoMoreInspection)
+              , SC.generate(this.elementInspector._sc_extension.Evt_hide)
               )
-          , SC.repeat(SC.forever
-              , SC.await(this.elementInspector.hideClickSensor)
-              , SC.generate(this.elementInspector.hideEvt)
+          , SC.repeatForever(
+                SC.await(this.elementInspector._sc_extension.Sens_hideClick)
+              , SC.generate(this.elementInspector._sc_extension.Evt_hide)
               )
           ));
-      if(undefined !== SC.tools.controlPanel){
-        SC.tools.controlPanel.setInspectorBtn();
-        }
       };
     Object.defineProperty(SC.tools.Web, "initInspector"
                             , { value: initInspector
@@ -856,13 +851,6 @@ if(SC && SC.sc_build>1 && SC.tools){
   Energizing HRML Elements.
   */
       //, configureElement: finishElement
-      //, energize: function(p){
-      //    var tmp=finishElement.call(this
-      //    , activateElement(document.currentScript.previousElementSibling)
-      //    , p
-      //      );
-      //    return tmp;
-      //    }
     //  , makeImage: function(args){
     //      var tmp=null;
     //      if(undefined!==args.w
@@ -876,8 +864,22 @@ if(SC && SC.sc_build>1 && SC.tools){
     //      activateElement(tmp);
     //      return finishElement.call(this, tmp, args);
     //      }
+    let SC_energize= function(p){
+        var tmp= document.currentScript.previousElementSibling;
+        tmp._sc_extension={};
+        tmp= finishElement.call(this
+        , activateElement(tmp)
+        , p
+          );
+        return tmp;
+        }
     Object.defineProperty(SC.tools.Web, "activateElement"
                             , { value: activateElement
+                              , writable: false
+                                }
+                            );
+    Object.defineProperty(SC.tools.Web, "energize"
+                            , { value: SC_energize
                               , writable: false
                                 }
                             );
