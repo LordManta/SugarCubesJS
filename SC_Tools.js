@@ -3,8 +3,8 @@
  * Author : Jean-Ferdy Susini (MNF)
  * Created : 20/12/2014 18:46
  * Part of the SugarCubes Project
- * version : 5.0.45.alpha
- * build: 45
+ * version : 5.0.46.alpha
+ * build: 46
  * Copyleft 2014-2024.
  */
 ;
@@ -203,7 +203,7 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
           if(200==xmlHttpReq.status || 0==xmlHttpReq.status){
             return xmlHttpReq.responseText;
             }
-	  throw new Error("Can't load");
+          throw new Error("Can't load");
           }
       , writable: false
         }
