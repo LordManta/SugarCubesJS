@@ -1,6 +1,6 @@
 CACHE MANIFEST
 
-# Version: 195
+# Version: 196
 
 CACHE:
 # Main page
@@ -8,13 +8,16 @@ time.html
 # Javascript files
 SugarCubes_min.js
 SC_Tools.js
+SC_Tools_AudioToolbox.js
+SC_Tools_WebTools.js
+SC_Tools_WebEnergize.js
 demotime.js
 # CSS files
-SC_Panel.css
+SC_Tools_Panel.css
 images/png/stop.png
-time2.mp4
-time2.ogv
-time2.webm
+videos/time2.mp4
+videos/time2.ogv
+videos/time2.webm
 
 NETWORK:
 *

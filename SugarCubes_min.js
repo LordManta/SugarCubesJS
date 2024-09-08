@@ -3,8 +3,8 @@
  * Authors : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.44.alpha
- * build: 44
+ * version : 5.0.45.alpha
+ * build: 45
  * Copyleft 2014-2024.
  */
 ;
@@ -8065,25 +8065,7 @@ var SC={
       this.addEntry(evt, v);
       }.bind(m, evt, v))
     }
-, next: function(count){
-    if(undefined == count){
-      count= 1;
-      }
-    const num = parseInt(count);
-    if(isNaN(num)){
-      if('function' == typeof(count)){
-        return new SC_Next(count);
-        }
-      if('object' == typeof(count) && count.f && count.t){
-        return new SC_Next(count);
-        }
-      throw new Error("count of invalid type");
-      }
-    if(num <= 0){
-      throw new Error("count paramater must be > 0");
-      }
-    return new SC_Next(num);
-    },
+,
   externalEvent: function externalEvent(pElt_target, ps_DomEvt, pn_nbreFois) {
     if(undefined===pn_nbreFois){ pn_nbreFois=-1; }
     const pSensor=new SC.sensorize({
@@ -8096,7 +8078,7 @@ var SC={
     }
   };
   Object.defineProperty(SC, "sc_build"
-                          , { value: 44
+                          , { value: 45
                             , writable: false
                               }
                           );
@@ -8435,6 +8417,29 @@ var SC={
   Object.defineProperty(SC, "step"
   , { value: function(n){
         return new SC_Step(_SC.b_(n));
+        }
+    , writable: false
+      }
+    );
+  Object.defineProperty(SC, "next"
+  , { value: function(count){
+        if(undefined==count){
+          count= 1;
+          }
+        const num= parseInt(count);
+        if(isNaN(num)){
+          if('function'==typeof(count)){
+            return new SC_Next(count);
+            }
+          if('object' == typeof(count) && count.f && count.t){
+            return new SC_Next(count);
+            }
+          throw new Error("count of invalid type");
+          }
+        if(num <= 0){
+          throw new Error("count paramater must be > 0");
+          }
+        return new SC_Next(num);
         }
     , writable: false
       }

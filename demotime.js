@@ -2,13 +2,13 @@
  * On règle le temps entre deux instants de la machine d'exécution sur 4s
  */
 /* globales pointant sur des objets du DOM */
-var workspace = document.getElementById("workspace");
-var tt_video = document.getElementById("anim_vid");
-var hack_btn = document.getElementById("hack");
-var ttt_slider = document.getElementById("slider");
-var writting = SC.evt("writting");
-const zone1t = SC.evt("zone1");
-const zone2t = SC.evt("zone1");
+var workspace= document.getElementById("workspace");
+var tt_video= document.getElementById("anim_vid");
+var hack_btn= document.getElementById("hack");
+var ttt_slider= document.getElementById("slider");
+var writting= SC.evt("writting");
+const zone1t= SC.evt("zone1");
+const zone2t= SC.evt("zone1");
 const typeEndedEvt = SC.evt("typeEndedEvt");
 
 /* on cache le tableau de bord */
@@ -18,10 +18,10 @@ SC.tools.addProgram(SC.action(function(){
 /*
  * Bulle de commentaire.
  */
-var bubble_view = SC.tools.makeDiv({
-  cl : "JFSCSS_text_bubble"
-  , inH : ""
-  , beh: SC.par(
+var bubble_view= SC.tools.Web.makeDiv({
+  cl: "JFSCSS_text_bubble"
+, inH: ""
+, beh: SC.par(
       SC.seq(
         SC.await(writting)
       , SC.pause()
@@ -32,329 +32,326 @@ var bubble_view = SC.tools.makeDiv({
                 , SC.action(SC.my("progressiveText"))
                 , SC.pause(1)
                   )
-              , SC.cubeAction({fun:SC.my("notifyEndOfTypping")})
+              , SC.cubeAction({ fun: SC.my("notifyEndOfTypping") })
               , SC.await(writting)
                 )
             )
         , SC.action(SC.my("reset"))
           )
         )
-    , SC.actionOn(writting
-      , SC.my("setNewText")
-      , undefined
-      , SC.forever
-        )
+    , SC.actionOn({ config: writting
+      , fun: SC.my("setNewText")
+      , times: SC.forever })
       )
-  });
+    });
 
-bubble_view.notifyEndOfTypping = function(m){
-  m.addToOwnEntry(typeEndedEvt);
+bubble_view.notifyEndOfTypping= function(m){
+  m.addEntry(typeEndedEvt);
   };
-bubble_view.text = "";
-bubble_view.toWriteTxt = "";
-bubble_view.toWriteTxtIdx = 0;
-bubble_view.textSize = function(){
+bubble_view.text= "";
+bubble_view.toWriteTxt= "";
+bubble_view.toWriteTxtIdx= 0;
+bubble_view.textSize= function(){
   return this.toWriteTxt.length;
   };
-bubble_view.setNewText = function(val, engine){
+bubble_view.setNewText= function(engine){
   function _(data){
-    if(typeof data == "function"){
+    if("function"==typeof(data)){
       return data();
       }
     return data;
     }
-  const vals = engine.getValuesOf(writting);
+  const vals= engine.getValuesOf(writting);
   if(vals){
-    const msg = vals[0];
-    if(undefined == msg){
+    const msg= vals[0];
+    if(undefined==msg){
       return;
       }
-    this.toWriteTxt = msg.txt;
+    this.toWriteTxt= msg.txt;
     switch(msg.dir){
-      case 0:{
-        this.dir = 0;
+      case 0: {
+        this.dir= 0;
         this.classList.remove(this.classList[0]);
         this.classList.add("JFSCSS_text_bubble");
-        this.style.bottom = "";
-        this.style.right = "";
-        this.style.left = msg.x;
-        this.style.top = msg.y;
+        this.style.bottom= "";
+        this.style.right= "";
+        this.style.left= msg.x;
+        this.style.top= msg.y;
         break;
         }
-      case 1:{
-        this.dir = 1;
+      case 1: {
+        this.dir= 1;
         this.classList.remove(this.classList[0]);
         this.classList.add("JFSCSS_text_bubble_1");
-        this.style.bottom = "";
-        this.style.right = "";
-        this.style.left = msg.x;
-        this.style.top = msg.y;
+        this.style.bottom= "";
+        this.style.right= "";
+        this.style.left= msg.x;
+        this.style.top= msg.y;
         break;
         }
-      case 2:{
-        this.dir = 2;
+      case 2: {
+        this.dir= 2;
         this.classList.remove(this.classList[0]);
         this.classList.add("JFSCSS_text_bubble_2");
-        this.style.bottom = "";
-        this.style.right = "";
-        this.style.left = msg.x;
-        this.style.top = msg.y;
+        this.style.bottom= "";
+        this.style.right= "";
+        this.style.left= msg.x;
+        this.style.top= msg.y;
         break;
         }
-      case 3:{
-        this.dir = 3;
+      case 3: {
+        this.dir= 3;
         this.classList.remove(this.classList[0]);
         this.classList.add("JFSCSS_text_bubble_3");
-        this.style.top = "";
-        this.style.right = "";
-        this.style.left = msg.x;
-        this.style.bottom = _(msg.y);
+        this.style.top= "";
+        this.style.right= "";
+        this.style.left= msg.x;
+        this.style.bottom= _(msg.y);
         break;
         }
-      case 4:{
-        this.dir = 4;
+      case 4: {
+        this.dir= 4;
         this.classList.remove(this.classList[0]);
         this.classList.add("JFSCSS_text_bubble_4");
-        this.style.top = "";
-        this.style.left = "";
-        this.style.right = _(msg.x);
-        this.style.bottom = _(msg.y);
+        this.style.top= "";
+        this.style.left= "";
+        this.style.right= _(msg.x);
+        this.style.bottom= _(msg.y);
         break;
         }
       default: {
-        this.style.top = msg.y;
-        this.style.left = msg.x;
+        this.style.top= msg.y;
+        this.style.left= msg.x;
         break;
         }
       }
     }
   };
-bubble_view.reset = function(){
-  this.toWriteTxtIdx = 0;
+bubble_view.reset= function(){
+  this.toWriteTxtIdx= 0;
   };
-bubble_view.progressiveText = function(){
-  if(this.toWriteTxtIdx < this.toWriteTxt.length){
-    if("<" == this.toWriteTxt.charAt(this.toWriteTxtIdx)){
-      //console.error("***> je m'en bas lise :)", this.toWriteTxt);
-      while(">" != this.toWriteTxt.charAt(this.toWriteTxtIdx++)
-        && (this.toWriteTxtIdx < this.toWriteTxt.length)){}
-      //console.error("***> done");
+bubble_view.progressiveText= function(){
+  if(this.toWriteTxtIdx<this.toWriteTxt.length){
+    if("<"==this.toWriteTxt.charAt(this.toWriteTxtIdx)){
+      while(">"!=this.toWriteTxt.charAt(this.toWriteTxtIdx++)
+        && (this.toWriteTxtIdx<this.toWriteTxt.length)){}
       }
     else{
       this.toWriteTxtIdx++;
       }
     }
-  this.innerHTML = this.toWriteTxt.substring(0,this.toWriteTxtIdx);
+  this.innerHTML= this.toWriteTxt.substring(0, this.toWriteTxtIdx);
   };
 document.body.appendChild(bubble_view);
-var show1 = SC.evt("show1");
-var show1g = SC.evt("show1");
-var show1t = SC.evt("show1");
-var show2 = SC.evt("show2");
-var show2g = SC.evt("show2");
-var show2t = SC.evt("show2");
-var show3 = SC.evt("show3");
-var show3g = SC.evt("show3");
-var show3t = SC.evt("show3");
-var comA = SC.evt("comA");
-var comB = SC.evt("comB");
-var play = SC.evt("play");
-
+var show1= SC.evt("show1");
+var show1g= SC.evt("show1");
+var show1t= SC.evt("show1");
+var show2= SC.evt("show2");
+var show2g= SC.evt("show2");
+var show2t= SC.evt("show2");
+var show3= SC.evt("show3");
+var show3g= SC.evt("show3");
+var show3t= SC.evt("show3");
+var comA= SC.evt("comA");
+var comB= SC.evt("comB");
+var play= SC.evt("play");
 
 function makeTalk(){
-var text = [
-  {
-  speech : "Bonjour !"
-  , txt: "<h2 style=\"text-align:center;\">Bonjour !</h2>"
-  , r_delay: 100
-  , rm : SC.tools.m
-  , dir:0
-  , x: "300px"
-  , y: "210px"
-  }
-, {
-  speech : "Cette application va nous permettre d'illustrer le"
-   + " comportement d'un système, construit à l'aide de SugarCubesJS.\n"
-  , r_delay: 500
-  , rm : SC.tools.m
-  }
-, {
-  speech :  "L'idée principale de SugarCubesJS est de faciliter la programmation d'applications conséquentes,"
-   + " à la combinatoire importante, en proposant un modèle de programmation parallèle.\n"
-   + "Ce modèle de programmation repose sur le paradigme réactif/synchrone proposé par Frédéric Boussinot"
-   + " au début des années 90."
-  , r_delay: 500
-  , rm : SC.tools.m
-  }
-, {
-  speech : "On propose de décomposer une application complexe, en un ensemble de composants parallèles, plus"
-   + " simples à écrire, et interragissant fortement entre eux, par un mécanisme de diffusion instantannée"
-   + " de messages."
-  , r_delay: 200
-  , rm : SC.tools.m
-  }
-, {
-  speech : "Le point important est que c'est le modèle d'exécution de ce type de programmes, qui prend"
-   + " en charge, l'essentiel du travail d'ordonnancement et de synchronisation des composants, déchargeant"
-   + " ainsi le programmeur de cette activité complexe."
-  , r_delay: 200
-  , rm : SC.tools.m
-  }
-, {
-  speech : " Cette application est prévue pour fonctionner sur une tablette tactile ou un téléphone,"
-     + " permettant la détection de points de contacts multiples sur l'écran. Mais, elle doit"
-     + " fonctionner partiellement sur le navigateur Web d'un ordinateur de bureau."
-  , r_delay: 500
-  , rm : SC.tools.m
-  }
-, {
-  speech : " Pour commencer, nous allons découvrir les principaux éléments de"
-     + " l'interface graphique."
-  , r_delay: 500
-  , rm : SC.tools.m
-  }
-, {
-  speech : " Comme dans l'application Dance-Doigt, nous avons deux zones de"
-     + " l'écran, indiquées par des panneaux stop, sur lesquelles, nous devons"
-     + " être capable, de détecter des contacts tactiles."
-  , r_delay: 500
-  , rm : SC.tools.m
-  , dir:2
-  , x: "110px"
-  , y: "70px"
-  }
-, {
-  speech : " Nous avons également, une zone centrale, indiquée par le texte « zone de jeu »,"
-     + " qui jouera une animation, si les deux zones de contacts précédentes sont"
-     + " activées."
-  , r_delay: 500
-  , rm : SC.tools.m
-  , dir:2
-  , x: "540px"
-  , y: "160px"
-  }
-, {
-  speech : " En dessous de ces trois zones, on trace un chronogramme permettant de visualiser"
-     + " les comportements parallèles des trois composants graphiques dans le temps."
-  , r_delay: 500
-  , rm : SC.tools.m
-  , dir:2
-  , x: "550px"
-  , y: "480px"
-  }
-, {
-  speech : "Sur ce chronogramme on considère que le temps s'écoule de gauche à droite.\nEt les "
-     + "barres verticales bleues symbolisent le début et la fin d'une itération complète "
-     + "du système réactif."
-  , r_delay: 500
-  , rm : SC.tools.m
-  }
-, {
-  speech : " La première barre verticale indique le démarrage de l'acquisition des événements"
-     + " d'interaction de l'application."
-  , r_delay: 500
-  , rm : SC.tools.m
-  , dir:2
-  , x: "40px"
-  , y: "470px"
-  }
-, {
-  speech : " La deuxième barre verticale indique la fin de l'itération complète."
-  , r_delay: 500
-  , rm : SC.tools.m
-  , dir:2
-  , x: "440px"
-  , y: "470px"
-  }
-, {
-  speech : "Au dessus de "
-     + "cette seconde barre, vous pouvez lire la durée complète de l'itération en millisecondes.\n"
-     + "Au début de cette démonstration, cette durée est exagérément portée à 4 secondes, afin de laisser"
-     + " suffisemment de temps, pour bien illustrer notre propos."
-  , r_delay: 500
-  , rm : SC.tools.m
-  , dir:2
-  , x: "480px"
-  , y: "430px"
-  }
-, {
-  speech : "La période de temps représentée entre les deux barres verticales constitue pour l'essentiel une"
-     + " phase de faible activité du système, où, celui-ci, se contente d'enregistrer les événements d'interaction.\n"
-     + "On appellera cette phase, la « phase d'acquisition des entrées »."
-  , r_delay: 500
-  , rm : SC.tools.m
-  , dir:3
-  , x: "115px"
-  , y: function(){ return (window.innerHeight-450)+"px"; }
-  }
-, {
-  speech : " Vous avez probablement remarqué maintenant, que la seconde barre clignote en jaune de façon\n"
-     + " périodique.\nEt, pour les plus attentifs d'entre vous, vous aurez peut-être remarqué également"
-     + " que la période entre deux clignotements est d'environ 4 secondes."
-  , r_delay: 500
-  , rm : SC.tools.m
-  , dir:3
-  , x: "390px"
-  , y: function(){ return (window.innerHeight-435)+"px"; }
-  }
-, {
-  speech : " Ce clignotement symbolise l'exécution du programme réactif proprement dit. C'est-à-dire, le moment"
-     + " où le système exécute son code, pour traiter les événements d'intéraction, enregistrés pendant la"
-     + " phase d'acquisition.\nCette exécution étant très courte, au regard de la durée de 4 secondes, nous avons"
-     + " décidé de l'illustrer par ce clignotement. L'exécution ayant lieu en fin de cycle, nous n'animons"
-     + " que la seconde barre verticale, pour rendre compte de l'exécution réactive."
-  , r_delay: 500
-  , rm : SC.tools.m
-  }
-, {
-  speech : " À ce stade de la démonstration, aucun composant n'est actif dans la machine d'exécution de"
-     + " l'application, de sorte que, seul ce clignotement montre que le système est en train de s'exécuter."
-  , r_delay: 500
-  , rm : SC.tools.m
-  }
-, {
-  speech : " Toujours sur ce chhronogramme, les trois lignes horizontales en gris clair représentent donc les 3"
-     + " composants principaux de l'application. À savoir, la zone stop du haut, la zone stop du bas, et enfin,"
-     + " la zone de jeu. Ces composants s'exécutent en parallèle. Et ces comportements parallèles sont figurés "
-     + "par des segments de droites parallèles. On verra que le temps s'écoule à l'identique pour"
-     + " ces trois composants."
-  , r_delay: 500
-  , rm : SC.tools.m
-  , dir:4
-  , x: function(){ return (window.screen.availWidth-750)+"px"; }
-  , y: function(){ return (window.innerHeight-420)+"px"; }
-  }
-, {
-  speech : " Ces composants étant actuellement inactifs, nous allons nous intéresser à l'interface de"
-     + " contrôle de cette démonstration. Sous le chronogramme, nous trouvons un bouton, permettant d'activer la"
-     + " première timeline, correspondant au composant parallèle gérant la zone Stop du haut."
-  , r_delay: 500
-  , rm : SC.tools.m
-  , dir:0
-  , x: "300px"
-  , y: "210px"
-  }
-, {
-    speech : " Nous allons donc commencer par activer la zone stop du haut correspondant à la timeline numéro 1.\n"
-  , r_delay: 500
-  , rm : SC.tools.m
-  }
-  ];
+  var text= [
+    {
+      speech: "Bonjour !"
+    , txt: "<h2 style=\"text-align:center;\">Bonjour !</h2>"
+    , r_delay: 100
+    , rm: SC.tools.main
+    , dir: 0
+    , x: "300px"
+    , y: "210px"
+      }
+  , {
+      speech: "Cette application va nous permettre d'illustrer le"
+         + " comportement d'un système, construit à l'aide de SugarCubesJS.\n"
+    , r_delay: 500
+    , rm: SC.tools.main
+      }
+  , {
+      speech: "L'idée principale de SugarCubesJS est de faciliter la programmation d'applications conséquentes,"
+          + " à la combinatoire importante, en proposant un modèle de programmation parallèle.\n"
+          + "Ce modèle de programmation repose sur le paradigme réactif/synchrone proposé par Frédéric Boussinot"
+          + " au début des années 90."
+    , r_delay: 500
+    , rm: SC.tools.main
+      }
+  , {
+      speech: "On propose de décomposer une application complexe, en un ensemble de composants parallèles, plus"
+     + " simples à écrire, et interragissant fortement entre eux, par un mécanisme de diffusion instantannée"
+     + " de messages."
+    , r_delay: 200
+    , rm: SC.tools.main
+      }
+  , {
+      speech: "Le point important est que c'est le modèle d'exécution de ce type de programmes, qui prend"
+     + " en charge, l'essentiel du travail d'ordonnancement et de synchronisation des composants, déchargeant"
+     + " ainsi le programmeur de cette activité complexe."
+    , r_delay: 200
+    , rm: SC.tools.main
+      }
+  , {
+      speech: " Cette application est prévue pour fonctionner sur une tablette tactile ou un téléphone,"
+       + " permettant la détection de points de contacts multiples sur l'écran. Mais, elle doit"
+       + " fonctionner partiellement sur le navigateur Web d'un ordinateur de bureau."
+    , r_delay: 500
+    , rm: SC.tools.main
+      }
+  , {
+      speech: " Pour commencer, nous allons découvrir les principaux éléments de"
+       + " l'interface graphique."
+    , r_delay: 500
+    , rm: SC.tools.main
+      }
+  , {
+      speech: " Comme dans l'application Dance-Doigt, nous avons deux zones de"
+       + " l'écran, indiquées par des panneaux stop, sur lesquelles, nous devons"
+       + " être capable, de détecter des contacts tactiles."
+    , r_delay: 500
+    , rm: SC.tools.main
+    , dir: 2
+    , x: "110px"
+    , y: "70px"
+      }
+  , {
+      speech: " Nous avons également, une zone centrale, indiquée par le texte « zone de jeu »,"
+       + " qui jouera une animation, si les deux zones de contacts précédentes sont"
+       + " activées."
+    , r_delay: 500
+    , rm: SC.tools.main
+    , dir: 2
+    , x: "540px"
+    , y: "160px"
+      }
+  , {
+      speech: " En dessous de ces trois zones, on trace un chronogramme permettant de visualiser"
+       + " les comportements parallèles des trois composants graphiques dans le temps."
+    , r_delay: 500
+    , rm: SC.tools.main
+    , dir: 2
+    , x: "550px"
+    , y: "480px"
+      }
+  , {
+      speech: "Sur ce chronogramme on considère que le temps s'écoule de gauche à droite.\nEt les "
+       + "barres verticales bleues symbolisent le début et la fin d'une itération complète "
+       + "du système réactif."
+    , r_delay: 500
+    , rm: SC.tools.main
+      }
+  , {
+      speech: " La première barre verticale indique le démarrage de l'acquisition des événements"
+       + " d'interaction de l'application."
+    , r_delay: 500
+    , rm: SC.tools.main
+    , dir: 2
+    , x: "40px"
+    , y: "470px"
+      }
+  , {
+      speech: " La deuxième barre verticale indique la fin de l'itération complète."
+    , r_delay: 500
+    , rm: SC.tools.main
+    , dir: 2
+    , x: "440px"
+    , y: "470px"
+      }
+  , {
+      speech: "Au dessus de "
+       + "cette seconde barre, vous pouvez lire la durée complète de l'itération en millisecondes.\n"
+       + "Au début de cette démonstration, cette durée est exagérément portée à 4 secondes, afin de laisser"
+       + " suffisemment de temps, pour bien illustrer notre propos."
+    , r_delay: 500
+    , rm: SC.tools.main
+    , dir: 2
+    , x: "480px"
+    , y: "430px"
+      }
+  , {
+      speech: "La période de temps représentée entre les deux barres verticales constitue pour l'essentiel une"
+       + " phase de faible activité du système, où, celui-ci, se contente d'enregistrer les événements d'interaction.\n"
+       + "On appellera cette phase, la « phase d'acquisition des entrées »."
+    , r_delay: 500
+    , rm: SC.tools.main
+    , dir: 3
+    , x: "115px"
+    , y: function(){ return (window.innerHeight-450)+"px"; }
+      }
+  , {
+      speech: " Vous avez probablement remarqué maintenant, que la seconde barre clignote en jaune de façon\n"
+       + " périodique.\nEt, pour les plus attentifs d'entre vous, vous aurez peut-être remarqué également"
+       + " que la période entre deux clignotements est d'environ 4 secondes."
+    , r_delay: 500
+    , rm: SC.tools.main
+    , dir: 3
+    , x: "390px"
+    , y: function(){ return (window.innerHeight-435)+"px"; }
+      }
+  , {
+      speech: " Ce clignotement symbolise l'exécution du programme réactif proprement dit. C'est-à-dire, le moment"
+       + " où le système exécute son code, pour traiter les événements d'intéraction, enregistrés pendant la"
+       + " phase d'acquisition.\nCette exécution étant très courte, au regard de la durée de 4 secondes, nous avons"
+       + " décidé de l'illustrer par ce clignotement. L'exécution ayant lieu en fin de cycle, nous n'animons"
+       + " que la seconde barre verticale, pour rendre compte de l'exécution réactive."
+    , r_delay: 500
+    , rm: SC.tools.main
+      }
+  , {
+      speech: " À ce stade de la démonstration, aucun composant n'est actif dans la machine d'exécution de"
+       + " l'application, de sorte que, seul ce clignotement montre que le système est en train de s'exécuter."
+    , r_delay: 500
+    , rm: SC.tools.main
+      }
+  , {
+      speech: " Toujours sur ce chhronogramme, les trois lignes horizontales en gris clair représentent donc les 3"
+       + " composants principaux de l'application. À savoir, la zone stop du haut, la zone stop du bas, et enfin,"
+       + " la zone de jeu. Ces composants s'exécutent en parallèle. Et ces comportements parallèles sont figurés "
+       + "par des segments de droites parallèles. On verra que le temps s'écoule à l'identique pour"
+       + " ces trois composants."
+    , r_delay: 500
+    , rm: SC.tools.main
+    , dir: 4
+    , x: function(){ return (window.screen.availWidth-750)+"px"; }
+    , y: function(){ return (window.innerHeight-420)+"px"; }
+      }
+  , {
+      speech: " Ces composants étant actuellement inactifs, nous allons nous intéresser à l'interface de"
+       + " contrôle de cette démonstration. Sous le chronogramme, nous trouvons un bouton, permettant d'activer la"
+       + " première timeline, correspondant au composant parallèle gérant la zone Stop du haut."
+    , r_delay: 500
+    , rm: SC.tools.main
+    , dir: 0
+    , x: "300px"
+    , y: "210px"
+      }
+  , {
+      speech: " Nous allons donc commencer par activer la zone stop du haut correspondant à la timeline numéro 1.\n"
+    , r_delay: 500
+    , rm: SC.tools.main
+      }
+    ];
 
-  var res = SC.pause(5);
+  var res= SC.pause(5);
   function _(a){
-    const res = {};
-    res.x = a.x;
-    res.y = a.y;
-    res.dir = a.dir;
-    res.txt = (a.txt)?a.txt:a.speech;
+    const res= {};
+    res.x= a.x;
+    res.y= a.y;
+    res.dir= a.dir;
+    res.txt= (a.txt)?a.txt: a.speech;
     return res;
     };
-  for(var i = 0 ; i < text.length; i++){
-    const elt = text[i];
-    const tmp = SC.tools.speech(elt);
+  for(var i=0; i<text.length; i++){
+    const elt= text[i];
+    if(undefined==elt.txt){elt.txt=elt.speech}
+    //elt.speech="";
+    const tmp= SC.tools.Web.speech(elt);
     SC.tools.addProgram(tmp.sc_speech_beh);
-    res = SC.seq(
+    res= SC.seq(
          res
        , SC.pause()
        , SC.generate(tmp.Evt_startSpeak)
@@ -366,85 +363,87 @@ var text = [
            )
          );
     }
-  var req_txt = {
+  var req_txt= {
      speech: "Cliquez sur le bouton timeline1 pour activer la zone stop du haut !"
      , r_delay: 500
-     , rm : SC.tools.m
-     , dir:3
+     , rm: SC.tools.main
+     , dir: 3
      , x: "20px"
      , y: function(){ return (window.innerHeight-605)+"px"; }
-     , repreat:10
+     , repeat: 10
      };
-  var request = SC.tools.speech(req_txt);
+  if(undefined==req_txt.txt){req_txt.txt=req_txt.speech}
+  //req_txt.speech="";
+  var request= SC.tools.Web.speech(req_txt);
   SC.tools.addProgram(request.sc_speech_beh);
-  res = SC.seq(
-          res
-          , SC.action(function(){
-              var btn = document.getElementById("tl1_btn");
-              btn.hidden = false;
-              })
-          , SC.generate(writting, _(req_txt))
-          , SC.par(
-              SC.kill(show1t
-                , SC.repeat(10
-                    , SC.generate(request.Evt_startSpeak)
-                    , SC.pause()
-                    , SC.par(
-                        SC.await(request.Sns_ended)
-                      , SC.await(typeEndedEvt)
-                        )
-                    , SC.log('go for it')
-                    )
-                )
-              , SC.seq(
-                  SC.await(show1t)
-                  , SC.action(function(){
-                        window.speechSynthesis.cancel();
-                        //setTimeout(function(){
-                        //     //talkMachine.newValue();
-                        //     }, 1000); 
-                        })
-                  )
-              )
-          );
-  const description = [{
+  res= SC.seq(
+         res
+       , SC.action(function(){
+           var btn= document.getElementById("tl1_btn");
+           btn.hidden= false;
+           })
+       , SC.generate(writting, _(req_txt))
+       , SC.par(
+           SC.kill(show1t
+             , SC.repeat(10
+                 , SC.generate(request.Evt_startSpeak)
+                 , SC.pause()
+                 , SC.par(
+                     SC.await(request.Sns_ended)
+                   , SC.await(typeEndedEvt)
+                     )
+                 , SC.log('go for it')
+                 )
+             )
+           , SC.seq(
+               SC.await(show1t)
+               , SC.action(function(){
+                     window.speechSynthesis.cancel();
+                     //setTimeout(function(){
+                     //     //talkMachine.newValue();
+                     //     }, 1000); 
+                     })
+               )
+           )
+       );
+  const description= [{
      speech: ""
            + "Voilà, désormais, ce composant est actif et la première zone"
            + " d'activation devient capable de réagir"
            + " aux solicitations de l'utilisateur."
      , r_delay: 500
-     , rm : SC.tools.m
-     , dir:3
+     , rm: SC.tools.main
+     , dir: 3
      , x: "130px"
      , y: function(){ return (window.innerHeight-475)+"px"; }
-     }
+       }
      , {
        speech: ""
              + "Le temps qui s'écoule est figuré par le trait épaissi en noir."
              + " Ce trait figure l'activation du composant et le temps qui"
              + " s'écoule, pendant un cycle du système."
        , r_delay: 500
-       , rm : SC.tools.m
+       , rm: SC.tools.main
        }
      , {
        speech: ""
              + "Si vous cliquez sur la zone stop du haut, vous observerez"
              + " plusieurs choses sur le chronogramme."
        , r_delay: 500
-       , rm : SC.tools.m
-       , dir:2
+       , rm: SC.tools.main
+       , dir: 2
        , x: "110px"
        , y: "70px"
        , sync: function(end){return SC.await(zone1t)}
        }
      , {
-       speech:"Pendant le click dans la zone stop, le composant acquiert le click, et son chronogramme"
+       speech: "Pendant le click dans la zone stop, le composant acquiert le click, et son chronogramme"
        + " est surligné en rouge. Si le click est relâché, le chronogramme reste surligné en jaune, pour noter que"
        + " que le click a bien été mémorisé par le composant parallèle, pendant tout le temps restant du cycle courrant"
        + " du système. Au cycle suivant cette information est perdue, et on repart dans un état «sans click»."
        , r_delay: 500
-       , rm : SC.tools.m
-       , dir:3
+       , rm: SC.tools.main
+       , dir: 3
        , x: "130px"
        , y: function(){ return (window.innerHeight-475)+"px"; }
        }
@@ -457,16 +456,18 @@ var text = [
              + " par une flèche rouge, qui est envoyée au composant « zone de"
              + " jeu », pour le moment toujours inactif."
        , r_delay: 500
-       , rm : SC.tools.m
-       , dir:3
+       , rm: SC.tools.main
+       , dir: 3
        , x: "390px"
        , y: function(){ return (window.innerHeight-435)+"px"; }
        , sync: function(end){return SC.par(SC.await(zone1t), SC.await(end))}
        }
      ];
-  //var timeline1 = SC.tools.speech(description);
+  //var timeline1 = SC.tools.Web.speech(description);
   for(var i = 0 ; i < description.length; i++){
-    const tmp = SC.tools.speech(description[i]);
+    if(undefined==description[i].txt){description[i].txt=description[i].speech}
+    //description[i].speech="";    
+    const tmp = SC.tools.Web.speech(description[i]);
     SC.tools.addProgram(tmp.sc_speech_beh);
     res = SC.seq(
          res
@@ -498,12 +499,14 @@ var text = [
                 + "Cliquez sur les boutons timeline2 et timeline3 pour activer"
                 + " la zone stop du bas et la zone de jeu."
        , r_delay: 500
-       , rm : SC.tools.m
-       , dir:3
+       , rm: SC.tools.main
+       , dir: 3
        , x: "70px"
        , y: function(){ return (window.innerHeight-605)+"px"; }
        }
-  tmp = SC.tools.speech(request2);
+  if(undefined==request2.txt){request2.txt=request2.speech}
+  //request2.speech="";  
+  tmp = SC.tools.Web.speech(request2);
   SC.tools.addProgram(tmp.sc_speech_beh);
   res = SC.seq(
           res
@@ -524,8 +527,8 @@ var text = [
                + " l'instant, tous les composants"
                + " réagissent."
        , r_delay: 500
-       , rm : SC.tools.m
-       , dir:3
+       , rm: SC.tools.main
+       , dir: 3
        , x: "70px"
        , y: function(){ return (window.innerHeight-475)+"px"; }
        }
@@ -537,8 +540,8 @@ var text = [
              + " de l'instant en émettant 2 signaux à destination du composant"
              + " animation, représentés par 2 flèches rouges."
      , r_delay: 500
-     , rm : SC.tools.m
-     , dir:2
+     , rm: SC.tools.main
+     , dir: 2
      , x: "150px"
      , y: "80px"
        }
@@ -551,49 +554,51 @@ var text = [
              + " chronogramme du composant animation, pointe"
              + " sur la zone de jeu dessinée plus haut.\n"
      , r_delay: 500
-     , rm : SC.tools.m
-     , dir:2
+     , rm: SC.tools.main
+     , dir: 2
      , x: "470px"
      , y: "500px"
-     , sync : function(end){return SC.par(SC.await(end), SC.await(zone2t), SC.await(zone1t));}
+     , sync: function(end){return SC.par(SC.await(end), SC.await(zone2t), SC.await(zone1t));}
        }
-       ];
-  for(var i = 0 ; i < timeline23.length; i++){
-    var tmp = SC.tools.speech(timeline23[i]);
+     ];
+  for(var i=0 ; i<timeline23.length; i++){
+    if(undefined==timeline23[i].txt){timeline23[i].txt=timeline23[i].speech}
+    //timeline23[i].speech="";  
+    var tmp= SC.tools.Web.speech(timeline23[i]);
     SC.tools.addProgram(tmp.sc_speech_beh);
-    res = SC.seq(
-       res
-       , SC.next(1)
-       , SC.pause()
-       , SC.generate(tmp.Evt_startSpeak)
-       , SC.generate(writting, _(timeline23[i]))
-       , (undefined === timeline23[i].sync)
-                 ? SC.par(
-                     SC.await(tmp.Sns_ended)
-                   , SC.await(typeEndedEvt)
-                     )
-                 : timeline23[i].sync(tmp.Sns_ended)
-       );
+    res= SC.seq(
+           res
+         , SC.next(1)
+         , SC.pause()
+         , SC.generate(tmp.Evt_startSpeak)
+         , SC.generate(writting, _(timeline23[i]))
+         , (undefined === timeline23[i].sync)
+                   ? SC.par(
+                       SC.await(tmp.Sns_ended)
+                     , SC.await(typeEndedEvt)
+                       )
+                   : timeline23[i].sync(tmp.Sns_ended)
+           );
     }
-  res = SC.seq(
-          res
-          , SC.action(function(){
-              ttt_slider.hidden = false;
-              })
-          );
-  var slider = [{
+  res= SC.seq(
+         res
+       , SC.action(function(){
+           ttt_slider.hidden = false;
+           })
+         );
+  var slider= [ {
          speech: ""
                + "Comme nous l'avons dit, plus haut, cette démonstration"
                + " propose une phase d'acquisition"
                + " démeusurément grande."
        , r_delay: 500
-       , rm : SC.tools.m
-       , dir:0
+       , rm: SC.tools.main
+       , dir: 0
        , x: "300px"
        , y: "210px"
-       }
+         }
      , {
-       speech: ""
+         speech: ""
              + "Cette situation n'est pas raisonnable dans le cadre du"
              + " développement d'un système interactif."
              + " Actuellement, en étant suffisemment rapide, il est possible,"
@@ -602,8 +607,8 @@ var text = [
              + " système, que les deux composants sont appuyés"
              + " au même moment et donc de faire progresser la zone de jeu."
      , r_delay: 500
-     , rm : SC.tools.m
-     }
+     , rm: SC.tools.main
+       }
    , {
        speech: ""
              + " Nous avons donc ajouté un curseur horizontal, qui nous"
@@ -617,16 +622,18 @@ var text = [
              + " Dans ces conditions, seule l'utilisation de la détection de"
              + " contacts multiples permettra d'activer la zone de jeux."
      , r_delay: 500
-     , rm : SC.tools.m
+     , rm: SC.tools.main
      , dir: 3
      , x: "450px"
      , y: function(){ return (window.innerHeight-595)+"px"; }
        }
-       ];
-  for(var i = 0 ; i < slider.length; i++){
-    var tmp = SC.tools.speech(slider[i]);
+     ];
+  for(var i=0 ; i<slider.length; i++){
+    if(undefined==slider[i].txt){slider[i].txt=slider[i].speech}
+    slider[i].speech="";      
+    var tmp= SC.tools.Web.speech(slider[i]);
     SC.tools.addProgram(tmp.sc_speech_beh);
-    res = SC.seq(
+    res= SC.seq(
        res
      , SC.next(1)
      , SC.pause()
@@ -646,13 +653,14 @@ var text = [
 SC.tools.addProgram(
   makeTalk()
   );
-function hack_ios(){
-  SC.tools.m.newValue();
-  }
-
-SC.tools.addProgram(
-  SC.click(hack_btn)
-  );
+//function hack_ios(){
+//  // ne fonctionne plus...
+//  //SC.tools.m.newValue();
+//  }
+//
+//SC.tools.addProgram(
+//  SC.click(hack_btn)
+//  );
 /* Altération du comportement dans le workspace : desactivation des gestes
  * systèmes
  */
@@ -661,8 +669,11 @@ workspace.addEventListener("touchstart", function(evt){evt.preventDefault()});
  * creation d'une seconde horloge pour afficher le graphe.
  * callage sur 10ms.
  */
-var graphMachine = SC.machine(4000, { init:SC.pauseForever() });
-graphMachine.addToOwnProgram(
+var graphMachine= SC.clock({ init: SC.pauseForever(), stdout: SC.writeInConsole });
+var periodic= SC.periodic({ delay: 4000 });
+graphMachine.bindTo(periodic);
+
+graphMachine.addProgram(
   SC.action(function(m){
       SC.tools.generateEvent(newAcquisitionTime, 400);
       }
@@ -672,7 +683,7 @@ graphMachine.addToOwnProgram(
 /*
  * génère un reset() dans la machine graphMachine
  */
-graphMachine.addToOwnProgram(
+graphMachine.addProgram(
   SC.repeat(SC.forever
     , SC.action(function(m){
         SC.tools.generateEvent(graph_reset, m.getInstantNumber());
@@ -681,129 +692,132 @@ graphMachine.addToOwnProgram(
   );
 
 function changeRTClock(v){
-  SC.tools.generateEvent(graph_reset, SC.tools.m.getInstantNumber());
-  graphMachine.setRunningDelay(parseInt(v)*10);
+  SC.tools.generateEvent(graph_reset, SC.tools.main.getInstantNumber());
+  graphMachine.disconnectFrom(periodic);
+  periodic= SC.periodic({ delay: parseInt(v)*10 });
+  graphMachine.bindTo(periodic);
   SC.tools.generateEvent(newAcquisitionTime, v);
   };
 
 /* Définitions des principaux evenements utilisé dans la démo. */
-var e = SC.evt("e");
-var evt_global_kill = SC.evt("evt_global_kill");
-var requestDisplay = SC.evt("requestDisplay");
-var requestDisplayC2 = SC.evt("requestDisplayC2");
-var zone1 = SC.evt("zone1");
-var zone2 = SC.evt("zone2");
-var zone1C2 = SC.evt("zone1C2");
-var zone2C2 = SC.evt("zone2C2");
-var newAcquisitionTime = SC.evt("newAcquisitionTime");
-var zeConfig = SC.and(zone1, zone2)
+var e= SC.evt("e");
+var evt_global_kill= SC.evt("evt_global_kill");
+var requestDisplay= SC.evt("requestDisplay");
+var requestDisplayC2= SC.evt("requestDisplayC2");
+var zone1= SC.evt("zone1");
+var zone2= SC.evt("zone2");
+var zone1C2= SC.evt("zone1C2");
+var zone2C2= SC.evt("zone2C2");
+var newAcquisitionTime= SC.evt("newAcquisitionTime");
+var zeConfig= SC.and(zone1, zone2)
 /* Enregistrement des événements système. Les événements systèmes sont
  * drectements liés à la machine d'exécution réactive. Il s'agit d'événemnts
  * particuliers appelé sensor que l'on ne peut générer dans un programme et
  * quie l'on peut filtrer en événements standards grace à l'instruction
  * filter.
  */
-SC_evt_mouse_click = SC.sensorize({name:"SC_evt_mouse_click"
-                         , dom_targets:[
+SC_evt_mouse_click= SC.sensor({ name: "mouse_click"
+                         , dom_targets: [
                                {
-                                 target:workspace
-                               , evt:"click"
+                                 target: workspace
+                               , evt: "click"
                                }
                                        ]
                          });
-SC_evt_mouse_down = SC.sensorize({name:"SC_evt_mouse_down"
-                         , dom_targets:[
+SC_evt_mouse_down= SC.sensor({ name: "mouse_down"
+                         , dom_targets: [
                                {
-                                 target:workspace
-                               , evt:"mousedown"
+                                 target: workspace
+                               , evt: "mousedown"
                                }
                                        ]
                          });
-SC_evt_mouse_up = SC.sensorize({name:"SC_evt_mouse_up"
-                         , dom_targets:[
+SC_evt_mouse_up= SC.sensor({ name: "mouse_up"
+                         , dom_targets: [
                                {
-                                 target:workspace
-                               , evt:"mouseup"
+                                 target: workspace
+                               , evt: "mouseup"
                                }
                                        ]
                          });
-SC_evt_mouse_move = SC.sensorize({name:"SC_evt_mouse_move"
-                         , dom_targets:[
+SC_evt_mouse_move= SC.sensor({ name: "mouse_move"
+                         , dom_targets: [
                                {
-                                 target:workspace
-                               , evt:"mousemove"
+                                 target: workspace
+                               , evt: "mousemove"
                                }
                                        ]
                          });
-SC_evt_touch_start = SC.sensorize({name:"SC_evt_touch_start"
-                         , dom_targets:[
+SC_evt_touch_start= SC.sensor({ name: "touch_start"
+                         , dom_targets: [
                                {
-                                 target:workspace
-                               , evt:"touchstart"
+                                 target: workspace
+                               , evt: "touchstart"
                                }
                                        ]
                          });
-SC_evt_touch_end = SC.sensorize({name:"SC_evt_touch_end"
-                         , dom_targets:[
+SC_evt_touch_end= SC.sensor({ name: "touch_end"
+                         , dom_targets: [
                                {
-                                 target:workspace
-                               , evt:"touchend"
+                                 target: workspace
+                               , evt: "touchend"
                                }
                                        ]
                          });
-SC_evt_touch_cancel = SC.sensorize({name:"SC_evt_touch_cancel"
-                         , dom_targets:[
+SC_evt_touch_cancel= SC.sensor({ name: "touch_cancel"
+                         , dom_targets: [
                                {
-                                 target:workspace
-                               , evt:"touchcancel"
+                                 target: workspace
+                               , evt: "touchcancel"
                                }
                                        ]
                          });
-SC_evt_touch_move = SC.sensorize({name:"SC_evt_touch_move"
-                         , dom_targets:[
+SC_evt_touch_move = SC.sensor({ name: "touch_move"
+                         , dom_targets: [
                                {
-                                 target:workspace
-                               , evt:"touchmove"
+                                 target: workspace
+                               , evt: "touchmove"
                                }
                                        ]
                          });
-graph_mouse_click = SC_evt_mouse_click;
-graph_mouse_down = SC_evt_mouse_down;
-graph_mouse_up = SC_evt_mouse_up;
-graph_mouse_move = SC_evt_mouse_move;
-graph_touch_start = SC_evt_touch_start;
-graph_touch_end = SC_evt_touch_end;
-graph_touch_cancel = SC_evt_touch_cancel;
-graph_touch_move = SC_evt_touch_move;
-graph_reset = SC.evt('reset');
-workspace.lvl1=[];
-workspace.lvl2=[];
-workspace.dropFrame = false;
-workspace.dropFrame2 = false;
+graph_mouse_click= SC_evt_mouse_click;
+graph_mouse_down= SC_evt_mouse_down;
+graph_mouse_up= SC_evt_mouse_up;
+graph_mouse_move= SC_evt_mouse_move;
+graph_touch_start= SC_evt_touch_start;
+graph_touch_end= SC_evt_touch_end;
+graph_touch_cancel= SC_evt_touch_cancel;
+graph_touch_move= SC_evt_touch_move;
+graph_reset= SC.evt('reset');
+workspace.lvl1= [];
+workspace.lvl2= [];
+workspace.dropFrame= false;
+workspace.dropFrame2= false;
 /*
  * mise à jour de l'affichage
  */
 SC.tools.addProgram(
   SC.actionOn(requestDisplay
-    , function(all){
+    , function(re){
         if(workspace.dropFrame){
           return;
         }
-        workspace.dropFrame = true;
-        workspace.lvl1 = all[requestDisplay];
+        workspace.dropFrame= true;
+        workspace.lvl1= re.getValuesOf(requestDisplay);
+	if(workspace.lvl1){
         //window.requestAnimationFrame(
           //function(){
         workspace.frameNumber++;
-        const ctx = workspace.getContext("2d");
+        const ctx= workspace.getContext("2d");
         ctx.clearRect(0, 0, workspace.width, workspace.height);
         for(var i in workspace.lvl2){
-          var obj = workspace.lvl2[i];
-          if("function" == typeof obj){ obj(ctx); }
+          var obj= workspace.lvl2[i];
+          if("function"==typeof(obj)){ obj(ctx); }
           else{obj.draw(ctx);}
           }
         for(var i in workspace.lvl1){
-          var obj = workspace.lvl1[i];
-          if("function" == typeof obj){ obj(ctx); }
+          var obj= workspace.lvl1[i];
+          if("function"==typeof(obj)){ obj(ctx); }
           else{obj.draw(ctx);}
           }
         if(0 == workspace.frameNumber%256){
@@ -815,16 +829,17 @@ SC.tools.addProgram(
             workspace.fpsMeasuring = window.performance.now();
             }
           }
-        workspace.dropFrame = false;
+        workspace.dropFrame= false;
+	  }
           //})
         }, undefined, SC.forever)
   );
-graphMachine.addToOwnProgram(
+graphMachine.addProgram(
   SC.actionOn(requestDisplayC2
-  , function(all , m){
-      const data = m.getValuesOf(requestDisplayC2);
+  , function(m){
+      const data= m.getValuesOf(requestDisplayC2);
       if(data){
-        workspace.lvl2 = data;
+        workspace.lvl2= data;
         }
       }, undefined, SC.forever)
   );
@@ -833,21 +848,21 @@ graphMachine.addToOwnProgram(
  * Classe Buble
  *******/
 function Buble(x, y, r, clr, startEvt){
-  this.x = x;
-  this.y = y;
-  this.r = r;
-  this.bgcolor = clr;
-  this.label = "Zone de jeu ";
-  this.text = "";
-  this.started = false;
-  graphMachine.addToOwnProgram(
+  this.x= x;
+  this.y= y;
+  this.r= r;
+  this.bgcolor= clr;
+  this.label= "Zone de jeu ";
+  this.text= "";
+  this.started= false;
+  graphMachine.addProgram(
     SC.par(
       SC.generate(requestDisplayC2, this, SC.forever)
       , SC.seq(
           SC.await(startEvt)
-        , SC.action({t:this, f:"start"})
+        , SC.action({ t: this, f: "start" })
         , SC.actionOn(zeConfig
-          , {t:this, f:"chooseText"}
+          , { t: this, f: "chooseText" }
           , undefined
           , SC.forever
             )
@@ -856,12 +871,12 @@ function Buble(x, y, r, clr, startEvt){
     );
   };
 
-Buble.prototype = {
+Buble.prototype= {
   constructor: Buble
-, draw : function(ctx){
+, draw: function(ctx){
     ctx.save();
-    ctx.strokeStyle = "black";
-    ctx.font = "30px Times";
+    ctx.strokeStyle= "black";
+    ctx.font= "30px Times";
     ctx.fillText(this.label+this.text, this.x-30, this.y-100);
     ctx.closePath();
     if(this.started){
@@ -869,13 +884,13 @@ Buble.prototype = {
       }
     ctx.restore();
     }
-, start:function(){
-    this.started = true;
+, start: function(){
+    this.started= true;
     }
 , chooseText: function(m){
-    this.text = "active";
-    const toto = tt_video.currentTime+0.033;
-    tt_video.currentTime = toto;
+    this.text= "active";
+    const toto= tt_video.currentTime+0.033;
+    tt_video.currentTime= toto;
     SC.tools.generateEvent(play);
     }
   };
@@ -884,21 +899,21 @@ Buble.prototype = {
  * Classe Buble
  *******/
 function Zone(x, y , r, zoneEvt, zc2, com, startEvt, clr, img){
-  this.x = x;
-  this.y = y;
-  this.r = r;
-  this.bgcolor = clr;
-  this.id = null;
-  this.id2 = null;
-  this.com = com;
-  this.click = false;
-  this.clicked = false;
-  this.hidden = false;
-  this.zoneVisible = false;
-  this.img = img;
-  this.img_zoom = 1;
-  this.rotateImg = 0;
-  graphMachine.addToOwnProgram(
+  this.x= x;
+  this.y= y;
+  this.r= r;
+  this.bgcolor= clr;
+  this.id= null;
+  this.id2= null;
+  this.com= com;
+  this.click= false;
+  this.clicked= false;
+  this.hidden= false;
+  this.zoneVisible= false;
+  this.img= img;
+  this.img_zoom= 1;
+  this.rotateImg= 0;
+  graphMachine.addProgram(
       SC.par(
         SC.repeatForever(SC.generate(requestDisplayC2, this))
       , SC.seq(
@@ -911,7 +926,7 @@ function Zone(x, y , r, zoneEvt, zc2, com, startEvt, clr, img){
           )
         )
       );
-  const lk = SC.evt("localKill");
+  const lk= SC.evt("localKill");
   SC.tools.addProgram(
       SC.par(
         SC.filter(SC_evt_mouse_down, zc2, {t:this,f:"filterStartMouse"}
@@ -941,13 +956,13 @@ function Zone(x, y , r, zoneEvt, zc2, com, startEvt, clr, img){
       )
     );
   };
-Zone.prototype = {
-  constructor : Zone
+Zone.prototype= {
+  constructor: Zone
 , endsUp: function(m){
     SC.tools.generateEvent(this.com);
-    this.clicked = false;
+    this.clicked= false;
     }
-, filterStartBase : function(touch){
+, filterStartBase: function(touch){
     const rx = this.x - touch.x;
     const ry = this.y - touch.y;
     const r = Math.sqrt(rx*rx + ry*ry);
@@ -956,25 +971,25 @@ Zone.prototype = {
       }
     return;
     }
-, filterStartMouse : function(t){
+, filterStartMouse: function(t){
     const res = this.filterStartBase(t);
     if(res){
       this.clicked = this.click = true;
       }
     return res;
     }
-, filterStartMouse2 : function(t){
+, filterStartMouse2: function(t){
     var res = this.filterStartBase(t);
     if(! this.click){
       return;
       }
     return res;
     }
-, filterEndMouse : function(t){
+, filterEndMouse: function(t){
     this.click = false;
     return "exit";
     }
-, filterMoveMouse : function(touch){
+, filterMoveMouse: function(touch){
     if(0 >= touch.btn){
       return null;
       }
@@ -986,10 +1001,11 @@ Zone.prototype = {
       }
     return;
     }
-, draw : function(ctx){
+, draw: function(ctx){
     if(this.hidden){
       return;
       }
+    console.log("draw zone");
     ctx.save();
     ctx.translate(this.x, this.y);
     if(this.zoneVisible){
@@ -1028,7 +1044,7 @@ Zone.prototype = {
       }
     ctx.restore();
     }
-, filterStart : function(t){
+, filterStart: function(t){
     const res = this.filterStartBase(t);
     if(res){
       this.id = res.id;
@@ -1208,32 +1224,32 @@ InstantFrontier.prototype = {
   , self : function(m){
     return this;
     }
-  , update : function(vals){
-    var v = parseInt(vals[newAcquisitionTime][0]);
-    this.x = v+20;
+  , update : function(re){
+    var v= parseInt(re.getValuesOf(newAcquisitionTime)[0]);
+    this.x= v+20;
     }
   , pulse : function(){
-    this.actionWidth = (this.actionWidth+4)%32;
+    this.actionWidth= (this.actionWidth+4)%32;
     }
   , emitA : function(){
-    this.radiusA = (this.radiusA+1)%32;
+    this.radiusA= (this.radiusA+1)%32;
     }
   , emitB : function(){
-    this.radiusB = (this.radiusB+1)%32;
+    this.radiusB= (this.radiusB+1)%32;
     }
-  , play : function(){
-    this.playGame = (this.playGame+1)%32;
+  , play: function(){
+    this.playGame= (this.playGame+1)%32;
     }
 }
 SC.tools.addProgram(
   SC.cube(
-    new InstantFrontier({x:20})
+    new InstantFrontier({ x: 20 })
     , SC.generate(requestDisplay, SC.my("self"), SC.forever)
     )
   );
 SC.tools.addProgram(
   SC.cube(
-    new InstantFrontier({x:420, flag:true})
+    new InstantFrontier({ x: 420, flag: true })
     , SC.par(
         SC.generate(requestDisplay, SC.my("self"), SC.forever)
         , SC.actionOn(newAcquisitionTime
@@ -1249,111 +1265,111 @@ SC.tools.addProgram(
   );
 
 function ProgramChrono(params){
-  this.x0 = params.x;
-  this.y0 = params.y;
-  this.cpt = 0;
-  this.signals = [];
-  this.newSignal = null;  
-  this.text = params.text;
-  this.showEvt = params.showEvt;
-  this.visible = false;
-  this.x1 = (undefined === params.x1)?params.x:params.x1;
-  this.y1 = (undefined === params.y1)?params.y:params.y1;
-  this.startedTime = window.performance.now();
+  this.x0= params.x;
+  this.y0= params.y;
+  this.cpt= 0;
+  this.signals= [];
+  this.newSignal= null;  
+  this.text= params.text;
+  this.showEvt= params.showEvt;
+  this.visible= false;
+  this.x1= (undefined === params.x1)?params.x: params.x1;
+  this.y1= (undefined === params.y1)?params.y: params.y1;
+  this.startedTime= window.performance.now();
 }
 ProgramChrono.prototype = {
-  draw : function(ctx){
-    ctx.save();
-    ctx.strokeStyle = "grey";
-    ctx.lineWidth=1;
-    ctx.beginPath();
-    ctx.moveTo(this.x0, this.y0);
-    ctx.lineTo(this.x1, this.y1);
-    ctx.stroke();
-    ctx.closePath();
-    if(this.visible){
-      ctx.strokeStyle = "black";
-      ctx.lineWidth=3;
+  draw: function(ctx){
+      ctx.save();
+      ctx.strokeStyle = "grey";
+      ctx.lineWidth=1;
       ctx.beginPath();
-      ctx.moveTo(20, this.y0);
-      ctx.lineTo(20+this.cpt, this.y1);
+      ctx.moveTo(this.x0, this.y0);
+      ctx.lineTo(this.x1, this.y1);
       ctx.stroke();
       ctx.closePath();
-      if(this.signals.length > 0){
-        ctx.strokeStyle = "rgba(255,255,0,0.5)";
-        ctx.lineWidth=9;
+      if(this.visible){
+        ctx.strokeStyle = "black";
+        ctx.lineWidth=3;
         ctx.beginPath();
-        var sx = (this.signals[0].start) + 20;
-        ctx.moveTo(sx, this.y0);
-        ctx.lineTo(this.cpt+20, this.y1);
+        ctx.moveTo(20, this.y0);
+        ctx.lineTo(20+this.cpt, this.y1);
         ctx.stroke();
         ctx.closePath();
-        for(var sig = 0; sig < this.signals.length; sig++){
-          var si = this.signals[sig];
+        if(this.signals.length > 0){
+          ctx.strokeStyle = "rgba(255,255,0,0.5)";
+          ctx.lineWidth=9;
+          ctx.beginPath();
+          var sx = (this.signals[0].start) + 20;
+          ctx.moveTo(sx, this.y0);
+          ctx.lineTo(this.cpt+20, this.y1);
+          ctx.stroke();
+          ctx.closePath();
+          for(var sig = 0; sig < this.signals.length; sig++){
+            var si = this.signals[sig];
+            ctx.strokeStyle = "rgba(255,0,0,0.7)";
+            ctx.lineWidth=9;
+            ctx.beginPath();
+            ctx.moveTo(si.start+20, this.y0);
+            ctx.lineTo(si.stop+20, this.y1);
+            ctx.stroke();
+            ctx.closePath();
+            }
+          }
+        if(null !== this.newSignal){
           ctx.strokeStyle = "rgba(255,0,0,0.7)";
           ctx.lineWidth=9;
           ctx.beginPath();
-          ctx.moveTo(si.start+20, this.y0);
-          ctx.lineTo(si.stop+20, this.y1);
+          ctx.moveTo(this.newSignal.start+20, this.y0);
+          ctx.lineTo(this.cpt+20, this.y1);
           ctx.stroke();
           ctx.closePath();
           }
         }
-      if(null !== this.newSignal){
-        ctx.strokeStyle = "rgba(255,0,0,0.7)";
-        ctx.lineWidth=9;
-        ctx.beginPath();
-        ctx.moveTo(this.newSignal.start+20, this.y0);
-        ctx.lineTo(this.cpt+20, this.y1);
-        ctx.stroke();
-        ctx.closePath();
+      if(undefined != this.text){
+        ctx.fillText(this.text, 700, this.y0-4);
         }
+      ctx.restore();
       }
-    if(undefined != this.text){
-      ctx.fillText(this.text, 700, this.y0-4);
-      }
-    ctx.restore();
-    }
-  , self : function(m){
+, self: function(m){
     return this;
     }
-  , acquire : function(v, m){
-    if(null == this.newSignal){
-      this.newSignal = {start:this.cpt};
+, acquire: function(m){
+    if(null==this.newSignal){
+      this.newSignal= { start: this.cpt };
       }
     }
-  , stopAcquire : function(m){
-    if(null === this.newSignal){return;}
-    this.newSignal.stop = this.cpt;
+, stopAcquire: function(m){
+    if(null===this.newSignal){ return; }
+    this.newSignal.stop= this.cpt;
     this.signals.push(this.newSignal);
-    this.newSignal = null;
+    this.newSignal= null;
     }
-  , resetAcquire : function(){
-    this.cpt = 0;
-    this.signals=[];
-    this.newSignal = null;
-    this.startedTime = window.performance.now();
+, resetAcquire: function(){
+    this.cpt= 0;
+    this.signals= [];
+    this.newSignal= null;
+    this.startedTime= window.performance.now();
     }
-  , step : function(){
+, step: function(){
     this.cpt=((window.performance.now()-this.startedTime)/10);
     }
-  , setVisible : function(b){
+, setVisible: function(b){
     this.visible = b;
     }
-  , actVisible : function(vals){
-    var b = vals[this.showEvt][0];
+, actVisible: function(re){
+    var b= re.getValuesOf(this.showEvt)[0];
     this.setVisible(b);
     }
-}
+  };
 SC.tools.addProgram(
   SC.cube(
-    new ProgramChrono({x:0, y:500, x1: 800, text:"zone1", showEvt: show1})
+    new ProgramChrono({x: 0, y: 500, x1: 800, text:"zone1", showEvt: show1})
     , SC.par(
         SC.generate(requestDisplay, SC.my("self"), SC.forever)
         , SC.repeat(SC.forever, SC.action(SC.my('step')))
         , SC.actionOn(show1, SC.my("actVisible"), undefined, SC.forever)
         , SC.repeat(SC.forever, SC.await(zone1C2), SC.action(function(){
-            SC.tools.m.addToOwnEntry(zone1t, null);
+            SC.tools.main.addEntry(zone1t, null);
             //talkMachine.react();
             }))
         , SC.repeat(SC.forever
@@ -1367,13 +1383,13 @@ SC.tools.addProgram(
   );
 SC.tools.addProgram(
   SC.cube(
-    new ProgramChrono({x:0, y:530, x1: 800, text:"zone2", showEvt: show2})
+    new ProgramChrono({x: 0, y: 530, x1: 800, text:"zone2", showEvt: show2})
     , SC.par(
         SC.generate(requestDisplay, SC.my("self"), SC.forever)
         , SC.repeat(SC.forever, SC.action(SC.my('step')))
         , SC.actionOn(show2, SC.my("actVisible"), undefined, SC.forever)
         , SC.repeat(SC.forever, SC.await(zone2C2), SC.action(function(){
-            SC.tools.m.addToOwnEntry(zone2t, null);
+            SC.tools.main.addEntry(zone2t, null);
             //talkMachine.react();
             }))
         , SC.repeat(SC.forever
@@ -1387,7 +1403,7 @@ SC.tools.addProgram(
   );
 SC.tools.addProgram(
   SC.cube(
-    new ProgramChrono({x:0, y:560, x1: 800, text:"zone de jeu", showEvt: show3})
+    new ProgramChrono({x: 0, y: 560, x1: 800, text:"zone de jeu", showEvt: show3})
     , SC.par(
         SC.generate(requestDisplay, SC.my("self"), SC.forever)
         , SC.repeat(SC.forever, SC.action(SC.my('step')))
@@ -1404,20 +1420,20 @@ SC.tools.addProgram(
 
 function z1(){
   SC.tools.generateEvent(show1,true);
-  graphMachine.addToOwnEntry(show1g,true);
-  SC.tools.m.addToOwnEntry(show1t,true);
+  graphMachine.addEntry(show1g,true);
+  SC.tools.main.addEntry(show1t,true);
   //talkMachine.react();
   }
 function z2(){
   SC.tools.generateEvent(show2,true);
-  graphMachine.addToOwnEntry(show2g,true);
-  SC.tools.m.addToOwnEntry(show2t,true);
+  graphMachine.addEntry(show2g,true);
+  SC.tools.main.addEntry(show2t,true);
   //talkMachine.react();
   }
 function z3(){
   SC.tools.generateEvent(show3,true);
-  graphMachine.addToOwnEntry(show3g,true);
-  SC.tools.m.addToOwnEntry(show3t,true);
+  graphMachine.addEntry(show3g,true);
+  SC.tools.main.addEntry(show3t,true);
   //talkMachine.react();
   tt_video.load();
   //video.play();
@@ -1425,21 +1441,21 @@ function z3(){
   //video.currentTime = 0;
 
   }
-var h1 = SC.tools.makeDiv({
-  id:"button1"
-  , inH:"zone 1"
-})
-//style:"position:fixed; top:50px; left:20px; width:150px; height:150px;background:pink;display:none;">
+var h1= SC.tools.Web.makeDiv({
+    id: "button1"
+  , inH: "zone 1"
+    });
+//style:"position:fixed; top:50px; left:20px; width:150px; height:150px;background:pink;display: none;">
 //zone1
 //</div>
-var h2 = SC.tools.makeDiv({
-  id : "button2"
+var h2= SC.tools.Web.makeDiv({
+    id: "button2"
   , inH:"zone 2"
-});
-//style="position:fixed; top:450px; left:20px; width:150px; height:150px;background:pink;display:none;">
+    });
+//style="position:fixed; top:450px; left:20px; width:150px; height:150px;background:pink;display: none;">
 //zone2
 //</div>
 
-var h3 = document.getElementById("timelines");
-var h4 = document.getElementById("jeu");
+var h3= document.getElementById("timelines");
+var h4= document.getElementById("jeu");
 SC.tools.initTouchTracker();

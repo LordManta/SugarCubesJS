@@ -7,7 +7,7 @@
    <script type="text/javascript">
 SC.init({ tools: {
             baseDir: ""
-	  , list: [ "AudioToolbox", "WebTools", "WebEnergize" ]
+          , list: [ "AudioToolbox", "WebTools", "WebEnergize" ]
           , mainConfig: {
               init: SC.pauseForever()
             , delay: 40
@@ -122,8 +122,8 @@ body{
     groupViewEvt= SC.evt("groupViewEvt");
     function makeKey(pos, startTop, data){
         var tmp_stop_sensor= SC.sensor("on_touchStop");
-	var myKeyDown= SC.evt("myKeyDown "+data.lbl);
-	var myKeyUp= SC.evt("myKeyUp "+data.lbl);
+        var myKeyDown= SC.evt("myKeyDown "+data.lbl);
+        var myKeyUp= SC.evt("myKeyUp "+data.lbl);
         var key= SC.tools.Web.makeDiv({
             inH: data.lbl
             , cl: "touche_clavier"
@@ -136,21 +136,21 @@ body{
                      SC.repeat(SC.forever
                        , SC.await(SC.or("Evt_touchStart", "Evt_on_mouseDown", myKeyDown))
                        , SC.generate("Evt_css_background", "green")
-		       , SC.test(SC.my("kt_isValid")
-		         , SC.generate(data.Evt_snd)
-		         , SC.seq(SC.generate(Snd_error.Evt_play)
-			   , SC.generate("SC_cubeAddBehaviorEvt"
-			     , SC.seq(
-			         SC.generate("Evt_css_display", "")
+                       , SC.test(SC.my("kt_isValid")
+                         , SC.generate(data.Evt_snd)
+                         , SC.seq(SC.generate(Snd_error.Evt_play)
+                           , SC.generate("SC_cubeAddBehaviorEvt"
+                             , SC.seq(
+                                 SC.generate("Evt_css_display", "")
                                , SC.generate("Evt_css_background", "red")
-			       , SC.pause(3)
+                               , SC.pause(3)
                                , SC.generate("Evt_css_background", "white")
-			       , SC.pause(3)
+                               , SC.pause(3)
                                , SC.generate("Evt_css_background", "red")
-			       , SC.pause(3)
+                               , SC.pause(3)
                                , SC.generate("Evt_css_background", "white")
-			       , SC.generate("Evt_css_display", "none")
-			         ))))
+                               , SC.generate("Evt_css_display", "none")
+                                 ))))
                        , SC.kill(SC.or("Evt_touchStop","Evt_on_mouseUp", myKeyUp)
                            ,SC.repeat(SC.forever
                               , SC.generateWrapped(keyEvt, "innerHTML")
@@ -162,49 +162,49 @@ body{
                          , SC.await(groupViewEvt)
                          , SC.action(SC.my("filter_display_group"))
                          )
-		     , SC.filter(systemKeyDown
-		         , myKeyDown
-		         , SC.my("filter_key")
-			 , SC.forever
-		         )
-		     , SC.filter(systemKeyUp
-		         , myKeyUp
-		         , SC.my("filter_key")
-			 , SC.forever
-		         )
+                     , SC.filter(systemKeyDown
+                         , myKeyDown
+                         , SC.my("filter_key")
+                         , SC.forever
+                         )
+                     , SC.filter(systemKeyUp
+                         , myKeyUp
+                         , SC.my("filter_key")
+                         , SC.forever
+                         )
                      )
           }
           );
-	key.kt_isValid=function(re){
-	  return this.kt_visible;
-	  };
-	key.code= data.code;
-	key.kt_visible=false;
-	key.filter_key= function(key){
-	  var filtered= [];
-	  if(key.code == this.code){
-	    filtered.push(key);
-	    }
-	  return (filtered.length > 0)?filtered:undefined;
-	  }
+        key.kt_isValid=function(re){
+          return this.kt_visible;
+          };
+        key.code= data.code;
+        key.kt_visible=false;
+        key.filter_key= function(key){
+          var filtered= [];
+          if(key.code == this.code){
+            filtered.push(key);
+            }
+          return (filtered.length > 0)?filtered:undefined;
+          }
         key.filter_display_group = function(my_group, re){
            var vals = re.getValuesOf(groupViewEvt);
            if(vals
                && (0 != vals.length)){
-	     this.kt_visible=(vals[0]>=my_group);
+             this.kt_visible=(vals[0]>=my_group);
              re.addEntry(this._sc_getEvt('css_display'), this.kt_visible?"":"none");
              }
            }.bind(key,data.group)
         if(undefined !== data.offH){
           SC.tools.addProgram(
-	    SC.generate(key._sc_getEvt('css_top'), ((startTop+data.offH)*screenRZ)+"cm")
+            SC.generate(key._sc_getEvt('css_top'), ((startTop+data.offH)*screenRZ)+"cm")
             );
           }
-	else{
+        else{
           SC.tools.addProgram(
             SC.generate(key._sc_getEvt('css_top'), (startTop*screenRZ)+"cm")
             );
-	}
+        }
         SC.tools.addProgram(
           SC.generate(key._sc_getEvt('css_left'), (pos*screenRZ)+"cm")
           );
@@ -220,9 +220,9 @@ body{
         if(undefined !== data.h){
           SC.tools.addProgram(
             SC.par(
-	      SC.generate(key._sc_getEvt('css_height'), (data.h*screenRZ)+"cm")
+              SC.generate(key._sc_getEvt('css_height'), (data.h*screenRZ)+"cm")
               , SC.generate(key._sc_getEvt('css_lineHeight'), (data.h*screenRZ)+"cm")
-	      )
+              )
             );
           }
       return { key: key, pos: pos };
@@ -231,11 +231,11 @@ body{
       var pos = startLeft;
       for(var i = 0; i < row.length; i++){
         var data= row[i];
-	data.Evt_snd= (data.Evt_snd)?data.Evt_snd:Snd_toucheNormal.Evt_play;
+        data.Evt_snd= (data.Evt_snd)?data.Evt_snd:Snd_toucheNormal.Evt_play;
         var tmp_stop_sensor= SC.sensor("on_touchStop");
         var res= makeKey(pos, startTop, data)
-	pos= res.pos;
-	document.body.appendChild(res.key);
+        pos= res.pos;
+        document.body.appendChild(res.key);
         }
       }
     var row = [

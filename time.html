@@ -1,55 +1,58 @@
 <!DOCTYPE html>
 <html manifest='time.manifest'>
-<head>
-<meta charset="utf-8"/>
-<script type="text/javascript" src="/SugarCubes_min.js">
-</script>
-<script type="text/javascript" src="/SC_Tools.js">
-   </script>
-   <script type="text/javascript">
-var SC_App_Config = {
-  tickTime: 10
-  , machineConfig:{init: SC.pauseForever()}
-  , viewport:{
-      width:"device-width"
-      , height:"device-height"
-      , init_scale:"1"
-      , max:"1"
-      , min:"1"
-      , scalable:"no"
-      }
-  , audioSupport:true
-  , voiceSupport:true
-  , splashConfig:{
-      title:"Le réactif à la Boussinot !"
-      , title_style:"background-color: rgba(255,255,255, 0.6);font-size:12vh;font-weight:bold; text-shadow:0.5vw 0.5vh 0.5vmax white; padding:10px"
-      , start:"Démarrer !"
-      , startEvt: SC.evt("evt")
-      , background:"url(images/png/bg-test.png) no-repeat center"
-      }
-  , appTitle:"SC_ToolsTest"
-  , appAuthors:"Jean-Ferdy Susini"
-  , appDescription:""
-  , controler:true
-  , controler_closed:true
-  , controler_style:"SC_Panel.css"
-  , inspectorEnabled:true
-  , startup_img: [
-      {
-        rsrc:"images/png/st_1536x2008.png"
-        , media:"(device-width: 768px) and (device-height: 1024px)"
-                +"and (-webkit-device-pixel-ratio: 2)"
-                +"and (orientation: portrait)"
+  <head>
+    <meta charset="utf-8"/>
+    <script type="text/javascript" src="SugarCubes_min.js"></script>
+    <script type="text/javascript">
+SC.init({ tools: {
+      baseDir: ""
+    , list: [ "AudioToolbox", "WebTools", "WebEnergize" ]
+    , mainConfig: {
+        init: SC.pauseForever()
+      , delay: 10
+      , stdout: SC.writeInConsole
         }
-      , {
-          rsrc:"images/png/st_1496x2048.png"
-          , media:"(device-width: 768px) and (device-height: 1024px)"
+      }
+  , appConfig: {
+      viewport:{
+        width: "device-width"
+        , height: "device-height"
+        , init_scale: "1"
+        , max: "1"
+        , min: "1"
+        , scalable: "no"
+        }
+    , audioSupport: true
+    , voiceSupport: true
+    , splashConfig: {
+        title: "Le réactif à la Boussinot !"
+        , title_style: "background-color: rgba(255,255,255, 0.6);font-size:12vh;font-weight:bold; text-shadow:0.5vw 0.5vh 0.5vmax white; padding:10px"
+        , start: "Démarrer !"
+        , startEvt: SC.evt("evt")
+        , background: "url(images/png/bg-test.png) no-repeat center"
+        }
+    , appTitle: "About Time"
+    , appAuthors: "Jean-Ferdy Susini"
+    , appDescription: "An illustration of the reactive approach of programming « à la » Boussinot."
+    , controler: true
+    , controler_closed: true
+    , controler_style: "SC_Tools_Panel.css"
+    , startup_img: [
+        {
+          rsrc: "images/png/st_1536x2008.png"
+          , media: "(device-width: 768px) and (device-height: 1024px)"
                   +"and (-webkit-device-pixel-ratio: 2)"
-                  +"and (orientation: landscape)"
+                  +"and (orientation: portrait)"
           }
-      ]
-  }
-SC.tools.appInit(SC_App_Config);
+        , {
+            rsrc: "images/png/st_1496x2048.png"
+            , media: "(device-width: 768px) and (device-height: 1024px)"
+                    +"and (-webkit-device-pixel-ratio: 2)"
+                    +"and (orientation: landscape)"
+            }
+        ]
+    }
+  });
    </script>
    <style>
 .toto{
@@ -149,18 +152,18 @@ margin:0;
   transform:  rotate( 45deg ) skewX(15deg) skewY(15deg);
   -webkit-transform: rotate( 45deg ) skewX(15deg) skewY(15deg);
 }
-</style>
-</head>
-<body>
-  <script type="text/javascript" >
-  SC.tools.displaySplash();
-  </script>
+    </style>
+  </head>
+  <body>
+    <script type="text/javascript" >
+SC.tools.displaySplash();
+    </script>
 <canvas id="workspace" width="800" height="600">
 </canvas>
 <video id="anim_vid" loop controls preload hidden>
-<source src="time2.mp4" type ="video/mp4"/>
-<source src="time2.webm" type ="video/webm"/>
-<source src="time2.ogv" type ="video/ogg"/>
+<source src="videos/time2.mp4" type ="video/mp4"/>
+<source src="videos/time2.webm" type ="video/webm"/>
+<source src="videos/time2.ogv" type ="video/ogg"/>
 </video>
 <br>
 <div id="controlleur">
