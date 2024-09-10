@@ -287,7 +287,7 @@ Zone de control
               controlPanel.content.setAttribute("id","SC_CP_content");
               controlPanel.win.appendChild(controlPanel.content);
               controlPanel.console=document.createElement("div");
-              controlPanel.console.setAttribute("id","SC_console");
+              controlPanel.console.setAttribute("id", "SC_console");
               tmp=document.createElement("p");
               tmp.style.margin="0";
               tmp.style.padding="0";
@@ -398,13 +398,14 @@ Zone de control
                                      , { target: document, evt: "touchmove" }
                                                ]
                                  });
-              controlPanel.writeInConsole=function(msg, nl){
+              controlPanel.writeInPanel=function(msg, nl){
                 if(nl){
                   this.console.appendChild(document.createElement("br"));
                   }
                 this.console.appendChild(document.createTextNode(msg));
                 console.log.apply(console, arguments);
                 };
+	      SC.writeInPanel= controlPanel.writeInPanel.bind(controlPanel);
               const Prg_trackEvent=SC.repeatForever(
                 SC.await(Sens_pointerEvtTracker)
               , SC.action(function(evt, m){
@@ -464,7 +465,7 @@ Zone de control
                         )
                     )
                 );
-              this.main.setStdOut(controlPanel.writeInConsole.bind(controlPanel));
+              this.main.setStdOut(controlPanel.writeInPanel.bind(controlPanel));
               Object.defineProperty(this, "controlPanel"
               , { value: controlPanel
                 , writable: false
@@ -486,7 +487,6 @@ Zone de control
           , writable: false
             }
           );
-// ex appInit {
         Object.defineProperty(SC.globals, "Evt_Start"
         , { value: SC.evt("Start")
           , writable: false
@@ -748,7 +748,6 @@ Zone de control
           //  SC.tools.initPanel();
           //  }
           }
-//        }
         if("complete"!=document.readyState){
           SC.tools.addProgram=function(p){
             this.main.addProgram((SC.globals.Evt_Start)

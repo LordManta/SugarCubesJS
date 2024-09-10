@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>More complex programs.</title>
+<script type="text/javascript" src="SugarCubes_min.js">
+</script>
+<style>
+#stdout {
+}
+</style>
+</head>
+<body>
+<pre id="stdout"></pre>
+<script type="text/javascript">
+var stdout=document.getElementById("stdout");
+/*
+This demo focus on more complex programs made of multiple parallel branches
+interacting with each others using instantaneous reactive events.
+Firstly, one defines a reactive clock and configure it to display standard
+output text into a pre element on the Web page.
+*/
+var m=SC.clock({
+  dumpTraceFun: function(msgs){
+    for(var i in msgs){
+      stdout.innerText+=msgs[i];
+      }
+    }
+  });
+m.enablePrompt(true);
+m.setStdOut(function(msg){
+  stdout.innerText+=msg;
+  });
+function displayVals(r){
+  const v=r.getValuesOf(e);
+  if(v){
+    for(var i in v){
+      r.writeToStdout(v[i]);
+      }
+    }
+  }
+/* One declares 3 reactive events e, f and g. */
+var e=SC.evt("e");
+var f=SC.evt("f");
+var g=SC.evt("g");
+/*
+One make a first program which will be used in the building of an another one.
+*/
+var P=SC.seq(
+  SC.trace("Ceci ")
+, SC.pause()
+, SC.trace("est ")
+, SC.pause()
+, SC.trace("un ")
+, SC.pause(2)
+, SC.trace("essai. ")
+, SC.generate(f) // Every times P ends, it generates f.
+  );
+/*
+One builds a program which will execute sequentially multiple copies of the P
+program.
+*/
+m.addProgram(
+  SC.seq(
+    P // this execution of P is not interruptible.
+  , SC.trace("First P ends. ")
+  , SC.pause()
+  , SC.kill(g
+    , SC.repeat(3, P) // P is repeated 3 times but now it can be interrupted if
+                      // event g becomes present.
+    , SC.trace("preemption ")
+      )
+  , SC.trace("repeat P 3 times ends. ")
+  , SC.pause()
+  , SC.control(e, SC.par(P,  SC.repeat(5, SC.trace("control by e! "))))
+  , SC.trace("end of all P executions. ")
+    )
+  );
+m.addProgram(
+  SC.seq(
+    SC.repeat(3
+    , SC.await(e)
+    , SC.trace("(e est généré !) ")
+      )
+  , SC.trace("fin detect e. ")
+    )
+  );
+m.addProgram(
+  SC.seq(
+    SC.repeat(3
+    , SC.await(f)
+    , SC.trace("(f est généré !) ")
+      )
+  , SC.trace("fin detect f. ")
+    )
+  );
+m.addProgram(
+  SC.seq(
+    SC.repeat(3
+    , SC.await(g)
+    , SC.trace("(g est généré !) ")
+      )
+  , SC.trace("fin detect g. ")
+    )
+  );
+m.addProgram(
+  SC.seq(
+    SC.repeat(3
+    , SC.await(SC.and(f,g))
+    , SC.trace("(f/\\g)")
+      )
+  , SC.trace("fin detect f/\\g. ")
+    )
+  );
+m.addProgram(
+  SC.seq(
+    SC.repeat(3
+    , SC.await(SC.or(f,g))
+    , SC.trace("(f\\/g)")
+      )
+  , SC.trace("fin detect f\\/g. ")
+    )
+  );
+m.addProgram(
+  SC.repeat(2
+  , SC.when(f
+    , SC.trace("when f -> then ")
+    , SC.trace("when f -> else ")
+      )
+  , SC.pause(6)
+    )
+  );
+m.addProgram(
+    SC.seq(
+      SC.pause(6)
+    , SC.generate(e)
+    , SC.trace("e! ")
+    , SC.pause()
+    , SC.generate(g)
+    , SC.pause()
+    , SC.generate(f)
+    , SC.trace("f! ")
+    , SC.pause()
+    , SC.generate(f)
+    , SC.trace("f! ")
+    , SC.generate(e)
+    , SC.trace("e! ")
+    , SC.generate(g)
+    , SC.trace("g! ")
+    , SC.pause(3)
+    , SC.generate(e)
+    , SC.trace("e! ")
+    , SC.pause()
+    , SC.generate(f)
+    , SC.trace("f! ")
+    , SC.generate(g)
+    , SC.trace("g! ")
+    , SC.pause()
+    , SC.generate(f)
+    , SC.trace("f! ")
+    , SC.generate(g)
+    , SC.trace("g! ")
+    , SC.pause()
+    , SC.generate(e)
+    , SC.trace("e! ")
+    , SC.pause(4)
+    , SC.generate(e)
+    , SC.trace("e! ")
+    , SC.pause(5)
+    , SC.generate(e)
+    , SC.trace("e! ")
+    , SC.pause()
+    , SC.action(function(r){
+        r.addProgram(
+           SC.control(SC.and(e,f)
+           , SC.repeat(3, SC.action(displayVals))
+             )
+           );
+        r.addProgram(
+          SC.repeat(4, SC.pause(2), SC.generate(e, "hello"), SC.trace("e('hello')! "))
+          );
+        r.addProgram(
+          SC.repeat(8, SC.pause(), SC.generate(e, " world"), SC.trace("e('world')! "))
+          );
+        r.addProgram(
+          SC.repeat(4, SC.pause(3), SC.generate(f), SC.trace("f! "))
+          );
+          }
+        )
+  , SC.pause(17)
+  , SC.action(function(r){
+        stdout.style.background=(res==stdout.innerText)?'green':'red';
+      })
+    )
+  );
+
+const power=SC.periodic({ delay: 100 });
+m.bindTo(power);
+
+const res=`
+1 -: Ceci 
+2 -: est when f -> else 
+3 -: un 
+4 -: 
+5 -: essai. First P ends. (f est généré !) (f\\/g)
+6 -: Ceci 
+7 -: est (e est généré !) e! 
+8 -: un (g est généré !) (f\\/g)
+9 -: preemption repeat P 3 times ends. (f est généré !) (f\\/g)fin detect f\\/g. when f -> then f! 
+10 -: Ceci control by e! (e est généré !) (f est généré !) fin detect f. (g est généré !) (f/\\g)f! e! g! 
+11 -: 
+12 -: 
+13 -: est control by e! (e est généré !) fin detect e. e! 
+14 -: (g est généré !) fin detect g. (f/\\g)f! g! 
+15 -: (f/\\g)fin detect f/\\g. f! g! 
+16 -: un control by e! e! 
+17 -: 
+18 -: 
+19 -: 
+20 -: control by e! e! 
+21 -: 
+22 -: 
+23 -: 
+24 -: 
+25 -: essai. control by e! end of all P executions. e! 
+26 -: 
+27 -: 
+28 -: e('world')! 
+29 -: e('hello')! 
+30 -: e('world')! f! 
+31 -:  world
+32 -: e('hello')! e('world')! 
+33 -: 
+34 -: e('world')! f! 
+35 -:  worlde('hello')! 
+36 -: e('world')! 
+37 -: 
+38 -: e('hello')! e('world')! f! 
+39 -: hello world
+40 -: e('world')! 
+41 -: 
+42 -: e('world')! f! 
+43 -: `;
+</script>
+</body>
+</html>

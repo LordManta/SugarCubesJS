@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>DOM Events.</title>
+<script type="text/javascript" src="SugarCubes_min.js">
+</script>
+<style>
+#stdout {
+  position: absolute;
+  width: 300px;
+  height: 200px;
+}
+</style>
+</head>
+<body>
+Click anywhere on the page to move the textarea...<br>
+<textarea id="stdout">
+</textarea>
+<script type="text/javascript">
+/*
+One defines a reactive execution machine (clock).
+*/
+const main= SC.clock();
+
+/*
+One builds a method to log information in a textarea.
+The textarea is the used as the stdout.
+This method will be used by the reactive instruction SC.write() to write a
+message on the standard output.
+ */
+const stdout=document.getElementById("stdout");
+main.setStdOut(function(msg){
+  stdout.value+= msg;
+  });
+
+/*
+One defines sensors bound to some standard DOM events.
+One defines sensor tracking mouse events on the window and also the keypressed
+on keyboard.
+*/
+const Sens_mouse_down= SC.sensor("mouse_down"
+  , { dom_targets: [ { target: window, evt: "mousedown" } ]
+      });
+const Sens_mouse_up= SC.sensor("mouse_up"
+  , { dom_targets: [ { target: window, evt: "mouseup" } ]
+      });
+const Sens_mouse_move=SC.sensor("mouse_move"
+  , { dom_targets: [ { target: window, evt: "mousemove" } ]
+      });
+const Sens_kpress=SC.sensor("kpress"
+  , { dom_targets: [ { target: window, evt: "keypress" } ]
+      });
+
+/*
+On defines a standard reactive event to specifically handle escape key presses.
+This event will be generated when the user press the escape key...
+*/
+const Evt_kpress_esc= SC.evt("Evt_kpress_esc");
+
+/*
+One adds 2 global variables to store the last position of the textarea when one
+initiates a move by drag&drop on screen.
+*/
+var oldX= 0;
+var oldY= 0;
+/*
+Reactive Programs:
+One adds a program to the SugarCubes clock.
+The first one is a filter which scans the kpress sensor to isolate the press of
+the escape key an so produce the kpress_esc event if it applies.
+The SC.filter() instruction takes 4 parameters :
+ - the sensor to scan (Sens_kpress)
+ - the event to generate when scan function detects the escape key is pressed
+   (Evt_kpress_esc)
+ - the scan function which should not produces side effect and return undefined
+   if detection fails and a value (that is not used in this example) if
+   detection of escape key press succeeds.
+   Here, detection relies on the which parameter of standard DOM Keyboard Event.
+   The code 27 is used to identify escape key.
+ - finally the optional fourth parameter is a number of successive instants
+   during which the filter should apply (SC.forever indicates that filtering
+   never terminates).
+*/
+main.addProgram(
+  SC.filter(Sens_kpress
+  , Evt_kpress_esc
+  , function(evt){
+      return 27==evt.which?evt.which:undefined;
+      }
+  , SC.forever
+    )
+  );
+/*
+The main program Listen to mouse down to initiate the displacement of the
+textarea and memorize initial position in the global variables.
+An actionOn atomic action is triggered on each mouse move to update textarea
+position on screen according to current mouse position. This behavior can be
+preempted by a mouse up to end the move at that last position or by pressing
+the escape key which resets the textarea position to its initial position
+memorized by oldX and oldY.
+*/
+main.addProgram(
+  SC.repeatForever(
+    SC.await(Sens_mouse_down)
+  , SC.action(function(r){
+      oldX=stdout.offsetLeft;
+      oldY=stdout.offsetTop;
+      })
+  , SC.write("Start mouving...")
+  , SC.kill(Sens_mouse_up
+    , SC.kill(Evt_kpress_esc
+      , SC.actionOn({ config: Sens_mouse_move
+                    , fun: function(r){
+                        const val=r.sensorValueOf(Sens_mouse_move);
+                        stdout.style.left=val.clientX+"px";
+                        stdout.style.top=val.clientY+"px";
+                        }
+                    , times: SC.forever })
+      , SC.seq(
+          SC.action(function(r){
+            stdout.style.left=oldX+"px";
+            stdout.style.top=oldY+"px";
+            })
+        , SC.write("Mouve canceled.\n")
+          )
+        )
+    , SC.seq(
+        SC.action(function(r){
+          const val=r.sensorValueOf(Sens_mouse_up);
+          if(val){
+            stdout.style.left=val.clientX+"px";
+            stdout.style.top=val.clientY+"px";
+            }
+          })
+      , SC.write("Move done.\n")
+        )
+      )
+    )
+  );
+
+/*
+The clock needs only to be activated when specific DOM events are triggered. So
+here one don't bind to a periodic sensor but only to those specific sensors.
+As one can see here, clock ticks in SugarCubes don't imply periodicity.
+*/
+main.bindTo(Sens_mouse_down);
+main.bindTo(Sens_mouse_up);
+main.bindTo(Sens_mouse_move);
+main.bindTo(Sens_kpress);
+
+/*
+The following program awaits Evt_kpress_esc and then forces a burst reaction
+for on more instant (instruction SC.next()). 
+Burst reactions also called «reactions» are the execution of one ore more
+consecutive instants executed contiguously and atomically form the point of
+view of the external environment.
+This is a new feature of SugarCubes introduced by Claude Lion.
+A Burst reaction is a finite number of consecutive instant and so should always
+terminates to preserve the reactivity property of a SugarCubes reaction.
+Why one uses that here ?
+The reactive machine is paced by the 4 sensors : (i) mouse down, (ii) mouse
+move, (iii) mouse up, (iv) and key press.
+That means that : each time one of those sensors are triggered, the reactive
+machine is triggered.
+In the case of Evt_kpress_esc and Sens_mouse_up those two events are part of a
+preemption decision. So, the eventual reaction to the preemption is postponed
+to the next instant (according to the Boussinot's paradigm). So one uses the
+SC.next() to burst one more instant in the same reaction to be sure that the
+reaction to the preemption is triggered in time.
+*/
+main.addProgram(
+  SC.repeatForever(SC.await(Evt_kpress_esc), SC.next())
+  );
+main.addProgram(
+  SC.repeatForever(SC.await(Sens_mouse_up), SC.next())
+  );
+
+</script>
+</body>
+</html>

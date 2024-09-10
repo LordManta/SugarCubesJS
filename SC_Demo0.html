@@ -47,7 +47,7 @@ the repeat instruction do not restart p in that very same instant, but wait for
 the next instant before restarting p.
 */
 const program1=SC.repeat(3, SC.await(e)
-                              , SC.write("event &e is generated !\n"));
+                              , SC.write("event &e is generated !"));
 const program2=SC.repeat(3, SC.pause(5)
                               , SC.generate(e));
 /*

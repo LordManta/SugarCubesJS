@@ -3,8 +3,8 @@
  * Author : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.46.alpha
- * build: 46
+ * version : 5.0.57.alpha
+ * build: 57
  * Copyleft 2014-2024.
  */
 ;
@@ -192,73 +192,128 @@ function NO_FUN(){}
  */
 /*
  * SC_CubeBinding : permet de gérer l'accès aux ressources non définit à
- * l'écriture d'un programme.
+ * l'écriture du programme d'un cube. Le champs sera recherché sur le cube
+ * lorsque ce sera possible. Et une liste de paramètres pourra compléter la
+ * recherche de la ressource si cette dernière est une fonction Javascript.
  * type de binding :
  *  - early : à l'écriture du programme (mode standard)
  *  - standard : à l'insertion dans la machine
  *  - late : à la première activation
  *  - dynamic : à chaque activation
  */
-function SC_CubeBinding(name, p){
-  this.name=name; // nom de la ressource à récupérer
-  this.cube=null; // cube cible où trouver la ressource
-  this.args=undefined;
-  if(undefined!==p){
-    this.p=p;
-    if(undefined!==p.p){
-      this.args=p.p; // paramètres éventuels pour trouver la ressource
-      }
-    else if(undefined!==p.tp){
-      this.tp=p.tp;
-      }
-    else{
-      throw new Error("Invalid use of arguments on binding");
-      }
+function SC_CubeBinding(params){
+  var name;
+  if("string"==typeof(params) && ""!=params){
+    name= params;
     }
-  };
-SC_CubeBinding.prototype={
-  constructor: SC_CubeBinding
-, resolve: function(){
-    if(undefined==this.cube){
-      throw new Error("cube is null or undefined !");
-      }
-    var tgt=this.cube[this.name];
-    if(undefined==tgt){
-      tgt=this.cube._sc_extension[this.name];
-      }
-    if(undefined==tgt){
-      console.error("target not found : ", this.name, this.cube);
-      return this;
-      }
-    else if("function"==typeof(tgt)){
-      if(undefined!==this.args){
-        tgt = tgt.bind(this.cube, this.args);
+  else if("string"!=typeof(params.name) || ""==params.name){
+    throw new Error("No name provided for Cube Binding");
+    }
+  else{
+    name= params.name;
+    }
+  this.name= name; // nom de la ressource à récupérer
+  this.cube= null; // cube cible où trouver la ressource
+  this.args= undefined;
+/*
+Compatibilté avec du vieux code ... Va faloir purger...
+*/
+  if(2==arguments.length){
+    var p=arguments[1];
+    if(undefined!==p){
+      this.p=p;
+      if(undefined!==p.p){
+        this.args=p.p; // paramètres éventuels pour trouver la ressource
         }
-      else if(undefined!==this.tp){
-        tgt = tgt.bind(this.cube, this.cube[this.tp]);
+      else if(undefined!==p.tp){
+        this.tp=p.tp;
         }
       else{
-        tgt = tgt.bind(this.cube);
+        throw new Error("Invalid use of arguments on binding");
         }
       }
-    return tgt;
     }
-, setArgs: function(a){
-    this.args=a;
-    }
-, setCube: function(aCube){
-    this.cube=aCube;
-    }
-, toString: function(){
-    return "@."+this.name+"";
-    }
-, clone: function(){
-    if(this.p){
-      return new SC_CubeBinding(this.name, this.p);
-      }
-    return new SC_CubeBinding(this.name);
+  else if(undefined!==params.p){
+    this.args=params.p; // paramètres éventuels pour trouver la ressource
     }
   };
+Object.defineProperty(SC_CubeBinding.prototype, "resolve"
+, { enumerable: true
+  , value: function(){
+      if(undefined==this.cube){
+        throw new Error("cube is null or undefined !");
+        }
+      var tgt= this.cube[this.name];
+/*
+En cas d'échec on cherche dans la _sc_extension.
+*/
+      if(undefined==tgt){
+        tgt=this.cube._sc_extension[this.name];
+        }
+/*
+Si c'est pas encore dispo on met un warning...
+*/
+      if(undefined==tgt){
+        console.warn("target still not found : ", this.name, this.cube);
+        return this;
+        }
+/*
+Si c'est une fonction on regarde si il y a des paramètres...
+*/
+      else if("function"==typeof(tgt)){
+        if(undefined!==this.args){
+          tgt= function(t, args){
+	    console.warn("apply wrapper on", this, t, args);
+	    t.apply(this, this.args);
+	    }.bind(this.cube, tgt, this.args);
+          }
+        else if(undefined!==this.tp){
+          tgt= tgt.bind(this.cube, this.cube[this.tp]);
+          }
+        else{
+          tgt= tgt.bind(this.cube);
+          }
+        }
+      return tgt;
+      }
+  , writable: false
+    }
+  );
+Object.defineProperty(SC_CubeBinding.prototype, "toString"
+, { enumerable: true
+  , value: function(){
+      return "@."+this.name+"";
+      }
+  , writable: false
+    }
+  );
+//Object.defineProperty(SC_CubeBinding.prototype, "setArgs"
+//, { enumerable: true
+//  , value: function(a){
+//      this.args=a;
+//      }
+//  , writable: false
+//    }
+//  );
+Object.defineProperty(SC_CubeBinding.prototype, "setCube"
+, { enumerable: true
+  , value: function(aCube){
+      this.cube=aCube;
+      }
+  , writable: false
+    }
+  );
+Object.defineProperty(SC_CubeBinding.prototype, "clone"
+, { enumerable: true
+  , value: function(){
+      if(this.p){
+        return new SC_CubeBinding(this.name, this.p);
+        }
+      return new SC_CubeBinding(this.name);
+      }
+  , writable: false
+    }
+  );
 Object.defineProperty(SC_CubeBinding.prototype, "isBinding"
                           , {enumerable: false
                              , value: true
@@ -8673,6 +8728,12 @@ var SC={
     extensions.prg=p;
     return this.cubify(extensions);
     }
+, addToSelf: function(p){
+    if(p && p.isAnSCProgram){    
+      return this.generate(SC.my("SC_cubeAddBehaviorEvt"), p)
+      }
+    throw new Error("Invalid parameter: "+p);
+    }
 , killSelf: function(){
     return this.generate(SC.my("SC_cubeKillEvt"))
     }
@@ -8691,6 +8752,10 @@ var SC={
 , write: function(msg){
     return new SC_GenerateOne(SC_WRITE_ID, msg);
     }
+/*
+Attention log n'est pas conforme avec le modèle réactif. Il est utilisé dans
+certains cas pour débugger un programme réactif
+*/
 , log: function(msg){
     return new SC_Log(msg);
     }
@@ -8775,7 +8840,7 @@ Changing many things :
     want to build.
  */
   Object.defineProperty(SC, "sc_build"
-                          , { value: 46
+                          , { value: 57
                             , writable: false
                               }
                           );
@@ -8851,10 +8916,13 @@ Changing many things :
                             , writable: false
                               }
                           );
+/*
+Pas sur que ça reste c'est trop de niche...
+*/
   Object.defineProperty(SC, "toCellFun"
   , { value: function(tgt, evt, trace){
         return function(e, trace, val, re){
-          var v=re.getValuesOf(e);
+          const v= re.getValuesOf(e);
           if(trace){
             console.log("toCellFun", this, re, evt)
           }

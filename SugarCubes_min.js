@@ -3,8 +3,8 @@
  * Authors : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.46.alpha
- * build: 46
+ * version : 5.0.57.alpha
+ * build: 57
  * Copyleft 2014-2024.
  */
 ;
@@ -78,66 +78,99 @@ const SC_Global_Manager={
   };
 Object.freeze(SC_Global_Manager);
 function NO_FUN(){}
-function SC_CubeBinding(name, p){
-  this.name=name; 
-  this.cube=null; 
-  this.args=undefined;
-  if(undefined!==p){
-    this.p=p;
-    if(undefined!==p.p){
-      this.args=p.p; 
-      }
-    else if(undefined!==p.tp){
-      this.tp=p.tp;
-      }
-    else{
-      throw new Error("Invalid use of arguments on binding");
-      }
+function SC_CubeBinding(params){
+  var name;
+  if("string"==typeof(params) && ""!=params){
+    name= params;
     }
-  };
-SC_CubeBinding.prototype={
-  constructor: SC_CubeBinding
-, resolve: function(){
-    if(undefined==this.cube){
-      throw new Error("cube is null or undefined !");
-      }
-    var tgt=this.cube[this.name];
-    if(undefined==tgt){
-      tgt=this.cube._sc_extension[this.name];
-      }
-    if(undefined==tgt){
-      console.error("target not found : ", this.name, this.cube);
-      return this;
-      }
-    else if("function"==typeof(tgt)){
-      if(undefined!==this.args){
-        tgt = tgt.bind(this.cube, this.args);
+  else if("string"!=typeof(params.name) || ""==params.name){
+    throw new Error("No name provided for Cube Binding");
+    }
+  else{
+    name= params.name;
+    }
+  this.name= name; 
+  this.cube= null; 
+  this.args= undefined;
+  if(2==arguments.length){
+    var p=arguments[1];
+    if(undefined!==p){
+      this.p=p;
+      if(undefined!==p.p){
+        this.args=p.p; 
         }
-      else if(undefined!==this.tp){
-        tgt = tgt.bind(this.cube, this.cube[this.tp]);
+      else if(undefined!==p.tp){
+        this.tp=p.tp;
         }
       else{
-        tgt = tgt.bind(this.cube);
+        throw new Error("Invalid use of arguments on binding");
         }
       }
-    return tgt;
     }
-, setArgs: function(a){
-    this.args=a;
-    }
-, setCube: function(aCube){
-    this.cube=aCube;
-    }
-, toString: function(){
-    return "@."+this.name+"";
-    }
-, clone: function(){
-    if(this.p){
-      return new SC_CubeBinding(this.name, this.p);
-      }
-    return new SC_CubeBinding(this.name);
+  else if(undefined!==params.p){
+    this.args=params.p; 
     }
   };
+Object.defineProperty(SC_CubeBinding.prototype, "resolve"
+, { enumerable: true
+  , value: function(){
+      if(undefined==this.cube){
+        throw new Error("cube is null or undefined !");
+        }
+      var tgt= this.cube[this.name];
+      if(undefined==tgt){
+        tgt=this.cube._sc_extension[this.name];
+        }
+      if(undefined==tgt){
+        console.warn("target still not found : ", this.name, this.cube);
+        return this;
+        }
+      else if("function"==typeof(tgt)){
+        if(undefined!==this.args){
+          tgt= function(t, args){
+	    console.warn("apply wrapper on", this, t, args);
+	    t.apply(this, this.args);
+	    }.bind(this.cube, tgt, this.args);
+          }
+        else if(undefined!==this.tp){
+          tgt= tgt.bind(this.cube, this.cube[this.tp]);
+          }
+        else{
+          tgt= tgt.bind(this.cube);
+          }
+        }
+      return tgt;
+      }
+  , writable: false
+    }
+  );
+Object.defineProperty(SC_CubeBinding.prototype, "toString"
+, { enumerable: true
+  , value: function(){
+      return "@."+this.name+"";
+      }
+  , writable: false
+    }
+  );
+Object.defineProperty(SC_CubeBinding.prototype, "setCube"
+, { enumerable: true
+  , value: function(aCube){
+      this.cube=aCube;
+      }
+  , writable: false
+    }
+  );
+Object.defineProperty(SC_CubeBinding.prototype, "clone"
+, { enumerable: true
+  , value: function(){
+      if(this.p){
+        return new SC_CubeBinding(this.name, this.p);
+        }
+      return new SC_CubeBinding(this.name);
+      }
+  , writable: false
+    }
+  );
 Object.defineProperty(SC_CubeBinding.prototype, "isBinding"
                           , {enumerable: false
                              , value: true
@@ -7994,6 +8027,12 @@ var SC={
     extensions.prg=p;
     return this.cubify(extensions);
     }
+, addToSelf: function(p){
+    if(p && p.isAnSCProgram){    
+      return this.generate(SC.my("SC_cubeAddBehaviorEvt"), p)
+      }
+    throw new Error("Invalid parameter: "+p);
+    }
 , killSelf: function(){
     return this.generate(SC.my("SC_cubeKillEvt"))
     }
@@ -8078,7 +8117,7 @@ var SC={
     }
   };
   Object.defineProperty(SC, "sc_build"
-                          , { value: 46
+                          , { value: 57
                             , writable: false
                               }
                           );
@@ -8156,7 +8195,7 @@ var SC={
   Object.defineProperty(SC, "toCellFun"
   , { value: function(tgt, evt, trace){
         return function(e, trace, val, re){
-          var v=re.getValuesOf(e);
+          const v= re.getValuesOf(e);
           if(trace){
             console.log("toCellFun", this, re, evt)
           }

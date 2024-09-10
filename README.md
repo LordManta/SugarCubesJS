@@ -3,7 +3,7 @@
 **Authors:** Jean-Ferdy Susini, Olivier Pons, Claude Lion\
 **Created:** 2/12/2014 9:23 PM\
 **Version:** 5.0.23.alpha\
-**Build**: 47\
+**Build**: 58\
 **Copyleft 2014-2024**
 
 A *Javascript* implementation of the reactive programming framework
