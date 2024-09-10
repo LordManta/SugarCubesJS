@@ -3,8 +3,8 @@
  * Author : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.57.alpha
- * build: 57
+ * version : 5.0.70.alpha
+ * build: 70
  * Copyleft 2014-2024.
  */
 ;
@@ -263,9 +263,9 @@ Si c'est une fonction on regarde si il y a des paramètres...
       else if("function"==typeof(tgt)){
         if(undefined!==this.args){
           tgt= function(t, args){
-	    console.warn("apply wrapper on", this, t, args);
-	    t.apply(this, this.args);
-	    }.bind(this.cube, tgt, this.args);
+            console.warn("apply wrapper on", this, t, args);
+            t.apply(this, this.args);
+            }.bind(this.cube, tgt, this.args);
           }
         else if(undefined!==this.tp){
           tgt= tgt.bind(this.cube, this.cube[this.tp]);
@@ -428,7 +428,7 @@ var _SC={
         return false;
         }
       return (evt instanceof SC_EventId)
-             ||(evt instanceof SC_CubeBinding);
+             || (evt instanceof SC_CubeBinding);
       }
   , checkStrictEvent: function(evt){
       if(! this.isStrictEvent(evt)){
@@ -934,7 +934,20 @@ transcription réactive des événements du DOM => plus de fonction newValue()..
     else{
       this.dom_targets=[];
       }
-    const handler=SC_Global_Manager.updateSensor.bind(SC_Global_Manager, this)
+    const times= params.times?parseInt(params.times):-1;
+    const timer= { count: isNaN(times)?-1:times };
+    console.warn("counting trigger", params, timer);
+    const handler= (0>=timer.count)
+        ?SC_Global_Manager.updateSensor.bind(SC_Global_Manager, this)
+        :function(timer, evt){
+          console.warn("counting trigger", timer.count);
+          if(timer.count-->0){
+            SC_Global_Manager.updateSensor.call(SC_Global_Manager, this, evt);
+            }
+          else{
+            this.release();
+            }
+          }.bind(this, timer);
     Object.defineProperty(this, "release"
            , { value: function(handler, some){
                  const rm=(some && "array"==typeof(some))?some
@@ -950,8 +963,7 @@ transcription réactive des événements du DOM => plus de fonction newValue()..
     if(this.dom_targets){
       for(var t of this.dom_targets){
         if(t.evt && "string"==typeof(t.evt)){
-          t.target.addEventListener(t.evt
-             , handler);
+          t.target.addEventListener(t.evt, handler);
           }
         }
       Object.defineProperty(this, "addLink"
@@ -8804,26 +8816,6 @@ certains cas pour débugger un programme réactif
       }
     throw new Error("invalid object property name", name);
     }
-, send: function(m, evt, v){
-    return SC.action(function(evt, v){
-      this.addEntry(evt, v);
-      }.bind(m, evt, v))
-    }
-,
-/*
-Claude : intégration du externalEvent mais on retire deux paramètres : le
-sensor et la machine (cela est du au nouveau status de sensor en SugarCubes).
- */
-  externalEvent: function externalEvent(pElt_target, ps_DomEvt, pn_nbreFois) {
-    if(undefined===pn_nbreFois){ pn_nbreFois=-1; }
-    const pSensor=new SC.sensorize({
-            name: ''+ Elt_target+'.'+ps_DomEvt
-          , dom_targets: [{ target: pElt_target, evt: ps_DomEvt }]
-          , pn_nbreFois: pn_nbreFois
-          , owned: true
-            });
-    return pSensor
-    }
   };
 /*
  *** New API
@@ -8840,12 +8832,31 @@ Changing many things :
     want to build.
  */
   Object.defineProperty(SC, "sc_build"
-                          , { value: 57
+                          , { value: 70
                             , writable: false
                               }
                           );
   Object.defineProperty(SC, "writeInConsole"
                           , { value: console.log.bind(console)
+                            , writable: false
+                              }
+                          );
+/*
+Claude : intégration du externalEvent mais on retire deux paramètres : le
+sensor et la machine (cela est du au nouveau status de sensor en SugarCubes).
+Je suis pas sur de l'utilisation correcte du paramètre times...
+*/
+ Object.defineProperty(SC, "externalEvent"
+                          , { value: function(pElt_target, ps_DomEvt, times) {
+                                if(undefined===times || isNaN(times)){ times=-1; }
+                                const pSensor= SC.sensor({
+                                        name: Elt_target+'.'+ps_DomEvt
+                                      , dom_targets: [ { target: pElt_target, evt: ps_DomEvt } ]
+                                      , times: parseInt(times)
+                                      , owned: true
+                                        });
+                                return pSensor
+                                }
                             , writable: false
                               }
                           );
@@ -8970,6 +8981,7 @@ Pas sur que ça reste c'est trop de niche...
                                   p.delay= params.delay;
                                   p.async= params.async;
                                   p.dom_targets= params.dom_targets;
+                                  p.times= params.times;
                                   }
                                 return new SC_SensorId(p);
                                 }
@@ -9193,6 +9205,21 @@ Instruction parameters:
                            +cond);
             }
           return new SC_PauseUntil(cond);
+          }
+    , writable: false
+      }
+    );
+  Object.defineProperty(SC, "send"
+  , { value: function(m, evt, v){
+          if(m && m.isSCClock){
+            if(evt && evt instanceof SC_EventId){
+              return SC.action(function(evt, v){
+                this.addEntry(evt, v);
+                }.bind(m, evt, v));
+              }
+            throw new Error("target event is incorrect "+evt);
+            }
+          throw new Error("target clock is not set: "+m);
           }
     , writable: false
       }

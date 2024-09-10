@@ -48,8 +48,13 @@ const Sens_mouse_up= SC.sensor("mouse_up"
 const Sens_mouse_move=SC.sensor("mouse_move"
   , { dom_targets: [ { target: window, evt: "mousemove" } ]
       });
+/*
+The keypress sensor will be triggered only 4 times. And after that will no
+produce any new value at any time...
+*/
 const Sens_kpress=SC.sensor("kpress"
   , { dom_targets: [ { target: window, evt: "keypress" } ]
+    , times: 4
       });
 
 /*

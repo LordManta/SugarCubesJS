@@ -2,10 +2,13 @@
 
 **Authors:** Jean-Ferdy Susini, Olivier Pons, Claude Lion\
 **Created:** 2/12/2014 9:23 PM\
-**Version:** 5.0.23.alpha\
-**Build**: 58\
+**Version:** 5.0.71.alpha\
+**Build**: 71\
 **Copyleft 2014-2024**
 
+_This implementation is still in alpha stage, cause API is still mostly subject
+to big changes..._\
+\
 A *Javascript* implementation of the reactive programming framework
 *SugarCubes* v5. It was originally designed on top of *Java*.
 It is based on Frederic Boussinot's *synchronous/reactive paradigm* proposed in
