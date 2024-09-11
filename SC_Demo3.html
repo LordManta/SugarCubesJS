@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Synchronisation.</title>
+<script type="text/javascript" src="SugarCubes_min.js">
+</script>
+<style>
+#stdout {
+  width:300px;
+  height:200px;
+}
+#Workspace1,#Workspace2 {
+  border:1px solid #000000;
+}
+#killer{
+  position: absolute;
+  top :60px;
+  display:none;
+  font-size: 4em;
+  color:red;
+  text-align:center;
+  width:100%;
+  background:yellow;
+}
+</style>
+</head>
+<body>
+Click bouncing balls to make them disappear...<br/>
+<p id ="killer"> The End !!!! </p>
+<canvas id="Workspace1" width="400" height="300"></canvas>
+<textarea id="stdout"></textarea>
+<canvas id="Workspace2" width="400" height="300"></canvas>
+<br>
+<button onclick="main.addEntry(Evt_global_kill);">Kill them all !</button>
+<script type="text/javascript">
+/*
+One gets references to the main components of the GUI.
+*/
+const workspace1= document.getElementById("Workspace1");
+const ctx1= workspace1.getContext("2d");
+const workspace2= document.getElementById("Workspace2");
+const ctx2= workspace2.getContext("2d");
+const stdout= document.getElementById("stdout");
+/*
+One creates a main clock and provide stdout handler.
+*/
+const main= SC.clock({
+  dumpTraceFun: function(msgs){
+    for(var i in msgs){
+      stdout.value+=msgs[i];
+      }
+    }
+  });
+main.setStdOut(function(msg){
+  stdout.value+= msg;
+  });
+/*
+One defines a mouse down sensor which will be activated when the user clicks in
+the first workspace.
+*/
+const Sens_mouse_down= SC.sensor("Sens_mouse_down"
+, { dom_targets: [
+      { target: workspace1
+      , evt: "mousedown"
+        }
+      ]
+  }
+  );
+
+/*
+One uses reactive events to handle most of the application logic.
+*/
+const Evt_global_kill= SC.evt("Evt_global_kill");
+const Evt_alive= SC.evt("Evt_alive");
+const Evt_requestDisplay1= SC.evt("Evt_requestDisplay1");
+const Evt_requestDisplay2= SC.evt("Evt_requestDisplay2");
+
+/*
+For each workspace, one defines a reactive program which handles request events
+for the workspace:
+  - Evt_requestDisplay1 for workspace1
+  - Evt_requestDisplay2 for workspace2
+One uses actionOn() instruction to do scan all object that request a draw. It
+uses 4 parameters:
+ 1. the event to scan.
+ 2. the function to execute if the scanned event is present
+ 3. the function to execute if the scanned event is absent
+ 4. the number of consecutive instants during which the scan elapses.
+*/
+main.addProgram(
+  SC.actionOn(Evt_requestDisplay1, function(m){
+/*
+One first retrieves the list of objects that have generated the
+Evt_requestDisplay1 event.
+*/
+      const toDraw= m.getValuesOf(Evt_requestDisplay1);
+/*
+Then one clears the area of the workspace.
+*/
+      ctx1.clearRect(0, 0, workspace1.width, workspace1.height);
+      if(toDraw){
+/*
+If the list exists one iterates through each object to call the draw method
+passing ctx1 has drawing context.
+*/
+        for(var obj of toDraw){
+          obj.draw(ctx1);
+          }
+        }
+      }
+  , function(){
+/*
+If the Evt_requestDisplay1 is not present then no one has requested to be
+drawn. One just clear the workspace area.
+*/
+      ctx1.clearRect(0, 0, workspace1.width, workspace1.height);
+    }, SC.forever)
+  );
+
+/*
+The workspace2 has pretty much the same behavior except that it only draws one
+object each two.
+*/
+main.addProgram(
+  SC.actionOn(Evt_requestDisplay2, function(m){
+    const toDraw= m.getValuesOf(Evt_requestDisplay2);
+    ctx2.clearRect(0, 0, workspace2.width, workspace2.height);
+    if(toDraw){
+      var i=0;
+      for(var obj of toDraw){
+        if(0==i++%2){ obj.draw(ctx2); }
+        }
+      }
+    }
+  , function(){
+      ctx2.clearRect(0, 0, workspace2.width, workspace2.height);
+      }, SC.forever)
+  );
+
+/*
+One defines a Ball object which will be displayed in workspaces.
+*/
+function Ball(){
+/*
+Ball has an x and y coordinates which are initially set to a random number
+according to the width and height of a workspace respectively.
+It also has speed along x and y axes which is set randomly between 0.25 to 2.
+*/
+  this.x= Math.random()*400;
+  this.y= Math.random()*300;
+  this.vx= (Math.random()>0.5?1:-1)*(Math.random()*2+0.25);
+  this.vy= (Math.random()>0.5?1:-1)*(Math.random()*2+0.25);
+/*
+Balls radius is also randomly set ; as well as the background color.
+*/
+  this.r= Math.random()*10+10;
+  this.color= "rgb("+Math.floor(Math.random()*255)
+                   +", "+Math.floor(Math.random()*255)
+                   +", "+Math.floor(Math.random()*255)
+                   +")"
+                 ;
+  this.clicked= false;
+/*
+One builds an event that is used to kill (preempt) the behavior of a Ball when
+a user clicks on it in the workspace1.
+*/
+  const Evt_suicid=SC.evt("Evt_suicid");
+/*
+When a ball object is constructed, on decides that its behavior is
+automatically added to the clock.
+*/
+  main.addProgram(
+/*
+The preemption of the behavior of a ball is eventually due to a global event
+allowing you to kill all the balls with a single shot (Evt_global_kill), or the
+ball's suicide event that only the object itself should be able to generate.
+One uses a disjunction for that to evaluate that configuration.
+*/
+       SC.kill(SC.or(Evt_global_kill, Evt_suicid)
+/*
+The behavior is composed of 2 synchronous parallel branches. The first
+branch infinitely repeats a movement of the ball according to its speed,
+with a bounce on the edges of the canvas. One calls this an «inertial behavior».
+Then it generates the valued event requestDisplay which will be listened to by
+0 or more Workspaces (here we have 2! Which are perfectly synchronized).
+Finally we generate the alive event to indicate that one is still alive.
+*/
+         , SC.par(
+             SC.repeatForever(
+               SC.action({ t: this, f: "move" })
+             , SC.generate(Evt_requestDisplay1, this)
+             , SC.generate(Evt_requestDisplay2, this)
+             , SC.generate(Evt_alive)
+               )
+/*
+The second parallel branch repeats the following behavior forever: One
+waits for the Sens_mouse_down event which triggers an action which checks if
+the mouse_down event corresponds to a click on the object. If this is the case, we
+set clicked to false and postpone the sequence to the next instant.
+One will then test the value of clicked and if it is true then one generates the
+event suicide.
+*/
+           , SC.repeatForever(
+               SC.await(Sens_mouse_down)
+             , SC.action({ t: this, f: "checkClick" })
+             , SC.pause()
+             , SC.test({ t: this, f: "clicked" }
+               , SC.seq(
+                   SC.generate(Evt_suicid)
+                 , SC.write("killed ! ")
+                   )
+                 )
+               )
+             )
+       )
+     );
+};
+Ball.prototype.draw= function(ctx){
+  ctx.fillStyle= this.color;
+  ctx.beginPath();
+  ctx.arc(this.x, this.y, this.r, 0, 2*Math.PI, false);
+  ctx.fill();    
+  };
+/*
+The move method moves the ball according to its speed (there is no
+friction). The ball bounces off the edges of the canvas. There, we call this
+method in the context of SugarCubes, and this is no longer correctly defined
+we then use the variable me which is worth this at the time of construction of
+the object.
+*/
+Ball.prototype.move= function(){
+/*
+Inertial behavior : at each instant a ball is translated by its speed vector.
+*/
+    this.x+= this.vx;
+    this.y+= this.vy;
+/*
+Then one control bouncing on workspace borders.
+*/
+    const bl= (this.x-this.r)<0;
+    const br= (this.x+this.r)>400;
+    const bt= (this.y-this.r)<0;
+    const bb= (this.y+this.r)>300;
+/*
+One simulates elastic bouncing by simply inverting speed vector on the
+orthogonal axe.
+*/
+    if((bl && this.vx<0) || (br && this.vx>0)){
+      this.vx=-this.vx;
+      }
+    if((bt && this.vy<0) || (bb && this.vy>0)){
+      this.vy=-this.vy;
+      }
+    };
+/*
+This method checks if the mouse pointer coordinates are in the ball or not when
+click occurs.
+*/
+Ball.prototype.checkClick=function(m){
+  const vals=m.sensorValueOf(Sens_mouse_down);
+  const rx=this.x-(vals.clientX-workspace1.offsetLeft);
+  const ry=this.y-(vals.clientY-workspace1.offsetTop);
+  this.clicked=(Math.sqrt(rx*rx+ry*ry)<this.r);
+  }
+
+
+/*
+One creates ten balls in a loop. 
+*/
+for(var i=0; i<10; i++){
+  new Ball();
+  }
+/*
+The last program one adds here call for refreshing the screen and pauses. If
+Evt_alive is present this program resets for the next instant. So it vitually
+implements a loop while Evt_alive is here. But if there is an instant where no
+one has generated Evt_alive (all have been preempted). Then the program ends at
+the next instant revealing the message « The End !! »
+*/
+main.addProgram(
+  SC.resetOn(Evt_alive
+  , SC.action(function(){ power.needRefresh(); })
+  , SC.pause()
+  , SC.action(function(m){
+      document.getElementById("killer").style.display="block";
+      })
+    )
+  );
+
+/*
+One uses a special sensor of SugarCubes called animSensor which synchronized
+ticks on each requestAnimationFrame() of the DOM.
+*/
+const power= SC.animSensor();
+/*
+One binds the main clock on animSensor and mouse down sensor...
+*/
+main.bindTo(power);
+main.bindTo(Sens_mouse_down);
+
+</script>
+</body>
+</html>

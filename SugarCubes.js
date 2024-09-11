@@ -3,8 +3,8 @@
  * Author : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.70.alpha
- * build: 70
+ * version : 5.0.79.alpha
+ * build: 79
  * Copyleft 2014-2024.
  */
 ;
@@ -912,14 +912,21 @@ function SC_SensorId(params){
         }
       }
     else{
-      const b={};
+      const b={ ad: null, posted: false };
       const animDetector=function(b, ts){
+        b.posted= false;
         SC_Global_Manager.updateSensor(this, ts);
-        if(sc_global.requestAnimationFrame)
-        sc_global.requestAnimationFrame(b.ad);
         }.bind(this, b);
-      b.ad=animDetector;
+      b.ad= animDetector;
+      b.posted= true;
       sc_global.requestAnimationFrame(animDetector);
+      Object.defineProperty(this, "needRefresh"
+             , { value: function(b){
+                   if(!b.posted){
+                     b.posted= true;
+                     sc_global.requestAnimationFrame(b.ad);
+                     }
+             }.bind(this, b), writable: false } );
       }
     }
   else{
@@ -8832,7 +8839,7 @@ Changing many things :
     want to build.
  */
   Object.defineProperty(SC, "sc_build"
-                          , { value: 70
+                          , { value: 79
                             , writable: false
                               }
                           );
