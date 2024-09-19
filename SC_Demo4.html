@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Buble Messages</title>
+<script type="text/javascript" src="SugarCubes_min.js">
+</script>
+<style>
+body{
+padding:0;
+margin:0;
+}
+#sc_console {
+  width:300px;
+  height:200px;
+}
+#workspace {
+  border: solid 1px black;
+  margin:0;
+  padding:0;
+}
+#starter{
+  position:absolute;
+  top:0px;
+  margin:0;
+  background-color:rgba(0,0,0,0.2);
+}
+#pic{
+  width:64px;
+  height:40px;
+  border: solid 1px black;
+  vertical-align:middle;
+}
+#mass_meter{
+  width:200px;
+}
+#mouse_tracker{
+  display:inline-block;
+  border-collapse: collapse;
+  border:solid 1px black;
+  width:100px;
+}
+#machine_info{
+  width:198px;
+  display:inline-block;
+  border-collapse: collapse;
+  border:solid 1px black;
+}
+</style>
+</head>
+<body>
+<img src="images/png/Hat.png" alt="" style="display:none;" id="hatsrc"/>
+<audio id="musicplayer" onloadeddata="javascript:main.addEntry(Evt_musicLoaded);"
+       onended="javascript:main.addEntry(Evt_musicEnded);">
+ <source src=""></source>
+ <source src=""></source>
+ <source src=""></source>
+</audio>
+<canvas id="workspace" width="800" height="600">
+</canvas>
+<div style="display:inline-block;">
+<table id="mouse_tracker">
+<tr>
+<th></th>
+<th>x</th>
+<th>y</th>
+</tr>
+<tr>
+<th>
+client
+</th>
+<td id="mouse_x">
+</td>
+<td  id="mouse_y">
+</td>
+</tr>
+<tr>
+<th>
+offset
+</th>
+<td id="mouse_ox">
+</td>
+<td  id="mouse_oy">
+</td>
+</tr>
+<tr>
+<th>
+page
+</th>
+<td id="mouse_px">
+</td>
+<td  id="mouse_py">
+</td>
+</tr>
+<tr>
+<th>
+screen
+</th>
+<td id="mouse_sx">
+</td>
+<td  id="mouse_sy">
+</td>
+</tr>
+</table>
+<table id="machine_info">
+<tr>
+<th>
+toplevel branches:
+<th>
+<td id="toplevelbn">
+0
+</td>
+</tr>
+<tr>
+<td>
+<button onclick="controlMachine(event);">Pause</button>
+</td>
+<td>
+<button id="stepper_btn">Step</button>
+</td>
+</tr>
+<tr>
+<th>
+instant:
+</th>
+<td id="instantNumber">
+</td>
+</tr>
+</table>
+<br/>
+<textarea id="sc_console" style="display:inline">
+</textarea>
+</div>
+<p id="starter">
+Enter a message :<br/>
+(20 characters max)<br/>
+<input type="text" id="msgText" value="Merry Christmass !"/>
+<button onclick="main.addEntry(Evt_startGame);">Start</button>
+</p>
+<p style="margin:0;padding:0;">
+Number of bubbles : <span id="compteur"></span><span style="padding-left:1em">Click for screenshot :</span><img onclick="main.addEntry(Evt_screenShot)" id="pic"/><br>
+Total area of bubbles= <span id="mass_val">0</span> 
+<meter id="mass_meter" min="0" max="150" low="90" optimum="99" high="101" value="100"/>
+</p>
+<p>Icons by: <a href="http://www.fasticon.com">Fast Icon.</a></p>
+<script type="text/javascript">
+
+/*
+References to elements of the DOM 
+*/
+const sc_console= document.getElementById("sc_console");
+const workspace= document.getElementById("workspace");
+const counter= document.getElementById("compteur");
+const image= document.getElementById("hatsrc");
+const starterBlock= document.getElementById("starter");
+const screenShot= document.getElementById("pic");
+const massMetter= document.getElementById("mass_meter");
+const massVal= document.getElementById("mass_val");
+const mouse_client_x= document.getElementById("mouse_x");
+const mouse_client_y= document.getElementById("mouse_y");
+const mouse_offset_x= document.getElementById("mouse_ox");
+const mouse_offset_y= document.getElementById("mouse_oy");
+const mouse_page_x= document.getElementById("mouse_px");
+const mouse_page_y= document.getElementById("mouse_py");
+const mouse_screen_x= document.getElementById("mouse_sx");
+const mouse_screen_y= document.getElementById("mouse_sy");
+const instant_n_cell= document.getElementById("instantNumber");
+const toplevel_bn= document.getElementById("toplevelbn");
+const musicPlayer= document.getElementById("musicplayer");
+const stepper= document.getElementById("stepper_btn");
+
+const Sens_stepper= SC.sensor("stepper"
+    , { dom_targets: [ { target: stepper, evt: "click" } ] });
+/*
+Functions used to control clock ticking (periodically or by step clicking a
+button).
+*/
+function controlMachine(evt){
+  if("Resume"==evt.target.textContent){
+    main.bindTo(periodic);
+    }
+  else{
+    main.disconnectFrom(periodic);
+    }
+  evt.target.textContent=(("Pause"==evt.target.textContent)?"Resume":"Pause");
+  }
+/*
+Sensors used to control clock reactions and clock definition.
+*/
+const periodic= SC.periodic({ delay: 20 });
+var main= SC.clock({
+  dumpTraceFun: function(msgs){
+    for(var i in msgs){
+      sc_console.value+= msgs[i];
+      }
+    }
+  });
+
+main.bindTo(Sens_stepper);
+main.bindTo(periodic);
+/*
+stout redirection.
+*/
+function writeInConsole(msg){
+  sc_console.value+=msg;
+  console.log.apply(console, arguments)
+  }
+main.setStdOut(writeInConsole);
+/*
+display clock information :
+ - number of instants elapsed
+ - number of top level parallel branch of the program
+*/
+function updateInstantNumber(m){
+  instant_n_cell.textContent= main.getInstantNumber();
+  }
+function updateTLBN(m){
+  toplevel_bn.textContent= main.getTopLevelParallelBranchesNumber();
+  }
+main.addProgram(SC.action(updateInstantNumber, SC.forever));
+main.addProgram(SC.action(updateTLBN, SC.forever));
+
+/*
+Remove predefined behavior of some gesture on the workspace.
+*/
+workspace.addEventListener("touchstart", function(evt){ evt.preventDefault() });
+
+/*
+Declaration of events.
+*/
+const Evt_screenShot= SC.evt("screenShot");
+const Evt_global_kill= SC.evt("Evt_global_kill");
+const Evt_requestDisplay= SC.evt("requestDisplay");
+const Evt_requestDisplayNotCounted= SC.evt("requestDisplayNotCounted");
+const Evt_requestDisplayHat= SC.evt("requestDisplayHat");
+const Evt_collision= SC.evt("collision");
+const Evt_eater= SC.evt("eater");
+const Evt_whoIsFatter= SC.evt("whoIsFatter");
+const Evt_bubbleArea= SC.evt("bubbleArea");
+const Evt_musicLoaded= SC.evt("musicLoaded");
+const Evt_musicEnded= SC.evt("musicEnded");
+const Evt_playsong= SC.evt("playsong");
+const Evt_stopAudio= SC.evt("stopAudio");
+const Evt_musicChange= SC.evt("changeMusic");
+const Evt_startGame= SC.evt("startGame");
+
+/*
+Binding for system's sensors.
+*/
+const Sens_mass_meter_mouse_down= SC.sensor({ name: "mass_meter_mouse_down"
+    , dom_targets: [ { target: massMetter, evt: "mousedown" } ] });
+const Sens_mouse_click= SC.sensor({ name: "mouse_click"
+    , dom_targets: [ { target: workspace, evt: "click" } ] });
+const Sens_mouse_down= SC.sensor({ name: "mouse_down"
+    , dom_targets: [ { target: workspace, evt: "mousedown" } ] });
+const Sens_mouse_up= SC.sensor({ name: "mouse_up"
+    , dom_targets: [ { target: workspace, evt: "mouseup" } ] });
+const Sens_mouse_move= SC.sensor({ name: "mouse_move"
+    , dom_targets:[ { target: workspace, evt: "mousemove" } ] });
+const Sens_touch_start= SC.sensor({ name: "touch_start"
+    , dom_targets:[ { target: workspace, evt: "touchstart" } ] });
+const Sens_touch_end= SC.sensor({ name: "touch_end"
+    , dom_targets:[ { target: workspace, evt: "touchend" } ] });
+const Sens_touch_cancel= SC.sensor({ name: "touch_cancel"
+    , dom_targets:[ { target:workspace, evt:"touchcancel" } ] });
+const Sens_touch_move = SC.sensor({ name: "touch_move"
+    , dom_targets:[ { target: workspace, evt: "touchmove" } ] });
+
+/*
+programs that track the mouse cursor position in the workspace.
+*/
+function trackEvent(theEvt){
+  const the_DEFAULT= "--";
+  main.addProgram(
+    SC.repeatForever(
+      SC.await(theEvt)
+    , SC.action(function(m){
+         const val= m.sensorValueOf(theEvt);
+         mouse_client_x.textContent= val?val.clientX:the_DEFAULT;
+         mouse_client_y.textContent= val?val.clientY:the_DEFAULT;
+         mouse_offset_x.textContent= val?val.offsetX:the_DEFAULT;
+         mouse_offset_y.textContent= val?val.offsetY:the_DEFAULT;
+         mouse_page_x.textContent= val?val.x:the_DEFAULT;
+         mouse_page_y.textContent= val?val.y:the_DEFAULT;
+         mouse_screen_x.textContent= val?val.screenX:the_DEFAULT;
+         mouse_screen_y.textContent= val?val.screenY:the_DEFAULT;
+       })
+      )
+    );
+  };
+trackEvent(Sens_mouse_down);
+trackEvent(Sens_mouse_move);
+trackEvent(Sens_mouse_up);
+trackEvent(Sens_touch_start);
+trackEvent(Sens_touch_move);
+trackEvent(Sens_touch_end);
+trackEvent(Sens_touch_cancel);
+
+/*
+Simple program to load and play music using an HTML5 audio element.
+*/
+musicPlayer.audioLoad= function(re){
+    writeInConsole("loading and playing ...");
+    const files= re.getValuesOf(Evt_musicChange);
+    if(files){
+      const file= files[0];
+      writeInConsole(""+file+"\n");
+      this.children[0].setAttribute("src", "audio/mp3/"+file+".mp3");
+      this.children[1].setAttribute("src", "audio/m4a/"+file+".m4a");
+      this.children[2].setAttribute("src", "audio/ogg/"+file+".ogg");
+      this.load();
+      }
+    else{
+      writeInConsole("Error\n");
+      }
+    };
+/*
+This is our first cube binding the audio element with a reactive program.
+2 parallel branches defines the beahavior of this audio cube :
+ 1. the first one load a file to play whose name is the value of the event
+    musicChange.
+ 2. the second one awaits awaits musicLoaded event to be sure that audio data
+    are fetched by branch 1 and then awaits playSong event to start playing.
+*/
+main.addProgram(
+  SC.cube(musicPlayer
+  , SC.par(
+      SC.repeatForever(
+        SC.await(Evt_musicChange)
+      , SC.generate(Evt_stopAudio)
+      , SC.actionOn(Evt_musicChange, "audioLoad")
+      , SC.await(Evt_musicLoaded)
+        )
+    , SC.repeatForever(
+        SC.await(Evt_musicLoaded)
+      , SC.kill(Evt_stopAudio
+        , SC.repeatForever(
+            SC.await(Evt_playsong)
+          , SC.action("play")
+            )
+        , SC.action("pause")        
+          )
+        )
+      )
+    )
+  );
+
+/*
+workspace program that listens for objects requesting their drawing through the
+emission of the requestDisplay event. If reactive system trigger drawing too
+fast it can drop frame.
+One uses 3 levels of object to be drawn to be sure that hats are always drawn
+on top Letters which are themselves drawn on top of Bubbles.
+*/
+const the_VOID_ARRAY= [];
+const the_CONTEXT= workspace.getContext("2d");
+workspace._sc_drop= false;
+
+workspace.sc_display=function(m){
+    if(this._sc_drop){
+      console.log("drop frame");
+      }
+    this._sc_drop=true;
+    var toDraw= m.getValuesOf(Evt_requestDisplay);
+    toDraw= toDraw?toDraw:the_VOID_ARRAY;
+    var letters= m.getValuesOf(Evt_requestDisplayNotCounted);
+    letters= letters?letters:the_VOID_ARRAY;
+    var hat= m.getValuesOf(Evt_requestDisplayHat);
+    hat= hat?hat:the_VOID_ARRAY;
+    counter.textContent= toDraw.length;
+    const width= this.width;
+    const height= this.height;
+    window.requestAnimationFrame(function(){
+      the_CONTEXT.clearRect(0, 0, width, height);
+      for(var i= 0; i<toDraw.length; i++){
+        const obj= toDraw[i];
+        obj.draw(the_CONTEXT);
+        }
+      for(var i= 0; i<letters.length; i++){
+        const obj= letters[i];
+        obj.draw(the_CONTEXT);
+        }
+      for(var i= 0; i<hat.length; i++){
+        const obj= hat[i];
+        obj.draw(the_CONTEXT);
+        }
+      workspace._sc_drop= false;
+      });
+    };
+/*
+Program that screen captures the content of the workspace each time the user
+clicks on the corresponding image in the control panel next to the workspace.
+*/
+main.addProgram(
+  SC.cube(workspace
+  , SC.par(
+      SC.actionOn({ config: SC.or(Evt_requestDisplay
+                                , Evt_requestDisplayNotCounted
+                                , Evt_requestDisplayHat)
+      , fun: "sc_display"
+      , times: SC.forever })
+    , SC.repeatForever(
+        SC.await(Evt_screenShot)
+/*
+By default binding of functions are done on the cube object.
+*/
+      , SC.action(function(m){
+            screenShot.src=this.toDataURL("image/png");
+          })
+        )
+      )
+    )
+  );
+</script>
+<script type="text/javascript" src="Hat.js">
+</script>
+<script type="text/javascript" src="Bubble.js">
+</script>
+<script type="text/javascript" src="Letter.js">
+</script>
+<script type="text/javascript">
+starterBlock.sc_act_hide= function(re){
+  this.style.display= "none";
+  };
+starterBlock.Evt_hide= SC.evt("hide");
+starterBlock.sc_act_show= function(re){
+  this.style.display= "";
+  };
+starterBlock.Evt_show= SC.evt("show");
+
+main.addProgram(
+  SC.cube(starterBlock
+  , SC.par(
+      SC.actionOn({ config: "Evt_hide", fun: "sc_act_hide", times: SC.forever })
+    , SC.actionOn({ config: "Evt_show", fun: "sc_act_show", times: SC.forever })
+      )
+    )
+  );
+
+main.addProgram(
+  SC.cube({
+/*
+This function is used to detect the end of the pray/predator phase.
+When it remains only one Bubble...
+*/
+    sc_check: function(m){
+      const data= m.getValuesOf(Evt_requestDisplay);
+      const toDraw=data?data:[];
+      if(1==toDraw.length){
+        m.addEntry(Evt_global_kill);
+        }
+      }
+  , sc_startTheGame: function(c){
+      const finalPos= SC.evt("finalPos");
+/*
+One create a new Hat, the position of that hat at the end of pray/predator
+phase will be the position of the new message.
+*/
+      const hat= new Hat({ fin: finalPos
+                         , disp: Evt_requestDisplayHat
+                         , eat: Evt_eater
+                         , ka: Evt_global_kill
+                         , fat: Evt_whoIsFatter
+                         , sts: Sens_touch_start
+                         , smd: Sens_mouse_down
+                         , stm: Sens_touch_move
+                         , smm: Sens_mouse_move
+                         , ste: Sens_touch_end
+                         , stc: Sens_touch_cancel
+                         , smu: Sens_mouse_up
+                         , ml: Evt_musicChange, mp: Evt_playsong
+                         , mld: Evt_musicLoaded, med: Evt_musicEnded});
+/*
+One creates 20 Bubbles
+*/
+      for(var i=0; i<20; i++){
+        new Bubble({ disp: Evt_requestDisplay
+                   , ba: Evt_bubbleArea
+                   , fat: Evt_whoIsFatter
+                   , sts: Sens_touch_start
+                   , smd: Sens_mouse_down
+                   , eat: Evt_eater
+                   , ka: Evt_global_kill
+                   , col: Evt_collision});
+        }
+/*
+Ones get the user message entered in the text field.
+*/
+      const message= document.getElementById("msgText").value;
+/*
+One creates an object Letter for each character of the message.
+*/
+      for(var i in message){
+        new Letter(message, i, finalPos, Evt_eater
+                 , Evt_requestDisplayNotCounted
+                 , Evt_global_kill);
+        }
+      }
+    }
+  , SC.repeatForever(
+      SC.await(Evt_startGame)
+    , SC.action("sc_startTheGame")
+    , SC.generate(starterBlock.Evt_hide)
+    , SC.pause()
+    , SC.kill(Evt_global_kill
+      , SC.action("sc_check", SC.forever)
+        )
+    , SC.generate(starterBlock.Evt_show)
+      )
+    )
+  );
+main.addProgram(
+  SC.cube(massMetter
+  , SC.repeatForever(
+      SC.kill(Evt_global_kill
+      , SC.actionOn({ config: Evt_bubbleArea, fun: function(m){
+            const areas= m.getValuesOf(Evt_bubbleArea);
+            var somme= 0;
+            for(var v= 0 ; v<areas.length; v++){
+              const r2= Math.floor(areas[v].r);
+              somme+= r2*Math.PI;
+              }
+            if(null==this.bubleValue || 1!=Math.round(somme/this.bubleValue)){
+              this.bubleValue= somme;
+              return;
+              }
+            massVal.textContent= Math.floor(somme);
+            somme/= this.bubleValue;
+            this.value= somme*100;
+            }, times: SC.forever})
+        , SC.action(function(m){ this.bubleValue=null; })
+        )
+      )
+    )
+  );
+
+</script>
+</body>
+</html>

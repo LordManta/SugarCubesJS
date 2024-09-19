@@ -3,8 +3,8 @@
  * Author : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.79.alpha
- * build: 79
+ * version : 5.0.87.alpha
+ * build: 87
  * Copyleft 2014-2024.
  */
 ;
@@ -943,11 +943,9 @@ transcription réactive des événements du DOM => plus de fonction newValue()..
       }
     const times= params.times?parseInt(params.times):-1;
     const timer= { count: isNaN(times)?-1:times };
-    console.warn("counting trigger", params, timer);
     const handler= (0>=timer.count)
         ?SC_Global_Manager.updateSensor.bind(SC_Global_Manager, this)
         :function(timer, evt){
-          console.warn("counting trigger", timer.count);
           if(timer.count-->0){
             SC_Global_Manager.updateSensor.call(SC_Global_Manager, this, evt);
             }
@@ -4147,25 +4145,25 @@ function SC_Cell(params){// {target?:(filed:) sideEffect: init?:}
   if(undefined==params){
     throw new Error("undefined params for SC_Cell");
     }
-  const recell="object"==typeof(params.target);
+  const recell= "object"==typeof(params.target);
   if(recell
     && ("string"!=typeof(params.field)
       || undefined===params.target[params.field])){
      throw new Error("field not specified on target ("+params.field+")");
     }
-  this.params=params;
+  this.params= params;
   };
 SC_Cell.prototype={
   constructor: SC_Cell
 , isAnSCProgram: true
 , bindTo: function(engine, parbranch, seq, path, cube, cinst){
-    const p=this.params;
-    const recell="object"==typeof(p.target);
-    const cell=new SC_Instruction(SC_Opcodes.CELL);
-    cell.itsParent=this;
+    const p= this.params;
+    const recell= "object"==typeof(p.target);
+    const cell= new SC_Instruction(SC_Opcodes.CELL);
+    cell.itsParent= this;
     if(recell){
       Object.defineProperty(cell, "state", {set: (function(nom, x){
-          this[nom]=x;
+          this[nom]= x;
           }).bind(p.target, p.field)
         , get: (function(nom){
           return this[nom];
@@ -4186,8 +4184,8 @@ SC_Cell.prototype={
     cell.TODO=-1;
     cell.futur=null;
     //cell.bindList=[];
-    this.val=function(cell){ return cell.val(); }.bind(this, cell);
-    this.bindTo=function(cell){ return cell; }.bind(this, cell);
+    this.val= function(){ return this.val(); }.bind(cell);
+    this.bindTo= function(){ return this; }.bind(cell);
     return cell;
     }
   };
@@ -8778,23 +8776,35 @@ certains cas pour débugger un programme réactif
 , log: function(msg){
     return new SC_Log(msg);
     }
-, addCell: function(tgt, nom, init, el, fun){
+, addCell: function(tgt, name, init, el, fun){
+    const params= {};
+    if(undefined===tgt || null===tgt){
+      throw new Error("No target specified in "+arguments);
+      }
     if(tgt instanceof SC_Cube){
-      tgt=tgt.o;
+      tgt= tgt.o;
+      }
+    if(undefined==name || "string"!=typeof(name) || ""==name){
+      throw new Error("Invalid field name "+arguments);
+      }
+    if(tgt[name]){
+      throw new Error("Already existing name "+ name);
+      }
+    const fun_name= "_scc_"+name;
+    if(undefined==fun && undefined==tgt[fun_name]){
+      throw new Error("undefined affectatir on "+tgt+" or "+arguments);
       }
     if(fun){
-      tgt["_scc_"+nom]=fun;
+      tgt[fun_name]= fun;
       }
-    if(undefined===tgt["_scc_"+nom]){
-      throw "no affectator for "+nom+" cell is defined";
-      }
-    tgt["$_scc_"+nom]=SC.cell({ init: init
-                              , sideEffect: SC._(tgt,"_scc_"+nom)
-                              , eventList: el
-                              , id: nom});
-    Object.defineProperty(tgt, nom,{ get: (function(nom){
-      return tgt["$_scc_"+nom].val();
-      }).bind(tgt, nom)});
+    params.init= init;
+    params.sideEffect= SC._(tgt, fun_name);
+    params.eventList= el;
+    params.id= name;
+    const cell= tgt["$_scc_"+name]= SC.cell(params);
+    Object.defineProperty(tgt, name, { get: function(init){
+      return this.val();
+      }.bind(cell, params.init)});
     }
 , _: function(tgt, fun){
     return (tgt[fun]).bind(tgt);
@@ -8839,7 +8849,7 @@ Changing many things :
     want to build.
  */
   Object.defineProperty(SC, "sc_build"
-                          , { value: 79
+                          , { value: 87
                             , writable: false
                               }
                           );
@@ -9176,6 +9186,44 @@ Instruction parameters:
   Object.defineProperty(SC, "pauseForever"
   , { value: function(name, params){
         return SC_PauseForEver;
+        }
+    , writable: false
+      }
+    );
+  Object.defineProperty(SC, "addCell"
+  , { value: function(tgt, name, init, el, fun){
+        const params= {};
+        if(undefined===tgt || null===tgt){
+          throw new Error("No target specified in "+arguments);
+          }
+        if(tgt instanceof SC_Cube){
+          tgt= tgt.o;
+          }
+        if(undefined==name || "string"!=typeof(name) || ""==name){
+          throw new Error("Invalid field name "+arguments);
+          }
+        if(tgt[name]){
+          throw new Error("Already existing name "+ name);
+          }
+        const fun_name= "_scc_"+name;
+        if(undefined==fun && undefined==tgt[fun_name]){
+          throw new Error("undefined affectatir on "+tgt+" or "+arguments);
+          }
+        if(fun){
+          tgt[fun_name]= fun;
+          }
+        params.init= init;
+        params.sideEffect= SC._(tgt, fun_name);
+        params.eventList= el;
+        params.id= name;
+        const cell= tgt["$_scc_"+name]= SC.cell(params);
+        Object.defineProperty(tgt, name, { get: function(init){
+          if(undefined==this.val){
+            console.log(" not yet defined ");
+            debuger;
+            }
+          return this.val();
+          }.bind(cell, params.init)});
         }
     , writable: false
       }
