@@ -291,7 +291,7 @@ Zone de control
               tmp=document.createElement("p");
               tmp.style.margin="0";
               tmp.style.padding="0";
-              tmp.innerHTML="ScreenShot :";
+              tmp.textContent="ScreenShot :";
               controlPanel.screenShot=new Image();
               controlPanel.screenShot.setAttribute("id","SC_ScreenShot_pic");
               controlPanel.Sens_screenShot=SC.sensor("screenShot"
@@ -301,7 +301,7 @@ Zone de control
               tmp.appendChild(controlPanel.screenShot);
               controlPanel.content.appendChild(tmp);
               tmp=document.createElement("p");
-              tmp.innerHTML="IPS: ";
+              tmp.textContent="IPS: ";
               controlPanel.SC_Panel_ips=document.createElement("span");
               tmp.appendChild(controlPanel.SC_Panel_ips);
               controlPanel.SC_Panel_fps=document.createElement("span");
@@ -310,6 +310,13 @@ Zone de control
               var tmpTable=document.createElement("table");
               tmpTable.setAttribute("id", "SC_mouse_tracker");
               tmpTable.innerHTML="<tr><th></th><th>x</th><th>y</th></tr>";
+              tmp=document.createElement("tr");
+              tmp.innerHTML="<th>offset</th>";
+              const SC_evt_mouse_offset_x=document.createElement("td");
+              tmp.appendChild(SC_evt_mouse_offset_x);
+              const SC_evt_mouse_offset_y=document.createElement("td");
+              tmp.appendChild(SC_evt_mouse_offset_y);
+              tmpTable.appendChild(tmp);
               tmp=document.createElement("tr");
               tmp.innerHTML="<th>client</th>";
               const SC_evt_mouse_client_x=document.createElement("td");
@@ -347,7 +354,7 @@ Zone de control
                 else{
                   SC.tools.pauseMain();
                   }
-                evt.target.innerHTML=(("Pause"==evt.target.innerHTML)
+                evt.target.textContent=(("Pause"==evt.target.textContent)
                                              ?"Resume":"Pause");
                 };
               tmp.innerHTML="<td><button>Pause</button></td>"
@@ -373,7 +380,7 @@ Zone de control
               controlPanel.content.appendChild(controlPanel.console);
               controlPanel.setInspectorBtn= function(){
                 const inspector_btn= document.createElement("button");
-                inspector_btn.innerHTML= "Element Inspector";
+                inspector_btn.textContent= "Element Inspector";
                 inspector_btn.onclick= function(){
                   if(SC.tools.elementInspector){
                     SC.tools.generateEvent(
@@ -410,12 +417,14 @@ Zone de control
                 SC.await(Sens_pointerEvtTracker)
               , SC.action(function(evt, m){
                    const val=m.sensorValueOf(evt);
-                   SC_evt_mouse_client_x.innerHTML=Math.floor(val.clientX);
-                   SC_evt_mouse_client_y.innerHTML=Math.floor(val.clientY);
-                   SC_evt_mouse_page_x.innerHTML=Math.floor(val.x);
-                   SC_evt_mouse_page_y.innerHTML=Math.floor(val.y);
-                   SC_evt_mouse_screen_x.innerHTML=Math.floor(val.screenX);
-                   SC_evt_mouse_screen_y.innerHTML=Math.floor(val.screenY);
+                   SC_evt_mouse_offset_x.textContent=Math.floor(val.offsetX);
+                   SC_evt_mouse_offset_y.textContent=Math.floor(val.offsetY);
+                   SC_evt_mouse_client_x.textContent=Math.floor(val.clientX);
+                   SC_evt_mouse_client_y.textContent=Math.floor(val.clientY);
+                   SC_evt_mouse_page_x.textContent=Math.floor(val.x);
+                   SC_evt_mouse_page_y.textContent=Math.floor(val.y);
+                   SC_evt_mouse_screen_x.textContent=Math.floor(val.screenX);
+                   SC_evt_mouse_screen_y.textContent=Math.floor(val.screenY);
                  }.bind(controlPanel, Sens_pointerEvtTracker))
                 );
               this.addProgram(Prg_trackEvent);
@@ -423,7 +432,7 @@ Zone de control
                   SC.repeat(SC.forever
                     , SC.action(function(m){
                           if(workspace.sc_getFPS){
-                            this.SC_Panel_fps.innerHTML=" FPS : "
+                            this.SC_Panel_fps.textContent=" FPS : "
                                         +workspace.sc_getFPS()+" ";
                             }
                           }.bind(controlPanel)
@@ -434,7 +443,7 @@ Zone de control
               this.addProgram(
                   SC.repeat(SC.forever
                     , SC.action(function(m){
-                          this.SC_Panel_ips.innerHTML=" "
+                          this.SC_Panel_ips.textContent=" "
                                          +SC.tools.main.getIPS()+" ";
                         }.bind(controlPanel))
                     , SC.pause(200)
@@ -455,11 +464,11 @@ Zone de control
               this.addProgram(
                   SC.repeat(SC.forever
                     , SC.action(function(view, m){
-                        view.innerHTML=SC.tools.main.getInstantNumber();
+                        view.textContent=SC.tools.main.getInstantNumber();
                         }.bind(controlPanel, SC_instant_n_cell)
                         )
                     , SC.action(function SC_updateTLBN(view, m){
-                        view.innerHTML
+                        view.textContent
                           =SC.tools.main.getTopLevelParallelBranchesNumber();
                         }.bind(controlPanel, SC_toplevel_bn)
                         )
@@ -508,10 +517,10 @@ Zone de control
             if(config.appTitle.lang){
               headTag.setAttribute('lang', config.appTitle.lang);
               }
-            headTag.innerHTML=config.appTitle.text;
+            headTag.textContent=config.appTitle.text;
             }
           else{
-            headTag.innerHTML=config.appTitle;
+            headTag.textContent=config.appTitle;
             }
           document.head.appendChild(headTag);
           headTag=document.createElement("meta");
@@ -659,6 +668,7 @@ Zone de control
           if(config.splashConfig){
             const cssLink=document.createElement("link");
             cssLink.setAttribute('rel', 'stylesheet');
+            cssLink.setAttribute('type', 'text/css');
             cssLink.setAttribute('href'
                          , params.tools.baseDir+'SC_Tools_Splash.css');
             document.head.appendChild(cssLink);
@@ -723,7 +733,7 @@ Zone de control
               SC.seq(
                 SC.await(splashScreen.Sens_clickStart)
               , SC.action(function(m){
-                  splashScreen.btn.innerHTML="Loading..."
+                  splashScreen.btn.textContent="Loading..."
                   this.audioToolbox.loadAll();
                   }.bind(SC.tools))
               , tmp_par
@@ -1111,7 +1121,7 @@ Define globals and WebTools
             throw new Error("Internal Tracker Error");
             }
           function prevention(evt){
-            evt.preventDefault();
+            //evt.preventDefault();
             };
           window.addEventListener('touchstart', prevention);
           window.addEventListener('touchmove', prevention);

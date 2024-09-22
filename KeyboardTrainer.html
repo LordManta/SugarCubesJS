@@ -20,7 +20,7 @@ SC.init({ tools: {
       , init_scale: "1"
       , max: "1"
       , min: "1"
-      , scalable: "no"
+      /*, scalable: "no"*/
       }
   , audioSupport: true
   , appTitle: "KeyboardTrainer"
@@ -51,11 +51,11 @@ SC.init({ tools: {
 });
 const main=SC.tools.main;
 main.setStdOut(SC.writeInConsole);
-var systemKeyDown= SC.sensor("systemKeyDown"
-                         , { dom_targets: [ { target: window, evt: "keydown" } ] });
+const systemKeyDown= SC.sensor("systemKeyDown"
+      , { dom_targets: [ { target: window, evt: "keydown" } ] });
 
-var systemKeyUp= SC.sensor("systemKeyUp"
-                                 , { dom_targets:[ { target: window, evt: "keyup" } ] });
+const systemKeyUp= SC.sensor("systemKeyUp"
+      , { dom_targets:[ { target: window, evt: "keyup" } ] });
 main.bindTo(systemKeyDown);
 main.bindTo(systemKeyUp);
 
@@ -63,19 +63,18 @@ SC.tools.addProgram(
   SC.action(function(){
       window.addEventListener("touchstart"
         , function(evt){
-            evt.preventDefault();
+            //evt.preventDefault();
             }
         );
       window.addEventListener("touchmove"
         , function(evt){
-            evt.preventDefault();
+            //evt.preventDefault();
             }
         );
       SC.tools.initTouchTracker();
-      }
-      )
+      })
   );
-window.addEventListener("keydown", function(evt){evt.preventDefault();});
+//window.addEventListener("keydown", function(evt){evt.preventDefault();});
    </script>
    <style>
 body{
@@ -86,274 +85,486 @@ body{
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
-}
+  }
 .touche_clavier {
-  position:absolute;
-  border:1px solid gray;
+  position: absolute;
+  border: 1px solid gray;
   border-radius: 0.2cm;
-  width:2.0625cm;
-  height:2.0625cm;
-  font-size:1cm;
-  font-weight:bold;
-  background-color:white;
+  width: 1.6cm;
+  height: 1.6cm;
+  font-size: 0.6cm;
+  /*font-weight: bold;*/
+  background-color: white;
   box-shadow: 4px 4px 2px rgba(64,64,64,0.8);
-  text-align:center;
-  font-family:Verdana,sans-serif;
-  vertical-align : middle;  
-  line-height:2.0625cm;
-}
+  text-align: center;
+  font-family: Verdana,sans-serif;
+  vertical-align: middle;  
+  line-height: 1.65cm;
+  }
+.typped_entry{
+  display: flex;
+  align-items: center;
+  color: white;
+  background: lightgray;
+  border-radius: 0.3cm;
+  /*padding: 0.1cm;*/
+  width: 26.36cm;
+  }
+.typped_entry span{
+  padding-left: 0.15cm;
+  padding-right: 0.15cm;
+  }
+.typped_entry pre{
+  background: dimgray;
+  border-radius: 0.1cm;
+  padding: 0.1cm;
+  width: 25.3cm;
+  overflow: scroll;
+  scrollbar-width: none;
+  }
+.typped_entry pre::-webkit-scrollbar{
+  display: none;
+  }
+.keyboard_box{
+  position: relative;
+  background: darkgray;
+  width: 26.36cm;
+  height: 10.9cm;
+  border-radius: 0.3cm;
+  }
    </style>
  </head>
  <body>
+  <div style="position: fixed; bottom: 0;">
+  <div class="typped_entry"><span>x</span><pre></pre></div>
+  <div class="keyboard_box">
+  </div>
+  </div>
   <script type="text/javascript" >
-  SC.tools.displaySplash();
-  (function(){
-    const screenRZ=1.375;
-    const taille_touche=1.5;
-    const taille_espace=0.4;
-    const startLeft = 0.3;
-    const startTop = 5;
-    const Snd_toucheNormal= SC.tools.audioToolbox.addAudioFile({ src:'audio/mp3/touche.mp3', init: true, burst: true });
-    const Snd_toucheEspace= SC.tools.audioToolbox.addAudioFile({ src: 'audio/mp3/barreEspace.mp3', init: true, burst: true  });
-    const Snd_carriage= SC.tools.audioToolbox.addAudioFile({ src: 'audio/mp3/carriage.mp3', init: true, burst: true  });
-    const Snd_ting= SC.tools.audioToolbox.addAudioFile({ src: 'audio/mp3/ding.mp3', init: true, burst: true  });
-    const Snd_error= SC.tools.audioToolbox.addAudioFile({ src: 'audio/mp3/error.mp3', init: true, burst: true  });
-    keyEvt= SC.evt("keyEvt");
-    groupViewEvt= SC.evt("groupViewEvt");
-    function makeKey(pos, startTop, data){
-        var tmp_stop_sensor= SC.sensor("on_touchStop");
-        var myKeyDown= SC.evt("myKeyDown "+data.lbl);
-        var myKeyUp= SC.evt("myKeyUp "+data.lbl);
-        var key= SC.tools.Web.makeDiv({
-            inH: data.lbl
-            , cl: "touche_clavier"
-            , on_touchStart: SC.sensor("touchStart")
-            , on_touchStop: tmp_stop_sensor
-            , on_touchCancel: tmp_stop_sensor
-            , on_mouseDown: SC.sensor("on_mouseDown")
-            , on_mouseUp: SC.sensor("on_mouseUp")
-            , beh: SC.par(
-                     SC.repeat(SC.forever
-                       , SC.await(SC.or("Evt_touchStart", "Evt_on_mouseDown", myKeyDown))
-                       , SC.generate("Evt_css_background", "green")
-                       , SC.test(SC.my("kt_isValid")
-                         , SC.generate(data.Evt_snd)
-                         , SC.seq(SC.generate(Snd_error.Evt_play)
-                           , SC.generate("SC_cubeAddBehaviorEvt"
-                             , SC.seq(
-                                 SC.generate("Evt_css_display", "")
-                               , SC.generate("Evt_css_background", "red")
-                               , SC.pause(3)
-                               , SC.generate("Evt_css_background", "white")
-                               , SC.pause(3)
-                               , SC.generate("Evt_css_background", "red")
-                               , SC.pause(3)
-                               , SC.generate("Evt_css_background", "white")
-                               , SC.generate("Evt_css_display", "none")
-                                 ))))
-                       , SC.kill(SC.or("Evt_touchStop","Evt_on_mouseUp", myKeyUp)
-                           ,SC.repeat(SC.forever
-                              , SC.generateWrapped(keyEvt, "innerHTML")
-                              )
-                           )
-                       , SC.generate("Evt_css_background", "white")
-                       )
-                     , SC.repeat(SC.forever
-                         , SC.await(groupViewEvt)
-                         , SC.action(SC.my("filter_display_group"))
-                         )
-                     , SC.filter(systemKeyDown
-                         , myKeyDown
-                         , SC.my("filter_key")
-                         , SC.forever
-                         )
-                     , SC.filter(systemKeyUp
-                         , myKeyUp
-                         , SC.my("filter_key")
-                         , SC.forever
-                         )
-                     )
-          }
+const keyBoardBox= document.currentScript.previousElementSibling.children[1];
+const textOutput= document.currentScript.previousElementSibling.children[0];
+const Evt_key= SC.evt("key");
+const Evt_modifier= SC.evt("modifier");
+const Evt_keyTypped= SC.evt("keyTypped");
+const Sens_textCopy= SC.sensor({ name: "textCopy"
+      , dom_targets: [ { target: textOutput.children[1], evt: "click" } ] });
+const Sens_textClear= SC.sensor({ name: "textClear"
+      , dom_targets: [ { target: textOutput.children[0], evt: "click" } ] });
+
+main.bindTo(Sens_textCopy);
+main.bindTo(Sens_textClear);
+
+textOutput._sc_textCopy= function(re){
+    const ztc= this.children[1];
+    if(navigator.clipboard){
+      navigator.clipboard.writeText(ztc.textContent);
+      ztc.textContent='';
+      }
+    else{
+      const selection= window.getSelection();
+      if(selection){
+        selection.removeAllRanges();
+        const textSelection= document.createRange();
+        textSelection.selectNodeContents(ztc);
+        selection.addRange(textSelection);
+        document.execCommand("copy");
+        re.addProgram(
+          SC.seq(
+            SC.pause(5)
+          , SC.action(function(re){
+                this.children[1].textContent='';
+                }.bind(ztc))
+            )
           );
-        key.kt_isValid=function(re){
-          return this.kt_visible;
+        }
+      }
+    };
+textOutput._sc_textClear= function(re){
+    this.children[1].textContent='';
+    };
+
+SC.tools.addProgram(
+  SC.cube(textOutput
+  , SC.par(
+      SC.repeatForever(
+        SC.await(Evt_keyTypped)
+      , SC.action(function(re){
+           const data= re.getValuesOf(Evt_keyTypped);
+           const ztc= this.children[1];
+           if(data){
+             const sym=data[0];
+             if('⌫'==sym){
+               ztc.textContent= ztc.textContent.substring(0, ztc.textContent.length-1);
+               }
+             else{
+               ztc.textContent+= sym;
+               }
+             }
+          })
+        )
+    , SC.actionOn({ config: Sens_textCopy, fun: "_sc_textCopy", times: SC.forever })
+    , SC.actionOn({ config: Sens_textClear, fun: "_sc_textClear", times: SC.forever })
+      )
+    )
+  );
+SC.tools.displaySplash();
+(function(){
+  const screenRZ= 1;//.375;
+  const taille_touche= 1.6;
+  const taille_espace= 0.2;
+  const startLeft= 0.1;
+  const startTop= 0.1+2*(taille_touche+taille_espace);
+  //const startTop= 5;
+  const Snd_toucheNormal= SC.tools.audioToolbox.addAudioFile({ src:'audio/mp3/touche.mp3', init: true, burst: true });
+  const Snd_toucheEspace= SC.tools.audioToolbox.addAudioFile({ src: 'audio/mp3/barreEspace.mp3', init: true, burst: true  });
+  const Snd_carriage= SC.tools.audioToolbox.addAudioFile({ src: 'audio/mp3/carriage.mp3', init: true, burst: true  });
+  const Snd_ting= SC.tools.audioToolbox.addAudioFile({ src: 'audio/mp3/ding.mp3', init: true, burst: true  });
+  const Snd_error= SC.tools.audioToolbox.addAudioFile({ src: 'audio/mp3/error.mp3', init: true, burst: true  });
+  const Evt_groupView= SC.evt("groupView");
+  function makeKey(pos, sTop, data){
+      var tmp_stop_sensor= SC.sensor("on_touchStop");
+      var myKeyDown= SC.evt("myKeyDown "+data.lbl);
+      var myKeyUp= SC.evt("myKeyUp "+data.lbl);
+      var key= SC.tools.Web.makeDiv({
+            inH: (Array.isArray(data.lbl))?data.lbl[0]:data.lbl
+          , cl: "touche_clavier"
+          , on_touchStart: SC.sensor("touchStart")
+          , on_touchStop: tmp_stop_sensor
+          , on_touchCancel: tmp_stop_sensor
+          , on_mouseDown: SC.sensor("on_mouseDown")
+          , on_mouseUp: SC.sensor("on_mouseUp")
+          , beh:
+                SC.par(
+                  SC.repeat(SC.forever
+                    , SC.await(SC.or("Evt_touchStart", "Evt_on_mouseDown", myKeyDown))
+                    , SC.test(SC.my("_sc_kt_isValid")
+                      , SC.seq(
+                          SC.generate(data.Evt_snd)
+                        , SC.generate("Evt_css_background", "green")
+                        , SC.kill(SC.or("Evt_touchStop","Evt_on_mouseUp", myKeyUp)
+                          , data.mod?SC.generateWrapped(Evt_modifier, data.mod, SC.forever):SC.generateWrapped(Evt_key, "_sc_getSymbol", SC.forever)
+                            )
+                        , data.mod?SC.nothing():SC.generateWrapped(Evt_keyTypped, "_sc_getSymbol")
+                          )
+                      , SC.seq(SC.generate(Snd_error.Evt_play)
+                        , SC.generate("SC_cubeAddBehaviorEvt"
+                          , SC.seq(
+                              SC.generate("Evt_css_display", "")
+                            , SC.generate("Evt_css_background", "red")
+                            , SC.pause(3)
+                            , SC.generate("Evt_css_background", "white")
+                            , SC.pause(3)
+                            , SC.generate("Evt_css_background", "red")
+                            , SC.pause(3)
+                            , SC.generate("Evt_css_background", "white")
+                            , SC.generate("Evt_css_display", "none")
+                              )))
+                        )
+                    , SC.generate("Evt_css_background", "white")
+                      )
+                  , SC.repeatForever(
+                        SC.await(Evt_groupView)
+                      , SC.action(SC.my("_sc_filter_display_group"))
+                      )
+                  , SC.action("_sc_modified_key", SC.forever)
+                  , SC.filter(systemKeyDown
+                      , myKeyDown
+                      , SC.my("_sc_filter_key")
+                      , SC.forever
+                      )
+                  , SC.filter(systemKeyUp
+                      , myKeyUp
+                      , SC.my("_sc_filter_key")
+                      , SC.forever
+                      )
+                  )
+        });
+      key._sc_labels= (Array.isArray(data.lbl))?data.lbl:[data.lbl];
+      if(undefined==key.__proto__._sc_kt_isValid){
+        key.__proto__._sc_kt_isValid=function(re){
+          return this._sc_kt_visible;
           };
-        key.code= data.code;
-        key.kt_visible=false;
-        key.filter_key= function(key){
-          var filtered= [];
-          if(key.code == this.code){
+        }
+      /*else{
+        console.warn("already defined");
+        }*/
+      key._sc_vk_code= data.code;
+      key._sc_vk_prod= Array.isArray(data.produce)?data.produce:undefined;
+      if(key._sc_vk_prod){
+        var first= key._sc_vk_prod[0]?key._sc_vk_prod[0]:'';
+        for(v in key._sc_vk_prod){
+          if(key._sc_vk_prod[v]){
+            first= key._sc_vk_prod[v];
+            }
+          else{
+            key._sc_vk_prod[v]=first;
+            }
+          }
+        }
+      key._sc_kt_visible=false;
+      if(undefined==key.__proto__._sc_filter_key){
+        key.__proto__._sc_filter_key= function(key){
+          const filtered= [];
+          if(key.code==this._sc_vk_code){
             filtered.push(key);
             }
           return (filtered.length > 0)?filtered:undefined;
-          }
-        key.filter_display_group = function(my_group, re){
-           var vals = re.getValuesOf(groupViewEvt);
-           if(vals
-               && (0 != vals.length)){
-             this.kt_visible=(vals[0]>=my_group);
-             re.addEntry(this._sc_getEvt('css_display'), this.kt_visible?"":"none");
+          };
+        }
+      /*else{
+        console.warn("already defined");
+        }*/
+      key._sc_my_group= data.group;
+      if(undefined==key.__proto__._sc_filter_display_group){
+        key.__proto__._sc_filter_display_group= function(re){
+           const vals= re.getValuesOf(Evt_groupView);
+           if(vals){
+             this._sc_kt_visible=(vals[0]>=this._sc_my_group);
+             re.addEntry(this._sc_getEvt('css_display'), this._sc_kt_visible?"":"none");
              }
-           }.bind(key,data.group)
-        if(undefined !== data.offH){
-          SC.tools.addProgram(
-            SC.generate(key._sc_getEvt('css_top'), ((startTop+data.offH)*screenRZ)+"cm")
-            );
-          }
-        else{
-          SC.tools.addProgram(
-            SC.generate(key._sc_getEvt('css_top'), (startTop*screenRZ)+"cm")
-            );
+           };
         }
+      if(undefined==key.__proto__._sc_getSymbol){
+        key.__proto__._sc_getSymbol= function(){
+           if(this._sc_vk_prod){
+             return this._sc_vk_prod[0];
+             }
+           else{
+             return this.textContent;
+             }
+           };
+        }
+      if(undefined==key.__proto__._sc_modified_key){
+        key.__proto__._sc_modified_key= function(re){
+           const vals= re.getValuesOf(Evt_modifier);
+           if(vals){
+             var mod=0;
+             for(var m of vals){
+               if(m>0){
+                 mod|= m;
+                 }
+               }
+             this.textContent= this._sc_labels[mod];
+             }
+           else{
+             this.textContent= this._sc_labels[0];
+             }
+           };
+        }
+      if(data.offH){
         SC.tools.addProgram(
-          SC.generate(key._sc_getEvt('css_left'), (pos*screenRZ)+"cm")
+          SC.generate(key._sc_getEvt('css_top'), ((sTop+data.offH)*screenRZ)+"cm")
           );
-        if(undefined !== data.w){
-          SC.tools.addProgram(
-            SC.generate(key._sc_getEvt('css_width'), (data.w*screenRZ)+"cm")
-            );
-            pos += (data.w+taille_espace);
-          }
-        else{
-            pos += (taille_touche+taille_espace);
-          }
-        if(undefined !== data.h){
-          SC.tools.addProgram(
-            SC.par(
-              SC.generate(key._sc_getEvt('css_height'), (data.h*screenRZ)+"cm")
-              , SC.generate(key._sc_getEvt('css_lineHeight'), (data.h*screenRZ)+"cm")
-              )
-            );
-          }
-      return { key: key, pos: pos };
-      }
-    function rowOfKeysGenerator(row, startTop, startLeft){
-      var pos = startLeft;
-      for(var i = 0; i < row.length; i++){
-        var data= row[i];
-        data.Evt_snd= (data.Evt_snd)?data.Evt_snd:Snd_toucheNormal.Evt_play;
-        var tmp_stop_sensor= SC.sensor("on_touchStop");
-        var res= makeKey(pos, startTop, data)
-        pos= res.pos;
-        document.body.appendChild(res.key);
         }
+      else{
+        SC.tools.addProgram(
+          SC.generate(key._sc_getEvt('css_top'), (sTop*screenRZ)+"cm")
+          );
       }
-    var row = [
-      {lbl: 'tab', w:(1.5+0.4+0.5),group:10, code:"Tab", Evt_snd: Snd_toucheEspace.Evt_play }
-      , {lbl:'A',group:2, code:"KeyQ"}
-      , {lbl:'Z',group:2, code:"KeyW"}
-      , {lbl:'E',group:2, code:"KeyE"}
-      , {lbl:'R',group:2, code:"KeyR"}
-      , {lbl:'T',group:5, code:"KeyT"}
-      , {lbl:'Y',group:5, code:"KeyY"}
-      , {lbl:'U',group:3, code:"KeyU"}
-      , {lbl:'I',group:3, code:"KeyI"}
-      , {lbl:'O',group:3, code:"KeyO"}
-      , {lbl:'P',group:3, code:"KeyP"}
-      , {lbl:'^',group:9, code:"BracketLeft"}
-      , {lbl:'*',group:9, code:"BracketRight"}
+      SC.tools.addProgram(
+        SC.generate(key._sc_getEvt('css_left'), (pos*screenRZ)+"cm")
+        );
+      if(data.w){
+        SC.tools.addProgram(
+          SC.generate(key._sc_getEvt('css_width'), (data.w*screenRZ)+"cm")
+          );
+          pos += (data.w+taille_espace);
+        }
+      else{
+          pos += (taille_touche+taille_espace);
+        }
+      if(undefined !== data.h){
+        SC.tools.addProgram(
+          SC.par(
+            SC.generate(key._sc_getEvt('css_height'), (data.h*screenRZ)+"cm")
+            , SC.generate(key._sc_getEvt('css_lineHeight'), (data.h*screenRZ)+"cm")
+            )
+          );
+        }
+    return { key: key, pos: pos };
+    }
+  function rowOfKeysGenerator(row, startTop, startLeft){
+    var pos = startLeft;
+    for(var i = 0; i < row.length; i++){
+      var data= row[i];
+      data.Evt_snd= (data.Evt_snd)?data.Evt_snd:Snd_toucheNormal.Evt_play;
+      var tmp_stop_sensor= SC.sensor("on_touchStop");
+      const res= makeKey(pos, startTop, data)
+      pos= res.pos;
+      keyBoardBox.appendChild(res.key);
+      }
+    }
+  var row= [
+      { lbl: [ 'tab', 'tab', 'tab', 'tab' ], w: 2.6, group: 10, code: "Tab"
+      , produce: [ '\t', '\t', '\t', '\t' ]
+      , Evt_snd: Snd_toucheEspace.Evt_play }
+    , { lbl: [ 'a' , 'A', 'æ', 'Æ'], group: 2, code: "KeyQ"}
+    , { lbl: [ 'z', 'Z', 'Â', 'Å' ], group: 2, code: "KeyW"}
+    , { lbl: [ 'e', 'E', 'ê', 'Ê' ], group: 2, code: "KeyE"}
+    , { lbl: [ 'r', 'R', '®', '‚' ], group: 2, code: "KeyR"}
+    , { lbl: [ 't', 'T', '†', '™' ], group: 5, code: "KeyT"}
+    , { lbl: [ 'y', 'Y', 'Ú', 'Ÿ' ], group: 5, code: "KeyY"}
+    , { lbl: [ 'u', 'U', 'º', 'ª' ], group: 3, code: "KeyU"}
+    , { lbl: [ 'i', 'I', 'î', 'ï' ], group: 3, code: "KeyI"}
+    , { lbl: [ 'o', 'O', 'œ', 'Œ' ], group: 3, code: "KeyO"}
+    , { lbl: [ 'p', 'P', 'π', '∏' ], group: 3, code: "KeyP"}
+    , { lbl: [ '^', '¨', 'ô', 'Ô' ], group: 9, code: "BracketLeft"}
+    , { lbl: [ '$', '*', '€', '¥' ], group: 9, code: "BracketRight"}
       ];
-    rowOfKeysGenerator(row, 5, startLeft)
-      row = [
-      {lbl:'⇪', w:(1.5+0.4+0.9), group:10, code:"Caps", Evt_snd: Snd_toucheEspace.Evt_play }
-      , {lbl:'Q',group:0, code:"KeyA"}
-      , {lbl:'S',group:0, code:"KeyS"}
-      , {lbl:'D',group:0, code:"KeyD"}
-      , {lbl:'F',group:0, code:"KeyF"}
-      , {lbl:'G',group:4, code:"KeyG"}
-      , {lbl:'H',group:4, code:"KeyH"}
-      , {lbl:'J',group:1, code:"KeyJ"}
-      , {lbl:'K',group:1, code:"KeyK"}
-      , {lbl:'L',group:1, code:"KeyL"}
-      , {lbl:'M',group:1, code:"Semicolon"}
-      , {lbl:'ù',group:9, code:"Quote"}
-      , {lbl:'`',group:9, code:"Backslash"}
-      ];
-    rowOfKeysGenerator(row, 5+(taille_touche+taille_espace), startLeft)
-    row = [
-      {lbl:'⇧', w:(1.5+0.4),group:10, code:"ShiftLeft", Evt_snd: Snd_toucheEspace.Evt_play }
-      , {lbl:'<',group:9, code:"IntlBackslash"}
-      , {lbl:'W',group:6, code:"KeyZ"}
-      , {lbl:'X',group:6, code:"KeyX"}
-      , {lbl:'C',group:6, code:"KeyC"}
-      , {lbl:'V',group:6, code:"KeyV"}
-      , {lbl:'B',group:6, code:"KeyB"}
-      , {lbl:'N',group:6, code:"KeyN"}
-      , {lbl:',',group:9, code:"KeyM"}
-      , {lbl:';',group:9, code:"Comma"}
-      , {lbl:':',group:9, code:"Period"}
-      , {lbl:'=',group:9, code:"Slash"}
-      , {lbl:'⇧', w:(3+0.4+0.4), group:10, code:"ShiftRight", Evt_snd: Snd_toucheEspace.Evt_play }
-      ];
-    rowOfKeysGenerator(row, 5+2*(taille_touche+taille_espace), startLeft)
-    row = [
-      {lbl:'fn',group:12, code:"fn", Evt_snd: Snd_toucheEspace.Evt_play }
-      , {lbl:'ctrl',group:11, code:"ControlLeft", Evt_snd: Snd_toucheEspace.Evt_play }
-      , {lbl:'alt',group:11, code:"AltLeft", Evt_snd: Snd_toucheEspace.Evt_play }
-      , {lbl:'cmd', w:(1.5+0.4),group:11, code:"MetaLeft", Evt_snd: Snd_toucheEspace.Evt_play }
-      , {lbl:'space', w:(4*(1.5+0.4)+1.5), group:7, code:"Space", Evt_snd: Snd_toucheEspace.Evt_play }
-      , {lbl:'cmd', w:(1.5+0.4),group:11, code:"MetaRight", Evt_snd: Snd_toucheEspace.Evt_play }
-      , {lbl:'alt',group:11, code:"AltRight", Evt_snd: Snd_toucheEspace.Evt_play }
-      , {lbl:'◀︎',group:12,h:0.70,offH:0.80, code:"ArrowLeft", Evt_snd: Snd_toucheEspace.Evt_play }
-      , {lbl:'▼',group:12,h:0.70,offH:0.80, code:"ArrowDown", Evt_snd: Snd_toucheEspace.Evt_play }
-      , {lbl:'►',group:12,h:0.70,offH:0.80, code:"ArrowRight", Evt_snd: Snd_toucheEspace.Evt_play }
-      ];
-    rowOfKeysGenerator(row, 5+3*(taille_touche+taille_espace), startLeft)
-    row = [
-      {lbl:'@',group:9, code:"Backquote"}
-      , {lbl:'&',group:8, code:"Digit1"}
-      , {lbl:'é',group:8, code:"Digit2"}
-      , {lbl:'"',group:8, code:"Digit3"}
-      , {lbl:"'",group:8, code:"Digit4"}
-      , {lbl:'(',group:8, code:"Digit5"}
-      , {lbl:'§',group:9, code:"Digit6"}
-      , {lbl:'è',group:9, code:"Digit7"}
-      , {lbl:'!',group:9, code:"Digit8"}
-      , {lbl:'ç',group:9, code:"Digit9"}
-      , {lbl:'à',group:9, code:"Digit0"}
-      , {lbl:')',group:9, code:"Minus"}
-      , {lbl:'-',group:9, code:"Equal"}
-      , {lbl:'⟵',w:(1.5+0.4+0.5),group:10, code:"Backspace", Evt_snd: Snd_toucheEspace.Evt_play }
-      ];
-    rowOfKeysGenerator(row, 5-(taille_touche+taille_espace), startLeft)
-    var res = makeKey(14*(taille_touche+taille_espace)-0.4,5,{lbl:"↩︎",h:(taille_touche*2+taille_espace),w:1.1,group:10, code:"Enter" , Evt_snd: Snd_carriage.Evt_play });
-    document.body.appendChild(res.key);
-    res = makeKey(13*(taille_touche+taille_espace)-0.8,5+3*(taille_touche+taille_espace),{lbl:"▲",h:0.70,group:12, code:"ArrowUp", Evt_snd: Snd_toucheEspace.Evt_play });
-    document.body.appendChild(res.key);
-    var div_res = SC.tools.Web.makeDiv({
-      beh:SC.repeat(SC.forever
-              , SC.action(function(m){
-                  var vals = m.getValuesOf(keyEvt);
-                  if((undefined == vals)
-                     ||(0 == vals.length)){
-                    div_res.innerHTML="";
-                    return;
-                    }
-                  var res = vals[0];
-                  for(var i = 1; i < vals.length; i++){
-                    res+="➢"+vals[i]
-                    }
-                  div_res.innerHTML=res;
-                  })
-              )
-      });
-    for(var j=0; j < 13; j++){
-      var img = SC.tools.Web.makeImage({
-             src:"images/png/puce.png"
-             , w:"32"
-             , h:"32"
-             , on_mouseDown: SC.sensor("md")
-             , on_touchStart: SC.sensor("ts")
-             , beh: SC.repeat(SC.forever
-                      , SC.await(SC.or("Evt_on_mouseDown","Evt_touchStart"))
-                      , SC.generate(groupViewEvt, j)
-                      )
+  const l_row2= row.length+1;
+  rowOfKeysGenerator(row, startTop, startLeft)
+    row= [
+      { lbl: [ '⇪', '⇪', '⇪', '⇪', '⇪' ], w: 3.1, group: 10, code: "Caps"
+      , mod: -1
+      , Evt_snd: Snd_toucheEspace.Evt_play }
+    , { lbl: [ 'q', 'Q', '‡', 'Ω' ], group: 0, code: "KeyA"}
+    , { lbl: [ 's', 'S', 'Ò', '∑' ], group: 0, code: "KeyS"}
+    , { lbl: [ 'd', 'D', '∂', '∆' ], group: 0, code: "KeyD"}
+    , { lbl: [ 'f', 'F', 'ƒ', '·' ], group: 0, code: "KeyF"}
+    , { lbl: [ 'g', 'G', 'ﬁ', 'ﬂ' ], group: 4, code: "KeyG"}
+    , { lbl: [ 'h', 'H', 'Ì', 'Î' ], group: 4, code: "KeyH"}
+    , { lbl: [ 'j', 'J', 'Ï', 'Í' ], group: 1, code: "KeyJ"}
+    , { lbl: [ 'k', 'K', 'È', 'Ë' ], group: 1, code: "KeyK"}
+    , { lbl: [ 'l', 'L', '¬', '|' ], group: 1, code: "KeyL"}
+    , { lbl: [ 'm', 'M', 'µ', 'Ó' ], group: 1, code: "Semicolon"}
+    , { lbl: [ 'ù', '%', 'Ù', '‰' ], group: 9, code: "Quote"}
+    , { lbl: [ '`', '£', '@', '#' ], group: 9, code: "Backslash"}
+    ];
+  rowOfKeysGenerator(row, startTop+(taille_touche+taille_espace), startLeft)
+  row =[
+      { lbl: [ '⇧', '⇧', '⇧', '⇧' ], w: 2.1, group: 10, code: "ShiftLeft"
+      , mod: 1
+      , Evt_snd: Snd_toucheEspace.Evt_play }
+    , { lbl: [ '<', '>', '≤', '≥' ], group: 9, code: "Backquote"}
+    , { lbl: [ 'w', 'W', '‹', '›' ], group: 6, code: "KeyZ"}
+    , { lbl: [ 'x', 'X', '≈', '⁄' ], group: 6, code: "KeyX"}
+    , { lbl: [ 'c', 'C', '©', '¢' ], group: 6, code: "KeyC"}
+    , { lbl: [ 'v', 'V', '◊', '√' ], group: 6, code: "KeyV"}
+    , { lbl: [ 'b', 'B', 'ß', '∫' ], group: 6, code: "KeyB"}
+    , { lbl: [ 'n', 'N', '~', 'ı' ], group: 6, code: "KeyN"}
+    , { lbl: [ ',', '?', '∞', '¿' ], group: 9, code: "KeyM"}
+    , { lbl: [ ';', '.', '…', '•' ], group: 9, code: "Comma"}
+    , { lbl: [ ':', '/', '÷', '\\' ], group: 9, code: "Period"}
+    , { lbl: [ '=', '+', '≠', '±' ], group: 9, code: "Slash"}
+    , { lbl: [ '⇧', '⇧', '⇧', '⇧' ], w: 4, group: 10, code:"ShiftRight"
+      , mod: 1
+      , Evt_snd: Snd_toucheEspace.Evt_play }
+    ];
+  rowOfKeysGenerator(row, startTop+2*(taille_touche+taille_espace), startLeft)
+  row = [
+      { lbl: [ 'fn', 'fn', 'fn', 'fn' ],group:12, code:"fn"
+      , Evt_snd: Snd_toucheEspace.Evt_play }
+    , { lbl: [ 'ctrl', 'ctrl', 'ctrl', 'ctrl' ],group:11, code:"ControlLeft"
+      , mod: -1
+      , Evt_snd: Snd_toucheEspace.Evt_play }
+    , { lbl: [ 'alt', 'alt', 'alt', 'alt' ], group: 11, code: "AltLeft"
+      , mod: 2
+      , Evt_snd: Snd_toucheEspace.Evt_play }
+    , { lbl: [ 'cmd', 'cmd', 'cmd', 'cmd' ], w:(1.5+0.4),group:11, code:"MetaLeft"
+      , mod: -1
+      , Evt_snd: Snd_toucheEspace.Evt_play }
+    , { lbl: [ ' ', ' ', ' ', ' ' ], w:(4*(1.5+0.4)+1.5), group:7, code:"Space"
+      , Evt_snd: Snd_toucheEspace.Evt_play }
+    , { lbl: [ 'cmd', 'cmd', 'cmd', 'cmd' ], w:(1.5+0.4),group:11, code:"MetaRight"
+      , mod: -1
+      , Evt_snd: Snd_toucheEspace.Evt_play }
+    , { lbl: [ 'alt', 'alt', 'alt', 'alt' ], group: 11, code: "AltRight"
+      , mod: 2
+      , Evt_snd: Snd_toucheEspace.Evt_play }
+    , { lbl: '◀︎', group: 12, h: 0.70, offH: 0.80, code: "ArrowLeft"
+      , mod: -1
+      , Evt_snd: Snd_toucheEspace.Evt_play }
+    , { lbl: '▼', group: 12, h: 0.70, offH: 0.80, code: "ArrowDown"
+      , mod: -1
+      , Evt_snd: Snd_toucheEspace.Evt_play }
+    , { lbl: '►', group: 12, h: 0.70, offH: 0.80, code: "ArrowRight"
+      , mod: -1
+      , Evt_snd: Snd_toucheEspace.Evt_play }
+    ];
+  rowOfKeysGenerator(row, startTop+3*(taille_touche+taille_espace), startLeft)
+  row = [
+      { lbl: [ '@', '#', '•', 'Ÿ' ], group: 9, code: "IntlBackslash" }
+    , { lbl: [ '&', '1', '', '´' ], group: 8, code: "Digit1" }
+    , { lbl: [ 'é', '2', 'ë', '„' ], group: 8, code: "Digit2" }
+    , { lbl: [ '"', '3', '“', '”' ], group: 8, code: "Digit3" }
+    , { lbl: [ "'", '4', '‘', '’' ], group: 8, code: "Digit4" }
+    , { lbl: [ '(', '5', '{', '[' ], group: 8, code: "Digit5" }
+    , { lbl: [ '§', '6', '¶', 'å' ], group: 9, code: "Digit6" }
+    , { lbl: [ 'è', '7', '«', '»' ], group: 9, code: "Digit7" }
+    , { lbl: [ '!', '8', '¡', 'Û' ], group: 9, code: "Digit8" }
+    , { lbl: [ 'ç', '9', 'Ç', 'Á' ], group: 9, code: "Digit9" }
+    , { lbl: [ 'à', '0', 'ø', 'Ø' ], group: 9, code: "Digit0" }
+    , { lbl: [ ')', '°', '}', ']' ], group: 9, code: "Minus" }
+    , { lbl: [ '-', '_', '—', '–' ], group: 9, code: "Equal" }
+    , { lbl: [ '⌫', '⌫', '⌫', '⌫' ], w: 2.6, group: 10, code: "Backspace"
+      , Evt_snd: Snd_toucheEspace.Evt_play }
+    ];
+  rowOfKeysGenerator(row, startTop-(taille_touche+taille_espace), startLeft);
+  var res= makeKey(l_row2*(taille_touche+taille_espace)-taille_espace, startTop
+                , { lbl: [ "↩︎", "↩︎", "↩︎", "↩︎"], h:(taille_touche*2+taille_espace), w: 1.1, group: 10
+                  , produce: [ '\n', '\n', '\n', '\n' ]
+                  , code: "Enter" , Evt_snd: Snd_carriage.Evt_play });
+  keyBoardBox.appendChild(res.key);
+  res = makeKey(13*(taille_touche+taille_espace)-0.8
+              , startTop+3*(taille_touche+taille_espace)
+              , { lbl: "▲", h: 0.70, group: 12
+                , mod: -1
+                , code:"ArrowUp", Evt_snd: Snd_toucheEspace.Evt_play });
+  keyBoardBox.appendChild(res.key);
+  row = [
+      { lbl: [ 'esc', 'esc', 'esc', 'esc' ], w: 2.5, group: 9, code: "Escape"
+      , mod: -1
+      , Evt_snd: Snd_toucheEspace.Evt_play }
+    , { lbl: [ 'F1', 'F1', 'F1', 'F1' ], group: 8, code: "F1" }
+    , { lbl: [ 'F2', 'F2', 'F2', 'F2' ], group: 8, code: "F2" }
+    , { lbl: [ 'F3', 'F3', 'F3', 'F3' ], group: 8, code: "F3" }
+    , { lbl: [ 'F4', 'F4', 'F4', 'F4' ], group: 8, code: "F4" }
+    , { lbl: [ 'F5', 'F5', 'F5', 'F5' ], group: 8, code: "F5" }
+    , { lbl: [ 'F6', 'F6', 'F6', 'F6' ], group: 9, code: "F6" }
+    , { lbl: [ 'F7', 'F7', 'F7', 'F7' ], group: 9, code: "F7" }
+    , { lbl: [ 'F8', 'F8', 'F8', 'F8' ], group: 9, code: "F8" }
+    , { lbl: [ 'F9', 'F9', 'F9', 'F9' ], group: 9, code: "F9" }
+    , { lbl: [ 'F10', 'F10', 'F10', 'F10' ], group: 9, code: "F10" }
+    , { lbl: [ 'F11', 'F11', 'F11', 'F11' ], group: 9, code: "F11" }
+    , { lbl: [ 'F12', 'F12', 'F12', 'F12' ], group: 9, code: "F12" }
+    , { lbl: [ '', '', '', '' ], group: 10, code: ""
+      , Evt_snd: Snd_toucheEspace.Evt_play }
+    ];
+  rowOfKeysGenerator(row, startTop-2*(taille_touche+taille_espace), startLeft);
+  var div_res = SC.tools.Web.makeDiv({
+    beh:SC.repeat(SC.forever
+            , SC.action(function(m){
+                var vals = m.getValuesOf(Evt_key);
+                if((undefined == vals)
+                   ||(0 == vals.length)){
+                  div_res.innerHTML="";
+                  return;
+                  }
+                var res = vals[0];
+                for(var i = 1; i < vals.length; i++){
+                  res+="➢"+vals[i]
+                  }
+                div_res.innerHTML=res;
+                })
+            )
+    });
+  for(var j=0; j < 13; j++){
+    var img = SC.tools.Web.makeImage({
+             src: "images/png/puce.png"
+           , w: "32"
+           , h: "32"
+           , on_mouseDown: SC.sensor("md")
+           , on_touchStart: SC.sensor("ts")
+           , beh: SC.repeat(SC.forever
+                  , SC.await(SC.or("Evt_on_mouseDown","Evt_touchStart"))
+                  , SC.generate(Evt_groupView, j)
+                    )
              });
-      document.body.appendChild(img);
-      }
-    document.body.appendChild(div_res);
-    SC.tools.addProgram(SC.seq(SC.generate(groupViewEvt,0)));
-    })();
+    document.body.appendChild(img);
+    }
+  document.body.appendChild(div_res);
+  SC.tools.addProgram(SC.seq(SC.generate(Evt_groupView,12)));
+  })();
   </script>
  </body>
 </html>

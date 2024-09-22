@@ -3,8 +3,8 @@
  * Authors : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.87.alpha
- * build: 87
+ * version : 5.0.92.alpha
+ * build: 92
  * Copyleft 2014-2024.
  */
 ;
@@ -7869,21 +7869,6 @@ var SC={
       }
     return new SC_Or(tmp);
     }
-, kill: function(c,p,h){
-    _SC.checkConfig(c);
-    var prgs = [new SC_Kill(c,p,1)];
-    if(h && h != SC_Nothing){
-      prgs.push(h);
-      if(h instanceof SC_Seq){
-        prgs[0].end += h.seqElements.length;
-        }
-      else{
-        prgs[0].end += 1;
-        }
-      }
-    var res = new SC_Seq(prgs);
-    return res;
-    }
 , control: function(c){
     _SC.checkConfig(c);
     var prgs = [];
@@ -8059,47 +8044,8 @@ var SC={
 , cell: function(params){
     return new SC_Cell(params);
     }
-, traceEvent: function(msg){
-    return new SC_GenerateOne(null, msg);
-    }
-, trace: function(msg){
-    return new SC_GenerateOne(null, msg);
-    }
-, write: function(msg){
-    return new SC_GenerateOne(SC_WRITE_ID, msg);
-    }
 , log: function(msg){
     return new SC_Log(msg);
-    }
-, addCell: function(tgt, name, init, el, fun){
-    const params= {};
-    if(undefined===tgt || null===tgt){
-      throw new Error("No target specified in "+arguments);
-      }
-    if(tgt instanceof SC_Cube){
-      tgt= tgt.o;
-      }
-    if(undefined==name || "string"!=typeof(name) || ""==name){
-      throw new Error("Invalid field name "+arguments);
-      }
-    if(tgt[name]){
-      throw new Error("Already existing name "+ name);
-      }
-    const fun_name= "_scc_"+name;
-    if(undefined==fun && undefined==tgt[fun_name]){
-      throw new Error("undefined affectatir on "+tgt+" or "+arguments);
-      }
-    if(fun){
-      tgt[fun_name]= fun;
-      }
-    params.init= init;
-    params.sideEffect= SC._(tgt, fun_name);
-    params.eventList= el;
-    params.id= name;
-    const cell= tgt["$_scc_"+name]= SC.cell(params);
-    Object.defineProperty(tgt, name, { get: function(init){
-      return this.val();
-      }.bind(cell, params.init)});
     }
 , _: function(tgt, fun){
     return (tgt[fun]).bind(tgt);
@@ -8130,7 +8076,7 @@ var SC={
     }
   };
   Object.defineProperty(SC, "sc_build"
-                          , { value: 87
+                          , { value: 92
                             , writable: false
                               }
                           );
@@ -8490,6 +8436,26 @@ var SC={
     , writable: false
       }
     );
+  Object.defineProperty(SC, "write"
+  , { value: function(msg){
+        if("string"!=typeof(msg)){
+          throw new Error("Invalid message: "+msg);
+          }
+        return new SC_GenerateOne(SC_WRITE_ID, msg);
+        }
+    , writable: false
+      }
+    );
+  Object.defineProperty(SC, "trace"
+  , { value: function(msg){
+        if("string"!=typeof(msg)){
+          throw new Error("Invalid message: "+msg);
+          }
+        return new SC_GenerateOne(null, msg);
+        }
+    , writable: false
+      }
+    );
   Object.defineProperty(SC, "pause"
   , { value: function(n){
         return new SC_Pause(_SC.b_(n));
@@ -8561,6 +8527,24 @@ var SC={
           }
         return new SC_Next(num);
         }
+    , writable: false
+      }
+    );
+  Object.defineProperty(SC, "kill"
+  , { value: function(c,p,h){
+          _SC.checkConfig(c);
+          const prgs= [ new SC_Kill(_SC.b_(c), p, 1) ];
+          if(h && h!=SC_Nothing){
+            prgs.push(h);
+            if(h instanceof SC_Seq){
+              prgs[0].end+= h.seqElements.length;
+              }
+            else{
+              prgs[0].end+= 1;
+              }
+            }
+          return new SC_Seq(prgs);
+          }
     , writable: false
       }
     );

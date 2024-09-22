@@ -602,7 +602,7 @@ if(SC && SC.sc_build>1 && SC.tools){
                                    ]
                              });
       this.elementInspector.children[0].children[0].addEventListener("mousedown", function(evt){
-        evt.preventDefault();
+        //evt.preventDefault();
         });
       this.elementInspector.controlTitle= this.elementInspector.children[0].children[1];
       /* une entrée */
@@ -747,10 +747,10 @@ if(SC && SC.sc_build>1 && SC.tools){
                                    ]
                              });
       this.elementInspector.children[0].addEventListener("mousedown", function(evt){
-        evt.preventDefault();
+        //evt.preventDefault();
         });
       this.elementInspector.children[0].addEventListener("touchstart", function(evt){
-        evt.preventDefault();
+        //evt.preventDefault();
         });
       this.elementInspector.onMousePanelMove= function(pos){
         if(pos){
