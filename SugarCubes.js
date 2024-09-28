@@ -3,8 +3,8 @@
  * Author : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.130.alpha
- * build: 130
+ * version : 5.0.181.alpha
+ * build: 181
  * Copyleft 2014-2024.
  */
 ;
@@ -373,10 +373,13 @@ var _SC={
   , _b: function(cube){
       return function(o){
            if(o instanceof SC_CubeBinding){
-             o=o.clone();
+             o= o.clone();
              o.setCube(this);
              return o.resolve();
              }
+	   if("function"==typeof(o)){
+	     return o.bind(this);
+	     }
            return o;
            }.bind(cube);
       }
@@ -1406,20 +1409,23 @@ const SC_OpcodesNames = [
   , "RESET_ON_WEOI"
   , "RESET_ON_WAIT"
   , "RESET_ON_P_OEOI"
-  , "RESET_ON_P_WAIT"
+  //, "RESET_ON_P_WAIT"
   , "DUMP_INIT"
   , "DUMP"
   , "DUMP_BACK"
   ];
 Object.freeze(SC_OpcodesNames);
 const SC_Opcodes={
-  toString: function(oc){
-    return SC_OpcodesNames[oc]+":"+oc;
-    }
-  , isValid(oc){
-    return (oc < this.nb_of_instructions && oc > 0);
-    }
-  };
+    toString: function(oc){
+      return SC_OpcodesNames[oc]+":"+oc;
+      }
+  , isValid: function(oc){
+      return (oc < this.nb_of_instructions && oc > 0);
+      }
+  , extractCode(inst){
+      return inst?this.toString(inst.oc):"inst=undefined";
+      }
+    };
 for(var n = 0; n < SC_OpcodesNames.length; n++){
   SC_Opcodes[SC_OpcodesNames[n]] = n;
   }
@@ -1577,7 +1583,7 @@ SC_Instruction.prototype={
       case SC_Opcodes.WHEN_REGISTERED:{
         return this.path.awake(m, flag);
         }
-      case SC_Opcodes.RESET_ON_P_WAIT:
+      //case SC_Opcodes.RESET_ON_P_WAIT:
       case SC_Opcodes.RESET_ON_WAIT:{
         if(this.config.isPresent(m)){
           return this.path.awake(m, flag, true);
@@ -1651,7 +1657,7 @@ SC_Instruction.prototype={
         }
       case SC_Opcodes.CUBE_HALT:
       case SC_Opcodes.CUBE_WAIT:{
-        if(this.c.isPresent(m)){
+        if(this.killEvt.isPresent(m)){
           return this.path.awake(m, flag, true);
           }
         }
@@ -2030,7 +2036,7 @@ SC_Instruction.prototype={
       }
     switch(this.oc){
       case SC_Opcodes.REL_JUMP:{
-        return "end repeat ";
+        return "end repeat {\""+this.relativeJump+"\"}";
         }
       case SC_Opcodes.REPEAT_FOREVER:
       case SC_Opcodes.REPEAT_FOREVER_TO_STOP:{
@@ -2053,7 +2059,7 @@ SC_Instruction.prototype={
       case SC_Opcodes.SEQ_BACK:
       case SC_Opcodes.SEQ_INIT:
       case SC_Opcodes.SEQ:{
-        var res = "[\n"+tab;
+        var res = "[ {\""+SC_Opcodes.toString(this.oc)+" : "+this.idx+"/"+this.seqElements.length+"\"}\n"+tab;
         for(var i = this.idx; i < this.seqElements.length; i++){
           res += this.seqElements[i].toString(tab);
           res += (i<this.seqElements.length-1)?";":"";
@@ -2127,7 +2133,7 @@ SC_Instruction.prototype={
       case SC_Opcodes.AWAIT:
       case SC_Opcodes.AWAIT_REGISTRED:
       case SC_Opcodes.AWAIT_REGISTRED_INLINE:{
-        return "await "+this.config.toString();
+        return "await {\""+SC_Opcodes.toString(this.oc)+"\"} "+this.config.toString();
         }
       case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT:{
         return "action on "+this.evtFun.config.toString()
@@ -2142,6 +2148,30 @@ SC_Instruction.prototype={
         }
       case SC_Opcodes.PAUSE_N_TIMES_INLINE:{
         return "pause "+this.count+"/"+this.times+" times";
+        }
+      case SC_Opcodes.CUBE_HALT:
+      case SC_Opcodes.CUBE_WAIT:
+      case SC_Opcodes.CUBE:{
+	return "cube "+this.o.toString()
+	       +" with "+this.p.toString()+" end";
+	}
+      case SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT_HALTED:{
+	return "action "+this.evtFun+" on "+this.evtFun.config.toString()
+	        +" forever";
+        }
+      case SC_Opcodes.ACTION_ON_EVENT:{
+	return "action "+this.evtFun+" on "+this.evtFun.config.toString();
+        }
+      case SC_Opcodes.CUBE_ACTION_INLINE:{
+	return "*action "+this.closure;
+        }
+      case SC_Opcodes.RESET_ON_INIT:
+      case SC_Opcodes.RESET_ON:
+      case SC_Opcodes.RESET_ON_BACK:
+      case SC_Opcodes.RESET_ON_OEOI:
+      case SC_Opcodes.RESET_ON_P_OEOI:
+      case SC_Opcodes.RESET_ON_BACK:{
+	return "reset {\""+SC_Opcodes.toString(this.oc)+"\"} "+this.prog.toString()+" on "+this.config.toString();
         }
       case SC_Opcodes.CELL_INIT:
       case SC_Opcodes.CELL:{
@@ -3459,23 +3489,21 @@ SC_Seq.prototype={
  ******************************************************************************/
 // *** SC_ResetOn
 function SC_ResetOn(config, prog){
-  this.config = config;
-  this.prog = prog;
+  this.config= config;
+  this.prog= prog;
+  Object.defineProperty(this, "isAnSCProgram", { value: true
+                                               , writable: false });
   };
-SC_ResetOn.prototype = {
-  constructor: SC_ResetOn
-, isAnSCProgram: true
-, bindTo: function(engine, parbranch, seq, path, cube, cinst){
-    var binder = _SC._b(cube);
-    var copy = new SC_Instruction(SC_Opcodes.RESET_ON_INIT);
-    copy.config = binder(this.config)
+SC_ResetOn.prototype.bindTo= function(engine, parbranch, seq, path, cube, cinst){
+    const binder= _SC._b(cube);
+    const copy= new SC_Instruction(SC_Opcodes.RESET_ON_INIT);
+    copy.config= binder(this.config)
                 .bindTo(engine, parbranch, null, copy, cube, cinst);
-    copy.prog = this.prog
+    copy.prog= this.prog
                 .bindTo(engine, parbranch, null, copy, cube, cinst);
-    copy.path = path;
+    copy.path= path;
     return copy;
-    }
-  };
+    };
 /*******************************************************************************
  * SC_Action Instruction
  ******************************************************************************/
@@ -4432,47 +4460,33 @@ SC_Match.prototype = {
  * SC_Cube Class
  *********/
 function SC_Cube(o, p, extension){
-  this.o=o;
-  if(undefined==p || !p.isAnSCProgram){
-    throw new Error("program not well formed for a cube.");
-    }
-  this.p=p;
-  this.init=NO_FUN;
-  this.lastWill=NO_FUN;
-  if(undefined!=extension){
-    if(undefined!=extension.init){
-      if(typeof(extension.init)=="function"){
-        this.init=extension.init;
-        }
-      else{
-        throw new Error("init for cube is not a function "+extension.init);
-        }
+  this.o= o;
+  this.p= p;
+  this.init= NO_FUN;
+  this.lastWill= NO_FUN;
+  if(extension){
+    if(extension.init){
+      this.init= _SC.isFun(extension.init)?extension.init:null;
       }
-    if(undefined!=extension.lastWill){
-      if(typeof(extension.lastWill)=="function"){
-        this.lastWill=extension.lastWill;
-        }
-      else{
-        throw new Error("lastWill for cube is not a function "
-                       +extension.lastWill);
-        }
+    if(extension.lastWill){
+      this.lastWill= _SC.isFun(extension.lastWill)?extension.lastWill:null;
       }
-    if(undefined!=extension.swapList){
-      this.swapList=extension.swapList;
+    if(extension.swapList){
+      this.swapList= extension.swapList;
       }
-    if(undefined!=extension.cubeProto){
-      this.cubeProto=extension.cubeProto;
+    if(extension.cubeProto){
+      this.cubeProto= extension.cubeProto;
       }
     else {
-      this.cubeProto={};
+      this.cubeProto= {};
       }
     }
   else{
-    this.cubeProto={};
+    this.cubeProto= {};
     }
-  this.toAdd=[];
+  this.toAdd= [];
   };
-SC_Cube.prototype = {
+SC_Cube.prototype= {
   constructor: SC_Cube
 , isAnSCProgram: true
 , addProgram: function(p){
@@ -4482,18 +4496,16 @@ SC_Cube.prototype = {
     this.toAdd.push(p);
     }
 , bindTo: function(engine, parbranch, seq, path, cube, cinst){
-    var binder = _SC._b(this);
-    if(undefined !== this.o.SC_cubeAddBehaviorEvt){
-      throw "warning javascript object already configured !"
+    var binder= _SC._b(this);
+    if(undefined!==this.o.SC_cubeAddBehaviorEvt){
+      throw new Error("warning javascript object already configured !"
                   +"Be sure that it is not used bound to another program"
-                  +", especially in a different reactive machine";
-      //console.trace();        
-      return null;
+                  +", especially in a different reactive machine");
       }
     SC_cubify.apply(this.o, this.cubeProto);
-    var copy = new SC_Instruction(SC_Opcodes.CUBE_ZERO);
-    copy.o = this.o;
-    const Evt_kill = this.o.SC_cubeKillEvt;
+    const copy= new SC_Instruction(SC_Opcodes.CUBE_ZERO);
+    copy.o= this.o;
+    const Evt_kill= this.o.SC_cubeKillEvt;
     copy.killEvt = Evt_kill.bindTo(engine, parbranch
                                  , null, copy, cube, cinst);
     copy.swapList = this.swapList;
@@ -4550,15 +4562,25 @@ SC_Cube.prototype = {
         }
       }
     swap_text += "})";
-    copy.exposedState.__proto__ = copy.o;
+    copy.exposedState.__proto__= copy.o;
     copy.swap = (cells)?eval(swap_text).bind(copy.exposedState, copy.o):NO_FUN;
-    copy.init = binder(this.init);
-    copy.lastWill = binder(this.lastWill);
-    copy.p = tmp_beh.bindTo(engine, parbranch, null
+    if(copy.o._sc_init && "function"==typeof(copy.o._sc_init)){
+      copy.init= copy.o._sc_init.bind(copy.o);
+      }
+    else{
+      copy.init= binder(this.init);
+      }
+    if(copy.o._sc_lastWill && "function"==typeof(copy.o._sc_lastWill)){
+      copy.lastWill= copy.o._sc_lastWill.bind(copy.o);
+      }
+    else{
+      copy.lastWill= binder(this.lastWill);
+      }
+    copy.p= tmp_beh.bindTo(engine, parbranch, null
                       , copy, copy.o, copy);
-    copy.dynamic = tmp_par_dyn;
-    copy.m = engine;
-    copy.pb = parbranch;
+    copy.dynamic= tmp_par_dyn;
+    copy.m= engine;
+    copy.pb= parbranch;
     return copy;
     }
 , toString: function(){
@@ -5182,8 +5204,8 @@ On parcours la liste des sensors...
         }
       }
     const cal=this.cubeActions.length;
-    for(var i=0; i<cal; i++){
-      const inst=this.cubeActions[i];
+    for(var i= 0; i<cal; i++){
+      const inst= this.cubeActions[i];
       inst.closure(this.reactInterface);
       }
     const pcal=this.permanentCubeActions.length;
@@ -6491,55 +6513,50 @@ ACT:  switch(inst.oc){
           //this.trace("react reset on BACK", st);
           switch(st){
             case SC_Instruction_State.TERM:{
-              caller=inst.caller;
-              inst.oc=SC_Opcodes.RESET_ON_INIT;
+              caller= inst.caller;
+              inst.oc= SC_Opcodes.RESET_ON_INIT;
               inst.config.unregister(inst);
-              inst=caller;
+              inst= caller;
               break;// ACT ?
               }
             case SC_Instruction_State.SUSP:{
-              caller=inst;
-              inst=inst.prog;
+              caller= inst;
+              inst= inst.prog;
               break;
               }
             case SC_Instruction_State.WEOI:{
-              caller=inst.caller;
-              inst.oc=SC_Opcodes.RESET_ON_WEOI;
+              caller= inst.caller;
+              inst.oc= SC_Opcodes.RESET_ON_WEOI;
               //this.trace("react reset on WEOI");
               inst=inst.caller;
               break;
               }
             case SC_Instruction_State.STOP:{
-              caller=inst.caller;
               st=SC_Instruction_State.OEOI;
-              inst.oc=SC_Opcodes.RESET_ON_P_OEOI;
-              inst=inst.caller;
-              break;
               }
             case SC_Instruction_State.OEOI:{
-              caller=inst.caller;
-              //this.trace("react reset on OEOI");
-              inst.oc=SC_Opcodes.RESET_ON_OEOI;
-              inst=inst.caller;
+              caller= inst.caller;
+              inst.oc= SC_Opcodes.RESET_ON_P_OEOI;
+              inst= inst.caller;
               break;
               }
             case SC_Instruction_State.HALT:{
-              caller=inst.caller;
+              caller= inst.caller;
               //this.trace("react reset on HALT");
               //st=SC_Instruction_State.WAIT;
-              inst.oc=SC_Opcodes.RESET_ON_P_WAIT;
-              st=(inst.config.isPresent(this))?SC_Instruction_State.WEOI
-                                           :SC_Instruction_State.WAIT;
+              inst.oc= SC_Opcodes.RESET_ON_WAIT;
+              st= (inst.config.isPresent(this))?SC_Instruction_State.OEOI
+                                               :SC_Instruction_State.WAIT;
               inst=inst.caller;
               break;
               }
             case SC_Instruction_State.WAIT:{
-              caller=inst.caller;
+              caller= inst.caller;
               //this.trace("react reset on WAIT");
-              st=(inst.config.isPresent(this))?SC_Instruction_State.WEOI
-                                           :SC_Instruction_State.WAIT;
-              inst.oc=SC_Opcodes.RESET_ON_WAIT;
-              inst=inst.caller;
+              st= (inst.config.isPresent(this))?SC_Instruction_State.WEOI
+                                               :SC_Instruction_State.WAIT;
+              inst.oc= SC_Opcodes.RESET_ON_WAIT;
+              inst= inst.caller;
               break;
               }
             default:{
@@ -6548,18 +6565,17 @@ ACT:  switch(inst.oc){
             }
           break;
           }
-        case SC_Opcodes.RESET_ON_WEOI:
-        case SC_Opcodes.RESET_ON_WAIT:
-        case SC_Opcodes.RESET_ON_HALT:{
-          st=SC_Instruction_State.WEOI;
-          inst=caller;
+        /*case SC_Opcodes.RESET_ON_WEOI:
+        case SC_Opcodes.RESET_ON_WAIT:{
+          st= SC_Instruction_State.WEOI;
+          inst= caller;
           break;
-          }
-        case SC_Opcodes.RESET_ON_OEOI:{
-          st=SC_Instruction_State.OEOI;
-          inst=caller;
+          }*/
+        /*case SC_Opcodes.RESET_ON_OEOI:{
+          st= SC_Instruction_State.OEOI;
+          inst= caller;
           break;
-          }
+          }*/
         case SC_Opcodes.CONTROL_INIT:{
           inst.caller = caller;
           inst.activ_cb = control_body;
@@ -7402,18 +7418,26 @@ EOI:  switch(inst.oc){
         case SC_Opcodes._EXIT:{
           return;
           }
-//        case SC_Opcodes.ACTION_INLINE:{
-//          inst=caller;
-//          break;
-//          }
+        case SC_Opcodes.ACTION_INLINE:{
+          inst=caller;
+          break;
+          }
+	case SC_Opcodes.REPEAT_FOREVER:
+	case SC_Opcodes.REPEAT_N_TIMES_BUT_FOREVER:
+	case SC_Opcodes.REPEAT_N_TIMES:{
+          inst=caller;
+	  break;
+	  }
+	case SC_Opcodes.AWAIT_REGISTRED_INLINE:
+	case SC_Opcodes.AWAIT_REGISTRED:
         case SC_Opcodes.SEQ_INIT:{
-          caller=inst;
+          inst=caller;
           break;
           }
         case SC_Opcodes.SEQ:{
-          caller = seq = inst;
-          inst.oc = SC_Opcodes.SEQ_BACK;
-          inst = inst.seqElements[inst.idx];
+          caller= seq= inst;
+          inst.oc= SC_Opcodes.SEQ_BACK;
+          inst= inst.seqElements[inst.idx];
           break;
           }
         case SC_Opcodes.SEQ_BACK:{
@@ -7430,8 +7454,7 @@ EOI:  switch(inst.oc){
           break;
           }
         case SC_Opcodes.RESET_ON:
-        case SC_Opcodes.RESET_ON_WAIT:
-        case SC_Opcodes.RESET_ON_OEOI:
+        case SC_Opcodes.RESET_ON_P_OEOI:
         case SC_Opcodes.RESET_ON_WEOI:{
           inst.rstOC=inst.oc;
           inst.oc=SC_Opcodes.RESET_ON_BACK;
@@ -7439,8 +7462,9 @@ EOI:  switch(inst.oc){
           inst=inst.prog;
           break;
           }
-        case SC_Opcodes.RESET_ON_P_WAIT:
-        case SC_Opcodes.RESET_ON_P_OEOI:
+        //case SC_Opcodes.RESET_ON_OEOI:
+        case SC_Opcodes.RESET_ON_WAIT:
+        //case SC_Opcodes.RESET_ON_P_WAIT:
         case SC_Opcodes.RESET_ON_BACK:{
           inst.oc=SC_Opcodes.RESET_ON;
           if(inst.config.isPresent(this)){
@@ -8557,7 +8581,12 @@ pas garanti. C'est pourquoi il est déclaré dans la partie de l'API dite
  *** New API
  */
   Object.defineProperty(SC, "sc_build"
-                          , { value: 130
+                          , { value: 181
+                            , writable: false
+                              }
+                          );
+  Object.defineProperty(SC, "sc_version"
+                          , { value: "5.0.181.alpha"
                             , writable: false
                               }
                           );
@@ -8969,7 +8998,7 @@ Instruction parameters:
   , { value: function(o, p, extensions){
           const params= {};
           if(undefined==extensions || "object"!=typeof(extensions)){
-            extensions={};
+            extensions= {};
             }
           if(undefined==o){
             throw new Error("undefined object for cube");
