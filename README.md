@@ -2,8 +2,8 @@
 
 **Authors:** Jean-Ferdy Susini, Olivier Pons, Claude Lion\
 **Created:** 2/12/2014 9:23 PM\
-**Version:** 5.0.200.alpha\
-**Build**: 200\
+**Version:** 5.0.228.alpha\
+**Build**: 228\
 **Copyleft 2014-2024**
 
 _This implementation is still in alpha stage, cause API is still mostly subject

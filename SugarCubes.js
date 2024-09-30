@@ -3,8 +3,8 @@
  * Author : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.199.alpha
- * build: 199
+ * version : 5.0.227.alpha
+ * build: 227
  * Copyleft 2014-2024.
  */
 ;
@@ -1201,10 +1201,16 @@ const SC_OpcodesNames = [
   , "PAUSE_INLINE"
   , "PAUSE"
   , "PAUSE_DONE"
+  , "PAUSE_BURST"
+  , "PAUSE_BURST_STOPPED"
+  , "PAUSE_BURST_DONE"
   , "PAUSE_N_TIMES_INIT_INLINE"
   , "PAUSE_N_TIMES_INLINE"
   , "PAUSE_N_TIMES_INIT"
   , "PAUSE_N_TIMES"
+  , "PAUSE_BURST_N_TIMES_INIT"
+  , "PAUSE_BURST_N_TIMES"
+  , "PAUSE_BURST_N_TIMES_STOPPED"
   , "PAUSE_UNTIL_INIT"
   , "PAUSE_UNTIL"
   , "PAUSE_UNTIL_DONE"
@@ -2176,12 +2182,32 @@ SC_Instruction.prototype={
       case SC_Opcodes.RESET_ON_BACK:{
         return "reset {\""+SC_Opcodes.toString(this.oc)+"\"} "+this.prog.toString()+" on "+this.config.toString();
         }
+      case SC_Opcodes.PAUSE_BURST_STOPPED:{
+        return "pause burst ";
+        }
       case SC_Opcodes.CELL_INIT:
       case SC_Opcodes.CELL:{
         return "compute "+this.sideEffect+" on "+this.state
                +((null == this.eventList)?"":" with "+this.eventList);
         }
       default: throw new Error("toString() : undefined opcode "
+                     +SC_Opcodes.toString(this.oc));
+      }
+    }
+, updateAtEndOfBurst: function(clock){
+    switch(this.oc){
+      case SC_Opcodes.PAUSE_BURST_STOPPED:{
+        console.log("pause burst update", this);
+        this.oc= SC_Opcodes.PAUSE_BURST_DONE;
+        break;
+        }
+      case SC_Opcodes.PAUSE_BURST_N_TIMES_STOPPED:{
+        this.count--;
+        console.log("this.count", this.count);
+        this.oc= SC_Opcodes.PAUSE_BURST_N_TIMES;
+        break;
+        }
+      default: throw new Error("updateAtEndOfBurst() : undefined opcode "
                      +SC_Opcodes.toString(this.oc));
       }
     }
@@ -2202,9 +2228,10 @@ Object.freeze(SC_Nothing);
  ******************************************************************************/
 function SC_Next(count){
   this.count= count;
-  _SC.markProgram(this);
   };
-SC_Next.prototype.bindTo= function(engine, parbranch, seq, path, cube, cinst){
+var proto= SC_Next.prototype;
+_SC.markProgram(proto);
+proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
     const binder= _SC._b(cube);
     const count= binder(this.count);
     const copy= new SC_Instruction(('function' == typeof(count))
@@ -2215,9 +2242,302 @@ SC_Next.prototype.bindTo= function(engine, parbranch, seq, path, cube, cinst){
     copy._count= this.count;
     return copy;
     };
-SC_Next.prototype.toString= function(){
+proto.toString= function(){
     return "next "+(this.count>0?(this.count+" times "):"");
     };
+/*****************************************************************************
+Pause Instructions
+******************************************************************************/
+/*********
+SC_PauseForever
+**********/
+const SC_PauseForever= new SC_Instruction(SC_Opcodes.HALT);
+const SC_PauseForEver= {
+    bindTo: function(engine, parbranch, seq, path, cube, cinst){
+        return SC_PauseForever;
+        }
+    };
+_SC.markProgram(SC_PauseForEver);
+Object.freeze(SC_PauseForEver);
+/*********
+SC_PauseBurstOne
+**********/
+function SC_PauseBurstOne(){};
+proto= SC_PauseBurstOne.prototype;
+_SC.markProgram(proto);
+proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
+    return new SC_Instruction(SC_Opcodes.PAUSE_BURST);
+    };
+proto.toString= function(){
+    return "pause burst ";
+    };
+/*********
+SC_PauseOne
+**********/
+function SC_PauseOne(){};
+proto= SC_PauseOne.prototype;
+_SC.markProgram(proto);
+proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
+    return new SC_Instruction(SC_Opcodes.PAUSE);
+    };
+proto.toString= function(){
+    return "pause ";
+    };
+/*********
+SC_Pause
+**********/
+function SC_PauseBurst(times){
+  if(times<0){
+    return SC_PauseForEver;
+    }
+  if(0===times){
+    return SC_Nothing;
+    }
+  this.times= times?times:1;
+  if(1===this.time){
+    return new SC_PauseBurstOne();
+    }
+  };
+proto= SC_PauseBurst.prototype;
+_SC.markProgram(proto);
+proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
+    const binder= _SC._b(cube);
+    const bound_times= binder(this.times);
+    if(bound_times<0){
+      return SC_PauseForever;
+      }
+    else if(0==bound_times){
+      return SC_nothing;
+      }
+    else if(1===bound_times){
+      return new SC_PauseBurstOne().bindTo(engine, parbranch, seq, path, cube, cinst);
+      }
+    const copy= new SC_Instruction(SC_Opcodes.PAUSE_BURST_N_TIMES_INIT);
+    _SC.lateBindProperty(copy, "times", bound_times);
+    copy._times= this.times;
+    return copy;
+    }
+proto.toString= function(){
+    return "pause burst "+this.times+" times ";
+    };
+/*********
+SC_Pause
+**********/
+function SC_Pause(times){
+  if(times<0){
+    return SC_PauseForEver;
+    }
+  if(0===times){
+    return SC_Nothing;
+    }
+  this.times= times?times:1;
+  if(1===this.time){
+    return new SC_PauseOne();
+    }
+  };
+proto= SC_Pause.prototype;
+_SC.markProgram(proto);
+proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
+    const binder= _SC._b(cube);
+    const bound_times= binder(this.times);
+    if(bound_times<0){
+      return SC_PauseForever;
+      }
+    else if(0==bound_times){
+      return SC_nothing;
+      }
+    else if(1===bound_times){
+      return new SC_PauseOne().bindTo(engine, parbranch, seq, path, cube, cinst);
+      }
+    const copy= new SC_Instruction(SC_Opcodes.PAUSE_N_TIMES_INIT);
+    _SC.lateBindProperty(copy, "times", bound_times);
+    copy._times= this.times;
+    return copy;
+    }
+proto.toString= function(){
+    return "pause "+this.times+" times ";
+    };
+// *** SC_PauseRT
+function SC_PauseRT(duration){
+  this.duration= duration;
+  };
+SC_PauseRT.prototype.isAnSCProgram= true;
+SC_PauseRT.prototype.bindTo= function(engine, parbranch, seq, path, cube, cinst){
+    const binder= _SC._b(cube);
+    const copy= new SC_Instruction(SC_Opcodes.PAUSE_RT_INIT);
+    copy.duration= binder(this.duration)*1000;
+    copy._duration= this.duration;
+    return copy;
+    };
+SC_PauseRT.prototype.toString= function(){
+    return "pause for "+this.duration+" ms ";
+    };
+// *** SC_PauseUntil
+function SC_PauseUntil(cond){
+  this.cond = cond;
+  };
+SC_PauseUntil.prototype = {
+  constructor: SC_PauseUntil
+, isAnSCProgram: true
+, bindTo: function(engine, parbranch, seq, path, cube, cinst){
+    var binder = _SC._b(cube);
+    var bound_cond = binder(this.cond);
+    var copy = null;
+    if(bound_cond === true){
+      return SC_PauseOne
+              .bindTo(engine, parbranch, seq, path, cube, cinst);
+      }
+    else if(false == bound_cond){
+      return SC_PauseForever;
+      }
+    copy = new SC_Instruction(SC_Opcodes.PAUSE_UNTIL);
+    copy.cond = bound_cond;
+    copy._cond = this.cond;
+    return copy;
+    }
+, toString: function(){
+    return "pause until "+this.cond;
+    }
+  };
+/*******************************************************************************
+ * SC_Seq Instruction
+ ******************************************************************************/
+function SC_Seq(seqElements){
+  this.seqElements=[];
+  for(var i=0; i<seqElements.length; i++){
+    const prg=seqElements[i];
+    if(SC_Nothing==prg){
+      continue;
+      }
+    if(prg instanceof SC_Seq){
+      const len=prg.seqElements.length;
+      for(var j=0; j<len; j++){
+        this.seqElements.push(prg.seqElements[j]);
+        }
+      }
+    else{
+      this.seqElements.push(prg);
+      }
+    }
+  };
+SC_Seq.prototype={
+  constructor: SC_Seq
+, isAnSCProgram: true
+, add: function(p){
+    if(p){
+      if(p instanceof SC_Seq){
+        for(var j=0; j<p.seqElements.length; j++){
+          this.seqElements.push(p.seqElements[j]);
+          }
+        }
+      else{
+        this.seqElements.push(p);
+        }
+      return;
+      }
+    throw new Error('Seq.add(): invalid program'+p);
+    }
+, bindTo: function(engine, parbranch, seq, path, cube, cinst){
+      const copy= new SC_Instruction(SC_Opcodes.SEQ_INIT);
+      copy.seqElements= [];
+      for(var i= 0; i<this.seqElements.length; i++){
+        var prg= this.seqElements[i];
+        if(prg===SC_nothing){
+          throw new Error("Seq binding : encountered nothing !");
+          }
+        if(prg instanceof SC_Seq){
+          throw new Error("Seq : binding while seq is in !");
+          }
+        else{
+          copy.seqElements.push(prg);
+          }
+        }
+      copy.idx= 0;//-1;
+      for(copy.idx= 0; copy.idx<copy.seqElements.length; copy.idx++){
+        const eos= copy.seqElements[copy.idx]= copy.seqElements[copy.idx]
+                                      .bindTo(engine, parbranch, copy
+                                            , copy, cube, cinst);
+        switch(eos.oc){
+          case SC_Opcodes.PAUSE:{
+            eos.oc= SC_Opcodes.PAUSE_INLINE;
+            break;
+            }
+          case SC_Opcodes.PAUSE_N_TIMES_INIT: {
+            eos.oc= SC_Opcodes.PAUSE_N_TIMES_INIT_INLINE;
+            break;
+            }
+          case SC_Opcodes.NEXT: {
+            eos.oc= SC_Opcodes.NEXT_INLINED;
+            break;
+            }
+          case SC_Opcodes.NEXT_DYN: {
+            eos.oc= SC_Opcodes.NEXT_DYN_INLINED;
+            break;
+            }
+          case SC_Opcodes.ACTION: {
+            eos.o = SC_Opcodes.ACTION_INLINE;
+            break;
+            }
+          case SC_Opcodes.ACTION_N_TIMES_INIT: {
+            eos.oc= SC_Opcodes.ACTION_N_TIMES_INIT_INLINE;
+            break;
+            }
+          case SC_Opcodes.CUBE_ACTION:{
+            eos.oc= SC_Opcodes.CUBE_ACTION_INLINE;
+            break;
+            }
+          case SC_Opcodes.CUBE_ACTION_N_TIMES_INIT:{
+            eos.oc= SC_Opcodes.CUBE_ACTION_N_TIMES_INIT_INLINE;
+            break;
+            }
+          case SC_Opcodes.GENERATE_ONE_NO_VAL:{
+            eos.oc= SC_Opcodes.GENERATE_ONE_NO_VAL_INLINE;
+            break;
+            }
+          case SC_Opcodes.GENERATE_ONE_INIT:{
+            eos.oc= SC_Opcodes.GENERATE_ONE_INIT_INLINE;
+            break;
+            }
+          case SC_Opcodes.GENERATE_INIT:{
+            eos.oc= SC_Opcodes.GENERATE_INIT_INLINE;
+            break;
+            }
+          case SC_Opcodes.GENERATE_NO_VAL_INIT:{
+            eos.oc= SC_Opcodes.GENERATE_NO_VAL_INIT_INLINE;
+            break;
+            }
+          case SC_Opcodes.AWAIT:{
+            eos.oc= SC_Opcodes.AWAIT_INLINE;
+            break;
+            }
+          case SC_Opcodes.STEP:{
+            eos.oc= SC_Opcodes.STEP_INLINE;
+            break;
+            }
+          case SC_Opcodes.STEP_N_TIMES_INIT:{
+            eos.oc= SC_Opcodes.STEP_N_TIMES_INIT_INLINE;
+            break;
+            }
+          default:{
+            break;
+            }
+          }
+        }
+      copy.idx= 0;//-1;
+      copy.seqElements.push(new SC_Instruction(SC_Opcodes.SEQ_ENDED))
+      copy.max= copy.seqElements.length-2;
+      copy.path= path;
+      return copy;
+      }
+, toString: function(){
+      var res ="[";
+      for(var i = 0; i < this.seqElements.length; i++){
+        res += this.seqElements[i].toString();
+        res += (i < this.seqElements.length-1)?";":"";
+        }
+      return res+"] ";
+      }
+  };
 /*****************************************************************************
 Repeat Instructions
 ******************************************************************************/
@@ -3147,110 +3467,6 @@ SC_Await.prototype = {
     }
   };
 /*******************************************************************************
- * SC_Pause Instructions
- ******************************************************************************/
-// *** SC_PauseForever
-const SC_PauseForever=new SC_Instruction(SC_Opcodes.HALT);
-const SC_PauseForEver={};
-SC_PauseForEver.isAnSCProgram=true;
-SC_PauseForEver.bindTo=function(engine, parbranch, seq, path, cube, cinst){
-  return SC_PauseForever;
-  };
-Object.freeze(SC_PauseForEver);
-// *** SC_PauseOne
-function SC_PauseOne(){
-  };
-SC_PauseOne.prototype = {
-  constructor: SC_PauseOne
-, isAnSCProgram: true
-, bindTo: function(engine, parbranch, seq, path, cube, cinst){
-    return new SC_Instruction(SC_Opcodes.PAUSE);
-    }
-, toString: function(){
-    return "pause ";
-    }
-  };
-// *** SC_Pause
-function SC_Pause(times){
-  if(times < 0){
-    return SC_PauseForEver;
-    }
-  if(0 === times){
-    return SC_Nothing;
-    }
-  this.count = this.times = (undefined == times)?1:times;
-  if(1 === this.time){
-    return new SC_PauseOne();
-    }
-  };
-SC_Pause.prototype = {
-  constructor: SC_Pause
-, isAnSCProgram: true
-, bindTo: function(engine, parbranch, seq, path, cube, cinst){
-    var binder = _SC._b(cube);
-    var bound_times = binder(this.times);
-    var copy = null;
-    if(bound_times < 0){
-      return SC_PauseForever;
-      }
-    else if(0 === bound_times){
-      return SC_nothing;
-      }
-    else if(1 === bound_times){
-      return new SC_PauseOne().bindTo(engine, parbranch, seq, path, cube, cinst);
-      }
-    copy = new SC_Instruction(SC_Opcodes.PAUSE_N_TIMES_INIT);
-    _SC.lateBindProperty(copy, "times", bound_times);
-    copy._times = this.times;
-    return copy;
-    }
-, toString: function(){
-    return "pause "+this.count+"/"+this.times+" times ";
-    }
-  };
-// *** SC_PauseRT
-function SC_PauseRT(duration){
-  this.duration= duration;
-  };
-SC_PauseRT.prototype.isAnSCProgram= true;
-SC_PauseRT.prototype.bindTo= function(engine, parbranch, seq, path, cube, cinst){
-    const binder= _SC._b(cube);
-    const copy= new SC_Instruction(SC_Opcodes.PAUSE_RT_INIT);
-    copy.duration= binder(this.duration)*1000;
-    copy._duration= this.duration;
-    return copy;
-    };
-SC_PauseRT.prototype.toString= function(){
-    return "pause for "+this.duration+" ms ";
-    };
-// *** SC_PauseUntil
-function SC_PauseUntil(cond){
-  this.cond = cond;
-  };
-SC_PauseUntil.prototype = {
-  constructor: SC_PauseUntil
-, isAnSCProgram: true
-, bindTo: function(engine, parbranch, seq, path, cube, cinst){
-    var binder = _SC._b(cube);
-    var bound_cond = binder(this.cond);
-    var copy = null;
-    if(bound_cond === true){
-      return SC_PauseOne
-              .bindTo(engine, parbranch, seq, path, cube, cinst);
-      }
-    else if(false == bound_cond){
-      return SC_PauseForever;
-      }
-    copy = new SC_Instruction(SC_Opcodes.PAUSE_UNTIL);
-    copy.cond = bound_cond;
-    copy._cond = this.cond;
-    return copy;
-    }
-, toString: function(){
-    return "pause until "+this.cond;
-    }
-  };
-/*******************************************************************************
  * SC_Step Instructions
  ******************************************************************************/
 // *** SC_StepOne
@@ -3350,145 +3566,6 @@ SC_Step.prototype = {
 //    return "pause until "+this.cond;
 //    }
 //  };
-/*******************************************************************************
- * SC_Seq Instruction
- ******************************************************************************/
-function SC_Seq(seqElements){
-  this.seqElements=[];
-  for(var i=0; i<seqElements.length; i++){
-    const prg=seqElements[i];
-    if(SC_Nothing==prg){
-      continue;
-      }
-    if(prg instanceof SC_Seq){
-      const len=prg.seqElements.length;
-      for(var j=0; j<len; j++){
-        this.seqElements.push(prg.seqElements[j]);
-        }
-      }
-    else{
-      this.seqElements.push(prg);
-      }
-    }
-  };
-SC_Seq.prototype={
-  constructor: SC_Seq
-, isAnSCProgram: true
-, add: function(p){
-    if(p){
-      if(p instanceof SC_Seq){
-        for(var j=0; j<p.seqElements.length; j++){
-          this.seqElements.push(p.seqElements[j]);
-          }
-        }
-      else{
-        this.seqElements.push(p);
-        }
-      return;
-      }
-    throw new Error('Seq.add(): invalid program'+p);
-    }
-, bindTo: function(engine, parbranch, seq, path, cube, cinst){
-      const copy= new SC_Instruction(SC_Opcodes.SEQ_INIT);
-      copy.seqElements= [];
-      for(var i= 0; i<this.seqElements.length; i++){
-        var prg= this.seqElements[i];
-        if(prg===SC_nothing){
-          throw new Error("Seq binding : encountered nothing !");
-          }
-        if(prg instanceof SC_Seq){
-          throw new Error("Seq : binding while seq is in !");
-          }
-        else{
-          copy.seqElements.push(prg);
-          }
-        }
-      copy.idx= 0;//-1;
-      for(copy.idx= 0; copy.idx<copy.seqElements.length; copy.idx++){
-        const eos= copy.seqElements[copy.idx]= copy.seqElements[copy.idx]
-                                      .bindTo(engine, parbranch, copy
-                                            , copy, cube, cinst);
-        switch(eos.oc){
-          case SC_Opcodes.PAUSE:{
-            eos.oc= SC_Opcodes.PAUSE_INLINE;
-            break;
-            }
-          case SC_Opcodes.PAUSE_N_TIMES_INIT: {
-            eos.oc= SC_Opcodes.PAUSE_N_TIMES_INIT_INLINE;
-            break;
-            }
-          case SC_Opcodes.NEXT: {
-            eos.oc= SC_Opcodes.NEXT_INLINED;
-            break;
-            }
-          case SC_Opcodes.NEXT_DYN: {
-            eos.oc= SC_Opcodes.NEXT_DYN_INLINED;
-            break;
-            }
-          case SC_Opcodes.ACTION: {
-            eos.o = SC_Opcodes.ACTION_INLINE;
-            break;
-            }
-          case SC_Opcodes.ACTION_N_TIMES_INIT: {
-            eos.oc= SC_Opcodes.ACTION_N_TIMES_INIT_INLINE;
-            break;
-            }
-          case SC_Opcodes.CUBE_ACTION:{
-            eos.oc= SC_Opcodes.CUBE_ACTION_INLINE;
-            break;
-            }
-          case SC_Opcodes.CUBE_ACTION_N_TIMES_INIT:{
-            eos.oc= SC_Opcodes.CUBE_ACTION_N_TIMES_INIT_INLINE;
-            break;
-            }
-          case SC_Opcodes.GENERATE_ONE_NO_VAL:{
-            eos.oc= SC_Opcodes.GENERATE_ONE_NO_VAL_INLINE;
-            break;
-            }
-          case SC_Opcodes.GENERATE_ONE_INIT:{
-            eos.oc= SC_Opcodes.GENERATE_ONE_INIT_INLINE;
-            break;
-            }
-          case SC_Opcodes.GENERATE_INIT:{
-            eos.oc= SC_Opcodes.GENERATE_INIT_INLINE;
-            break;
-            }
-          case SC_Opcodes.GENERATE_NO_VAL_INIT:{
-            eos.oc= SC_Opcodes.GENERATE_NO_VAL_INIT_INLINE;
-            break;
-            }
-          case SC_Opcodes.AWAIT:{
-            eos.oc= SC_Opcodes.AWAIT_INLINE;
-            break;
-            }
-          case SC_Opcodes.STEP:{
-            eos.oc= SC_Opcodes.STEP_INLINE;
-            break;
-            }
-          case SC_Opcodes.STEP_N_TIMES_INIT:{
-            eos.oc= SC_Opcodes.STEP_N_TIMES_INIT_INLINE;
-            break;
-            }
-          default:{
-            break;
-            }
-          }
-        }
-      copy.idx= 0;//-1;
-      copy.seqElements.push(new SC_Instruction(SC_Opcodes.SEQ_ENDED))
-      copy.max= copy.seqElements.length-2;
-      copy.path= path;
-      return copy;
-      }
-, toString: function(){
-      var res ="[";
-      for(var i = 0; i < this.seqElements.length; i++){
-        res += this.seqElements[i].toString();
-        res += (i < this.seqElements.length-1)?";":"";
-        }
-      return res+"] ";
-      }
-  };
 /*******************************************************************************
  * SC_Reset
  ******************************************************************************/
@@ -4750,20 +4827,21 @@ function SC_Machine(params){
   this.permanentActions = [];
   this.permanentGenerate = [];
   this.permanentActionsOn = [];
-  this.permanentActionsOnOnly = [];
-  this.permanentCubeActions = [];
-  this.actions = [];
-  this.actionsOnEvents = [];
+  this.permanentActionsOnOnly= [];
+  this.permanentCubeActions= [];
+  this.actions= [];
+  this.actionsOnEvents= [];
   this.cells=[];
-  this.generated_values = {};
-  this.pending = [];
-  this.externalPending = [];
-  this.burstState = [];
-  this.pendingSensors = [];
-  this.pendingPrograms = [];
-  this.parActions = [];
+  this.generated_values= {};
+  this.pending= [];
+  this.externalPending= [];
+  this.burstState= [];
+  this.pendingSensors= [];
+  this.pendingPrograms= [];
+  this.parActions= [];
   this.setSensors= {};
-  this.name = (params.name)?params.name:"machine_"+SC.count;
+  this.forEOB= [];
+  this.name= (params.name)?params.name:"machine_"+SC.count;
   SC_cubify.apply(this);
   this.prg.cube = this;
   this.setStdOut(params.fun_stdout);
@@ -4884,6 +4962,7 @@ SC_Machine.prototype = {
     this.stdOut = NO_FUN;
     this.traceEvt=null;
     this.writeEvt=null;
+    this.forEOB= null;
     this.environment=null;
     if(this.timer != 0){
       clearInterval(this.timer);
@@ -5001,6 +5080,9 @@ séparée de la gestion des événements classiques.
 , addDynPar: function(p){
     this.parActions.push(p);
     }
+, registerForEndOfBurst: function(inst){
+      this.forEOB.push(inst);
+      }
 , react: function(){
    if(this.ended){ return !this.ended; }
 /*
@@ -5012,15 +5094,15 @@ séparée de la gestion des événements classiques.
 /*
 Si on est en burst mode on ne fait pas d'échantillonnage...
 */
-    if(0 < this.toContinue){
-      this.burstMode = true;
+    if(0<this.toContinue){
+      this.burstMode= true;
       this.toContinue--;
       }
     else{
-      this.startReaction = 0;
-      //if(0 > this.toContinue){
-      //  this.toContinue = 0;
-      //  }
+      this.startReaction= 0;
+      if(0>this.toContinue){
+        this.toContinue= 0;
+        }
 /*
 On parcours la liste des sensors...
 */
@@ -5242,6 +5324,13 @@ On parcours la liste des sensors...
         }
       else{
         console.log.call(console, this.instantNumber, this.traceEvt.getValues(this));
+        }
+      }
+    const eobs= this.forEOB.length;
+    if(0>=this.toContinue && eobs>0){
+      for(var i=0; i<eobs; i++){
+        const eobi= this.forEOB.pop();
+        eobi.updateAtEndOfBurst();
         }
       }
     this.instantNumber++;
@@ -5654,6 +5743,24 @@ ACT:  switch(inst.oc){
           inst = caller;
           break;
           }
+        case SC_Opcodes.PAUSE_BURST:{
+          inst.oc= SC_Opcodes.PAUSE_BURST_STOPPED;
+          st= SC_Instruction_State.STOP;
+          this.registerForEndOfBurst(inst);
+          inst= caller;
+          break;
+          }
+        case SC_Opcodes.PAUSE_BURST_STOPPED:{
+          st= SC_Instruction_State.STOP;
+          inst= caller;
+          break;
+          }
+        case SC_Opcodes.PAUSE_BURST_DONE:{
+          inst.oc= SC_Opcodes.PAUSE_BURST;
+          st= SC_Instruction_State.TERM;
+          inst= caller;
+          break;
+          }
         case SC_Opcodes.PAUSE:{
           inst.oc = SC_Opcodes.PAUSE_DONE;
           st = SC_Instruction_State.STOP;
@@ -5710,6 +5817,24 @@ ACT:  switch(inst.oc){
           inst.count--;
           st = SC_Instruction_State.STOP;
           inst = caller;
+          break;
+          }
+        case SC_Opcodes.PAUSE_BURST_N_TIMES_INIT:{
+          inst.count= inst.times;
+          }
+        case SC_Opcodes.PAUSE_BURST_N_TIMES:{
+          if(0==inst.count){
+            inst.oc= SC_Opcodes.PAUSE_BURST_N_TIMES_INIT;
+            st= SC_Instruction_State.TERM;
+            inst= caller;
+            break;
+            }
+          inst.oc= SC_Opcodes.PAUSE_BURST_N_TIMES_STOPPED;
+          this.registerForEndOfBurst(inst);
+          }
+        case SC_Opcodes.PAUSE_BURST_N_TIMES_STOPPED:{
+          st= SC_Instruction_State.STOP;
+          inst= caller;
           break;
           }
         case SC_Opcodes.NEXT_INLINED:{
@@ -8466,6 +8591,9 @@ peut importantes.
     nop: function(){
       return this.nothing();
       }
+  , pauseBurst: function(n){
+      return new SC_PauseBurst(_SC.b_(n));
+      }
   , purge: function(prg){
       return (prg && prg.isAnSCProgram)?prg:this.nothing();
       }
@@ -8537,12 +8665,12 @@ pas garanti. C'est pourquoi il est déclaré dans la partie de l'API dite
  *** New API
  */
   Object.defineProperty(SC, "sc_build"
-                          , { value: 199
+                          , { value: 227
                             , writable: false
                               }
                           );
   Object.defineProperty(SC, "sc_version"
-                          , { value: "5.0.199.alpha"
+                          , { value: "5.0.227.alpha"
                             , writable: false
                               }
                           );
