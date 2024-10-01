@@ -42,14 +42,15 @@
 */
 , expected:
      `
-1 -: -- burst start --in
-2 -: in
-3 -: in
-4 -: -- burst ends --in
-5 -: inin
-6 -: inin
-7 -: in
-8 -: 
-9 -: -- FIN --`
+1 -: -- burst start --in*
+2 -: in*
+3 -: in*
+4 -: -- burst ends --in*
+5 -: inin*
+6 -: inin*
+7 -: in*
+8 -: -- FIN --*
+9 -: *
+10 -: *`
   }
 

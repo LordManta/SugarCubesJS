@@ -3,8 +3,8 @@
  * Author : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.227.alpha
- * build: 227
+ * version : 5.0.252.alpha
+ * build: 252
  * Copyleft 2014-2024.
  */
 ;
@@ -1158,13 +1158,22 @@ const SC_OpcodesNames = [
   "NOP"
   , "_EXIT"
   , "REL_JUMP"
+  , "REPEAT_BURST_N_TIMES_INIT"
+  , "REPEAT_BURST_N_TIMES_BUT_FOREVER"
+  , "REPEAT_BURST_N_TIMES_BUT_FOREVER_TO_STOP"
+  , "REPEAT_BURST_N_TIMES"
+  , "REPEAT_BURST_N_TIMES_TO_STOP"
   , "REPEAT_N_TIMES_INIT"
   , "REPEAT_N_TIMES_BUT_FOREVER"
   , "REPEAT_N_TIMES_BUT_FOREVER_TO_STOP"
   , "REPEAT_N_TIMES"
   , "REPEAT_N_TIMES_TO_STOP"
+  , "REPEAT_BURST_FOREVER"
+  , "REPEAT_BURST_FOREVER_NEXT"
+  , "REPEAT_BURST_FOREVER_STOP"
   , "REPEAT_FOREVER"
   , "REPEAT_FOREVER_TO_STOP"
+  , "IF_REPEAT_BURST_INIT"
   , "IF_REPEAT_INIT"
   , "IF_REPEAT"
   , "IF_REPEAT_TO_STOP"
@@ -1211,7 +1220,10 @@ const SC_OpcodesNames = [
   , "PAUSE_BURST_N_TIMES_INIT"
   , "PAUSE_BURST_N_TIMES"
   , "PAUSE_BURST_N_TIMES_STOPPED"
-  , "PAUSE_UNTIL_INIT"
+  //, "PAUSE_UNTIL_INIT"
+  , "PAUSE_BURST_UNTIL"
+  , "PAUSE_BURST_UNTIL_STOP"
+  , "PAUSE_BURST_UNTIL_DONE"
   , "PAUSE_UNTIL"
   , "PAUSE_UNTIL_DONE"
   , "NOTHING_INLINED"
@@ -2185,6 +2197,9 @@ SC_Instruction.prototype={
       case SC_Opcodes.PAUSE_BURST_STOPPED:{
         return "pause burst ";
         }
+      case SC_Opcodes.PAUSE_BURST_UNTIL:{
+        return "pause burst until "+this.cond+" ";
+        }
       case SC_Opcodes.CELL_INIT:
       case SC_Opcodes.CELL:{
         return "compute "+this.sideEffect+" on "+this.state
@@ -2201,10 +2216,31 @@ SC_Instruction.prototype={
         this.oc= SC_Opcodes.PAUSE_BURST_DONE;
         break;
         }
+      case SC_Opcodes.REPEAT_BURST_N_TIMES_BUT_FOREVER_TO_STOP:{
+        this.oc= SC_Opcodes.REPEAT_BURST_N_TIMES_BUT_FOREVER;
+        break;
+        }
+      case SC_Opcodes.REPEAT_BURST_N_TIMES_TO_STOP:{
+        if(0===this.count){
+          this.seq.idx+= this.end;
+          this.oc= SC_Opcodes.REPEAT_BURST_N_TIMES_INIT;
+          break;
+          }
+        this.oc= SC_Opcodes.REPEAT_BURST_N_TIMES;
+        break;
+        }
       case SC_Opcodes.PAUSE_BURST_N_TIMES_STOPPED:{
         this.count--;
-        console.log("this.count", this.count);
         this.oc= SC_Opcodes.PAUSE_BURST_N_TIMES;
+        break;
+        }
+      case SC_Opcodes.REPEAT_BURST_FOREVER_STOP:{
+        this.oc= SC_Opcodes.REPEAT_BURST_FOREVER;
+        break;
+        }
+      case SC_Opcodes.PAUSE_BURST_UNTIL_STOP:{
+        this.oc= this.cond(clock.reactInterface)?SC_Opcodes.PAUSE_BURST_UNTIL_DONE
+                                                  :SC_Opcodes.PAUSE_BURST_UNTIL;
         break;
         }
       default: throw new Error("updateAtEndOfBurst() : undefined opcode "
@@ -2221,15 +2257,16 @@ const SC_Nothing= {
         return SC_nothing;
         }
     };
-_SC.markProgram(SC_Nothing);
-Object.freeze(SC_Nothing);
+var proto= SC_Nothing;
+_SC.markProgram(proto);
+Object.freeze(proto);
 /*******************************************************************************
  * Next Object
  ******************************************************************************/
 function SC_Next(count){
   this.count= count;
   };
-var proto= SC_Next.prototype;
+proto= SC_Next.prototype;
 _SC.markProgram(proto);
 proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
     const binder= _SC._b(cube);
@@ -2257,8 +2294,9 @@ const SC_PauseForEver= {
         return SC_PauseForever;
         }
     };
-_SC.markProgram(SC_PauseForEver);
-Object.freeze(SC_PauseForEver);
+proto= SC_PauseForEver;
+_SC.markProgram(proto);
+Object.freeze(proto);
 /*********
 SC_PauseBurstOne
 **********/
@@ -2284,7 +2322,7 @@ proto.toString= function(){
     return "pause ";
     };
 /*********
-SC_Pause
+SC_PauseBurst
 **********/
 function SC_PauseBurst(times){
   if(times<0){
@@ -2357,48 +2395,74 @@ proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
 proto.toString= function(){
     return "pause "+this.times+" times ";
     };
-// *** SC_PauseRT
+/*********
+SC_PauseRT
+**********/
 function SC_PauseRT(duration){
   this.duration= duration;
   };
-SC_PauseRT.prototype.isAnSCProgram= true;
-SC_PauseRT.prototype.bindTo= function(engine, parbranch, seq, path, cube, cinst){
+proto= SC_PauseRT.prototype;
+_SC.markProgram(proto);
+proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
     const binder= _SC._b(cube);
     const copy= new SC_Instruction(SC_Opcodes.PAUSE_RT_INIT);
     copy.duration= binder(this.duration)*1000;
     copy._duration= this.duration;
     return copy;
     };
-SC_PauseRT.prototype.toString= function(){
+proto.toString= function(){
     return "pause for "+this.duration+" ms ";
     };
-// *** SC_PauseUntil
-function SC_PauseUntil(cond){
-  this.cond = cond;
+/*********
+SC_PauseBurstUntil
+**********/
+function SC_PauseBurstUntil(cond){
+  this.cond= cond;
   };
-SC_PauseUntil.prototype = {
-  constructor: SC_PauseUntil
-, isAnSCProgram: true
-, bindTo: function(engine, parbranch, seq, path, cube, cinst){
-    var binder = _SC._b(cube);
-    var bound_cond = binder(this.cond);
-    var copy = null;
-    if(bound_cond === true){
-      return SC_PauseOne
-              .bindTo(engine, parbranch, seq, path, cube, cinst);
+proto= SC_PauseBurstUntil.prototype;
+_SC.markProgram(proto);
+proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
+    const binder= _SC._b(cube);
+    const bound_cond= binder(this.cond);
+    if(true===bound_cond){
+      return SC_PauseBurstOne.bindTo(engine, parbranch, seq, path, cube, cinst);
       }
-    else if(false == bound_cond){
+    else if(false==bound_cond){
       return SC_PauseForever;
       }
-    copy = new SC_Instruction(SC_Opcodes.PAUSE_UNTIL);
-    copy.cond = bound_cond;
-    copy._cond = this.cond;
+    const copy= new SC_Instruction(SC_Opcodes.PAUSE_BURST_UNTIL);
+    copy.cond= bound_cond;
+    copy._cond= this.cond;
     return copy;
     }
-, toString: function(){
-    return "pause until "+this.cond;
-    }
+proto.toString= function(){
+    return "pause burst until "+this.cond;
+    };
+/*********
+SC_PauseUntil
+**********/
+function SC_PauseUntil(cond){
+  this.cond= cond;
   };
+proto= SC_PauseUntil.prototype;
+_SC.markProgram(proto);
+proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
+    const binder= _SC._b(cube);
+    const bound_cond= binder(this.cond);
+    if(true===bound_cond){
+      return SC_PauseOne.bindTo(engine, parbranch, seq, path, cube, cinst);
+      }
+    else if(false==bound_cond){
+      return SC_PauseForever;
+      }
+    const copy= new SC_Instruction(SC_Opcodes.PAUSE_UNTIL);
+    copy.cond= bound_cond;
+    copy._cond= this.cond;
+    return copy;
+    }
+proto.toString= function(){
+    return "pause until "+this.cond;
+    };
 /*******************************************************************************
  * SC_Seq Instruction
  ******************************************************************************/
@@ -2420,24 +2484,27 @@ function SC_Seq(seqElements){
       }
     }
   };
-SC_Seq.prototype={
-  constructor: SC_Seq
-, isAnSCProgram: true
-, add: function(p){
+proto= SC_Seq.prototype;
+_SC.markProgram(proto);
+proto.append= function(p){
     if(p){
       if(p instanceof SC_Seq){
-        for(var j=0; j<p.seqElements.length; j++){
+        for(var j= 0; j<p.seqElements.length; j++){
           this.seqElements.push(p.seqElements[j]);
           }
+        return;
         }
-      else{
+      else if(SC_Nothing==prg){
+        return;
+        }
+      else if(p.isAnSCProgram){
         this.seqElements.push(p);
+        return;
         }
-      return;
       }
     throw new Error('Seq.add(): invalid program'+p);
-    }
-, bindTo: function(engine, parbranch, seq, path, cube, cinst){
+    };
+proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
       const copy= new SC_Instruction(SC_Opcodes.SEQ_INIT);
       copy.seqElements= [];
       for(var i= 0; i<this.seqElements.length; i++){
@@ -2528,16 +2595,15 @@ SC_Seq.prototype={
       copy.max= copy.seqElements.length-2;
       copy.path= path;
       return copy;
-      }
-, toString: function(){
+      };
+proto.toString= function(){
       var res ="[";
       for(var i = 0; i < this.seqElements.length; i++){
         res += this.seqElements[i].toString();
         res += (i < this.seqElements.length-1)?";":"";
         }
       return res+"] ";
-      }
-  };
+      };
 /*****************************************************************************
 Repeat Instructions
 ******************************************************************************/
@@ -2546,13 +2612,14 @@ SC_RelativeJump (relogeable)
 **********/
 function SC_RelativeJump(jump){
   this.relativeJump= jump; // index relatif ou sauter dans la séquence
-  _SC.markProgram(this);
   };
 /*
  * En cas de bug vérifier que le jump arrive bien sur une instruction correcte
  * (jumpable).
  */
-SC_RelativeJump.prototype.bindTo= function(engine, parbranch, seq, path, cube, cinst){
+proto= SC_RelativeJump.prototype;
+_SC.markProgram(proto);
+proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
     const copy= new SC_Instruction(SC_Opcodes.REL_JUMP);
     const jmp= parseInt(this.relativeJump);
     copy.relativeJump= isNaN(jmp)?1:jmp;
@@ -2560,17 +2627,45 @@ SC_RelativeJump.prototype.bindTo= function(engine, parbranch, seq, path, cube, c
       const i= seq.idx+jmp;
       const rp= seq.seqElements[i];
       if(!(SC_Opcodes.IF_REPEAT_INIT==rp.oc)
+          && !(SC_Opcodes.REPEAT_BURST_FOREVER==rp.oc)
+          && !(SC_Opcodes.REPEAT_BURST_N_TIMES_INIT==rp.oc)
           && !(SC_Opcodes.REPEAT_N_TIMES_INIT==rp.oc)
           && !(SC_Opcodes.REPEAT_FOREVER==rp.oc)){
-        console.warn("invalid branch", seq.idx, jmp, rp, seq);
+        console.warn("invalid branching", seq.idx, jmp, rp, seq);
         throw new Error("bad jump");
         }
       }
     copy.seq= seq;
     return copy;
     };
-SC_RelativeJump.prototype.toString= function(){
-    return "end repeat {\""+this.relativeJump+"\"} ";
+proto.toString= function(){
+    return "] end repeat {\""+this.relativeJump+"\"} ";
+    };
+/*********
+SC_IfRepeatBurstPoint
+**********/
+function SC_IfRepeatBurstPoint(cond){
+  this.condition= cond; // fonction retournant une valeur booleenne
+  this.end= 0;
+  };
+proto= SC_IfRepeatBurstPoint.prototype;
+_SC.markProgram(proto);
+proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
+    const copy= new SC_Instruction(SC_Opcodes.IF_REPEAT_BURST_INIT);
+    const binder= _SC._b(cube);
+    const cond= binder(this.condition);
+    copy.condition= cond;
+    copy._condition= this.condition;
+    const jmp= parseInt(this.end);
+    copy.end= isNaN(jmp)?0:jmp;
+    if(0===copy.end){
+      throw new Error("Internal error");
+      }
+    copy.seq= seq;
+    return copy;
+    };
+proto.toString= function(){
+    return "while "+this.condition+" repeat burst [ ";
     };
 /*********
 SC_IfRepeatPoint sinon quitte la boucle un peu à la manière du while...
@@ -2578,9 +2673,10 @@ SC_IfRepeatPoint sinon quitte la boucle un peu à la manière du while...
 function SC_IfRepeatPoint(cond){
   this.condition= cond; // fonction retournant une valeur booleenne
   this.end= 0;
-  _SC.markProgram(this);
   };
-SC_IfRepeatPoint.prototype.bindTo= function(engine, parbranch, seq, path, cube, cinst){
+proto= SC_IfRepeatPoint.prototype;
+_SC.markProgram(proto);
+proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
     const copy= new SC_Instruction(SC_Opcodes.IF_REPEAT_INIT);
     const binder= _SC._b(cube);
     const cond= binder(this.condition);
@@ -2594,23 +2690,81 @@ SC_IfRepeatPoint.prototype.bindTo= function(engine, parbranch, seq, path, cube, 
     copy.seq= seq;
     return copy;
     };
-SC_IfRepeatPoint.prototype.toString= function(){
-    return "while "+this.condition+" repeat ";
+proto.toString= function(){
+    return "while "+this.condition+" repeat [ ";
+    };
+/*********
+SC_RepeatBurstPointForever
+**********/
+function SC_RepeatBurstPointForever(){};
+proto= SC_RepeatBurstPointForever.prototype;
+_SC.markProgram(proto);
+proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
+    const copy= new SC_Instruction(SC_Opcodes.REPEAT_BURST_FOREVER);
+    copy.seq= seq;
+    return copy;
+    };
+proto.toString= function(){
+    return "repeat forever ";
     };
 /*********
 SC_RepeatPointForever
 **********/
-function SC_RepeatPointForever(){
-  _SC.markProgram(this);
-  };
-SC_RepeatPointForever.prototype.bindTo= function(engine, parbranch, seq, path, cube, cinst){
+function SC_RepeatPointForever(){};
+proto= SC_RepeatPointForever.prototype;
+_SC.markProgram(proto);
+proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
     const copy= new SC_Instruction(SC_Opcodes.REPEAT_FOREVER);
     copy.seq= seq;
     return copy;
     };
-SC_RepeatPointForever.prototype.toString= function(){
+proto.toString= function(){
     return "repeat forever ";
     };
+/*********
+SC_RepeatBurstPoint
+**********/
+function SC_RepeatBurstPoint(times){
+  if(times<0){
+    return new SC_RepeatBurstPointForever();
+    }
+  this.it= times;
+  this.end= 0;
+  };
+proto= SC_RepeatBurstPoint.prototype;
+_SC.markProgram(proto);
+proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
+    const binder= _SC._b(cube);
+    const bound_it= binder(this.it);      
+    if(bound_it<0){
+      return new SC_RepeatBurstPointForever()
+           .bindTo(engine, parbranch, seq, path, cube, cinst);
+      }
+    if(0==bound_it){
+      return SC.nothing()
+           .bindTo(engine, parbranch, seq, path, cube, cinst);
+      }
+    const copy= new SC_Instruction(SC_Opcodes.REPEAT_BURST_N_TIMES_INIT);
+    const jmp= parseInt(this.end);
+    copy.end= isNaN(jmp)?0:jmp;
+    if(0===copy.end){
+      throw new Error("Internal error");
+      }
+    if("function"==typeof bound_it){
+      Object.defineProperty(copy, "it",{ get: bound_it });
+      }
+    else{
+      copy.it= bound_it;
+      }
+    copy.count= copy.it;
+    copy._it= this.it;
+    copy.seq= seq;
+    return copy;
+    }
+proto.toString= function(){
+    return "repeat burst "
+                +((this.it<0)?"forever ":this.count+"/"+this.it+" times [ ");
+    } ;
 /*********
 SC_RepeatPoint
 **********/
@@ -2620,9 +2774,10 @@ function SC_RepeatPoint(times){
     }
   this.it= times;
   this.end= 0;
-  _SC.markProgram(this);
   };
-SC_RepeatPoint.prototype.bindTo= function(engine, parbranch, seq, path, cube, cinst){
+proto= SC_RepeatPoint.prototype;
+_SC.markProgram(proto);
+proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
     const binder= _SC._b(cube);
     const bound_it= binder(this.it);      
     if(bound_it<0){
@@ -2650,7 +2805,7 @@ SC_RepeatPoint.prototype.bindTo= function(engine, parbranch, seq, path, cube, ci
     copy.seq= seq;
     return copy;
     }
-SC_RepeatPoint.prototype.toString= function(){
+proto.toString= function(){
     return "repeat "
                 +((this.it<0)?"forever ":this.count+"/"+this.it+" times ");
     } ;
@@ -4817,16 +4972,16 @@ function SC_Machine(params){
              , writable: false
              }
            );
-  this.prg = new SC_Par([]).bindTo(this, null, null, null, null, null,null);
-  this.instantNumber = 1;
-  this.ended = false;
-  this.toContinue = 0;
-  this.startReaction = 0;
-  this.burstMode = false;
-  this.eventID = 0;
-  this.permanentActions = [];
-  this.permanentGenerate = [];
-  this.permanentActionsOn = [];
+  this.prg= new SC_Par([]).bindTo(this, null, null, null, null, null,null);
+  this.instantNumber= 1;
+  this.ended= false;
+  this.toContinue= 0;
+  this.startReaction= 0;
+  this.burstMode= false;
+  this.eventID= 0;
+  this.permanentActions= [];
+  this.permanentGenerate= [];
+  this.permanentActionsOn= [];
   this.permanentActionsOnOnly= [];
   this.permanentCubeActions= [];
   this.actions= [];
@@ -5099,8 +5254,11 @@ Si on est en burst mode on ne fait pas d'échantillonnage...
       this.toContinue--;
       }
     else{
-      this.startReaction= 0;
+      if(0!=this.startReaction){
+        this.startReaction= 0;
+        }
       if(0>this.toContinue){
+        console.warn("burst continue <0");
         this.toContinue= 0;
         }
 /*
@@ -5327,10 +5485,11 @@ On parcours la liste des sensors...
         }
       }
     const eobs= this.forEOB.length;
-    if(0>=this.toContinue && eobs>0){
+    if(0==this.toContinue && eobs>0){
+      this.startReaction=0;
       for(var i=0; i<eobs; i++){
         const eobi= this.forEOB.pop();
-        eobi.updateAtEndOfBurst();
+        eobi.updateAtEndOfBurst(this);
         }
       }
     this.instantNumber++;
@@ -5382,6 +5541,20 @@ ACT:  switch(inst.oc){
           inst = seq.seqElements[seq.idx];
           break;
           }
+        case SC_Opcodes.REPEAT_BURST_FOREVER:{
+          inst.oc = SC_Opcodes.REPEAT_BURST_FOREVER_NEXT;
+          inst = seq.seqElements[++seq.idx];
+          break;
+          }
+        case SC_Opcodes.REPEAT_BURST_FOREVER_NEXT:{
+          this.registerForEndOfBurst(inst);
+          inst.oc= SC_Opcodes.REPEAT_BURST_FOREVER_STOP;
+          }
+        case SC_Opcodes.REPEAT_BURST_FOREVER_STOP:{
+          st = SC_Instruction_State.STOP;
+          inst = caller;
+          break;
+          }
         case SC_Opcodes.REPEAT_FOREVER:{
           inst.oc = SC_Opcodes.REPEAT_FOREVER_TO_STOP;
           inst = seq.seqElements[++seq.idx];
@@ -5405,14 +5578,14 @@ ACT:  switch(inst.oc){
           break;
           }
         case SC_Opcodes.REPEAT_N_TIMES_INIT:{
-          inst.count = inst.it;
-          if(0 > inst.count){
-            inst.oc = SC_Opcodes.REPEAT_N_TIMES_BUT_FOREVER;
+          inst.count= inst.it;
+          if(0>inst.count){
+            inst.oc= SC_Opcodes.REPEAT_N_TIMES_BUT_FOREVER;
             break;
             }
-          if(0 == inst.count){
-            seq.idx += inst.end;
-            inst = seq.seqElements[seq.idx];
+          if(0==inst.count){
+            seq.idx+= inst.end;
+            inst= seq.seqElements[seq.idx];
             break;
             }
           }
@@ -5432,6 +5605,41 @@ ACT:  switch(inst.oc){
           inst.oc = SC_Opcodes.REPEAT_N_TIMES;
           st = SC_Instruction_State.STOP;
           inst = caller;
+          break;
+          }
+        case SC_Opcodes.REPEAT_BURST_N_TIMES_BUT_FOREVER:{
+          inst.oc= SC_Opcodes.REPEAT_BURST_N_TIMES_BUT_FOREVER_TO_STOP;
+          this.registerForEndOfBurst(inst);
+          inst= seq.seqElements[++seq.idx];
+          break;
+          }
+        case SC_Opcodes.REPEAT_BURST_N_TIMES_BUT_FOREVER_TO_STOP:{
+          st= SC_Instruction_State.STOP;
+          inst= caller;
+          break;
+          }
+        case SC_Opcodes.REPEAT_BURST_N_TIMES_INIT:{
+          inst.count= inst.it;
+          if(0>inst.count){
+            inst.oc= SC_Opcodes.REPEAT_BURST_N_TIMES_BUT_FOREVER;
+            break;
+            }
+          if(0==inst.count){
+            seq.idx+= inst.end;
+            inst= seq.seqElements[seq.idx];
+            break;
+            }
+          }
+        case SC_Opcodes.REPEAT_BURST_N_TIMES:{
+          inst.oc= SC_Opcodes.REPEAT_BURST_N_TIMES_TO_STOP;
+          this.registerForEndOfBurst(inst);
+          inst.count--;
+          inst = seq.seqElements[++seq.idx];
+          break;
+          }
+        case SC_Opcodes.REPEAT_BURST_N_TIMES_TO_STOP:{
+          st= SC_Instruction_State.STOP;
+          inst= caller;
           break;
           }
         case SC_Opcodes.IF_REPEAT_INIT:{
@@ -5777,6 +5985,22 @@ ACT:  switch(inst.oc){
           inst.oc = SC_Opcodes.PAUSE_UNTIL;
           inst.count = inst.times;
           }*/
+        case SC_Opcodes.PAUSE_BURST_UNTIL_STOP:{
+          st= SC_Instruction_State.STOP;
+          inst= caller;
+          break;
+          }
+        case SC_Opcodes.PAUSE_BURST_UNTIL_DONE:{
+          st= SC_Instruction_State.TERM;
+          inst.oc= SC_Opcodes.PAUSE_BURST_UNTIL;
+          inst= caller;
+          break;
+          }
+        case SC_Opcodes.PAUSE_BURST_UNTIL:{
+          st= SC_Instruction_State.OEOI;
+          inst= caller;
+          break;
+          }
         case SC_Opcodes.PAUSE_UNTIL_DONE:{
           st = SC_Instruction_State.TERM;
           inst.oc = SC_Opcodes.PAUSE_UNTIL;
@@ -5841,8 +6065,8 @@ ACT:  switch(inst.oc){
           if(0==this.startReaction){
             this.startReaction= this.instantNumber;
             }
-          this.toContinue+= Math.max(0, inst.count
-                             -(this.instantNumber-this.startReaction));
+          this.toContinue= Math.max(this.toContinue, inst.count+this.startReaction
+                                                     -this.instantNumber);
           inst= seq.seqElements[++seq.idx];
           break;
           }
@@ -5850,8 +6074,8 @@ ACT:  switch(inst.oc){
           if(0==this.startReaction){
             this.startReaction= this.instantNumber;
             }
-          this.toContinue+= Math.max(0, inst.count
-                             -(this.instantNumber-this.startReaction));
+          this.toContinue= Math.max(this.toContinue, inst.count+this.startReaction
+                                                     -this.instantNumber);
           st= SC_Instruction_State.TERM;
           inst= caller;
           break;
@@ -5860,8 +6084,9 @@ ACT:  switch(inst.oc){
           if(0==this.startReaction){
             this.startReaction= this.instantNumber;
             }
-          this.toContinue+= Math.max(0, inst.count(this.reactInterface)
-                             -(this.instantNumber-this.startReaction));
+          this.toContinue= Math.max(this.toContinue, inst.count(this.reactInterface)
+                                                     +this.startReaction
+                                                     -this.instantNumber);
           inst= seq.seqElements[++seq.idx];
           break;
           }
@@ -5869,8 +6094,9 @@ ACT:  switch(inst.oc){
           if(0==this.startReaction){
             this.startReaction= this.instantNumber;
             }
-          this.toContinue+= Math.max(0, inst.count(this.reactInterface)
-                             -(this.instantNumber-this.startReaction));
+          this.toContinue= Math.max(this.toContinue, inst.count(this.reactInterface)
+                                                     +this.startReaction
+                                                     -this.instantNumber);
           st= SC_Instruction_State.TERM;
           inst= caller;
           break;
@@ -7646,6 +7872,12 @@ EOI:  switch(inst.oc){
           inst= caller;
           break;
           }
+        case SC_Opcodes.PAUSE_BURST_UNTIL:{
+          this.registerForEndOfBurst(inst);
+          inst.oc= SC_Opcodes.PAUSE_BURST_UNTIL_STOP;
+          inst= caller;
+          break;
+          }
         case SC_Opcodes.PAR_DYN:{
           if(null!=inst.tmp){
             inst.suspended.append(inst.tmp);
@@ -8594,9 +8826,50 @@ peut importantes.
   , pauseBurst: function(n){
       return new SC_PauseBurst(_SC.b_(n));
       }
+  , pauseBurstUntil: function(cond){
+          if(undefined==cond){
+            throw new Error('pauseBurstUntil(): invalid condition: '+cond);
+            }
+          if(false===cond){
+            console.error("pauseBurstUntil(): pauseForever for a false const.");
+            return this.pauseForever();
+            }
+          if(true===cond){
+            console.error("pauseBurstUntil(): single pause for a true const.");
+            return this.pauseBurst();
+            }
+          if("function"!=typeof(cond) && !(cond instanceof SC_CubeBinding)){
+            throw new Error('pauseBurstUntil(): invalid condition implementation: '
+                           +cond);
+            }
+          return new SC_PauseBurstUntil(cond);
+          }
   , purge: function(prg){
       return (prg && prg.isAnSCProgram)?prg:this.nothing();
       }
+  , repeatBurstForever: function(){
+        Array.prototype.unshift.call(arguments, this.forever);
+        return this.repeatBurst.apply(this, arguments);
+        }
+  , repeatBurst: function(n){
+        if(0==n){
+          return this.nothing();
+          }
+        const prgs= [];
+        var jump= 1;
+        prgs[0]= new SC_RepeatBurstPoint(n);
+        for(var i= 1 ; i<arguments.length; i++){
+          const p= arguments[i];
+          if(undefined==p || p==SC_Nothing || !p.isAnSCProgram){ continue; }
+          prgs.push(p);
+          jump+= (p instanceof SC_Seq)?p.seqElements.length:1;
+          }
+        const end= new SC_RelativeJump(-jump);
+        prgs.push(end);
+        prgs[0].end= jump+1;
+        const t= new SC_Seq(prgs);
+        return t;
+        }
   , repeatForever: function(n){
       Array.prototype.unshift.call(arguments, this.forever);
       return this.repeat.apply(this, arguments);
@@ -8665,12 +8938,12 @@ pas garanti. C'est pourquoi il est déclaré dans la partie de l'API dite
  *** New API
  */
   Object.defineProperty(SC, "sc_build"
-                          , { value: 227
+                          , { value: 252
                             , writable: false
                               }
                           );
   Object.defineProperty(SC, "sc_version"
-                          , { value: "5.0.227.alpha"
+                          , { value: "5.0.252.alpha"
                             , writable: false
                               }
                           );
