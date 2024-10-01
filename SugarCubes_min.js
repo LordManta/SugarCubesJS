@@ -3,8 +3,8 @@
  * Authors : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.252.alpha
- * build: 252
+ * version : 5.0.268.alpha
+ * build: 268
  * Copyleft 2014-2024.
  */
 ;
@@ -738,6 +738,8 @@ const SC_OpcodesNames = [
   , "REPEAT_FOREVER"
   , "REPEAT_FOREVER_TO_STOP"
   , "IF_REPEAT_BURST_INIT"
+  , "IF_REPEAT_BURST"
+  , "IF_REPEAT_BURST_TO_STOP"
   , "IF_REPEAT_INIT"
   , "IF_REPEAT"
   , "IF_REPEAT_TO_STOP"
@@ -1781,6 +1783,10 @@ SC_Instruction.prototype={
         this.oc= SC_Opcodes.REPEAT_BURST_N_TIMES;
         break;
         }
+      case SC_Opcodes.IF_REPEAT_BURST_TO_STOP:{
+        this.oc = SC_Opcodes.IF_REPEAT_BURST_INIT;
+        break;
+        }
       case SC_Opcodes.PAUSE_BURST_N_TIMES_STOPPED:{
         this.count--;
         this.oc= SC_Opcodes.PAUSE_BURST_N_TIMES;
@@ -2120,8 +2126,9 @@ proto.toString= function(){
         }
       return res+"] ";
       };
-function SC_RelativeJump(jump){
+function SC_RelativeJump(jump, no_test){
   this.relativeJump= jump; 
+  this.no_test= no_test;
   };
 proto= SC_RelativeJump.prototype;
 _SC.markProgram(proto);
@@ -2132,10 +2139,12 @@ proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
     if(jmp<0){
       const i= seq.idx+jmp;
       const rp= seq.seqElements[i];
-      if(!(SC_Opcodes.IF_REPEAT_INIT==rp.oc)
-          && !(SC_Opcodes.REPEAT_BURST_FOREVER==rp.oc)
+      if(!this.no_test && !(SC_Opcodes.IF_REPEAT_INIT==rp.oc)
+          && !(SC_Opcodes.IF_REPEAT_BURST_INIT==rp.oc)
           && !(SC_Opcodes.REPEAT_BURST_N_TIMES_INIT==rp.oc)
           && !(SC_Opcodes.REPEAT_N_TIMES_INIT==rp.oc)
+          && !(SC_Opcodes.REL_JUMP==rp.oc)
+          && !(SC_Opcodes.REPEAT_BURST_FOREVER==rp.oc)
           && !(SC_Opcodes.REPEAT_FOREVER==rp.oc)){
         console.warn("invalid branching", seq.idx, jmp, rp, seq);
         throw new Error("bad jump");
@@ -2157,13 +2166,19 @@ proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
     const copy= new SC_Instruction(SC_Opcodes.IF_REPEAT_BURST_INIT);
     const binder= _SC._b(cube);
     const cond= binder(this.condition);
-    copy.condition= cond;
-    copy._condition= this.condition;
     const jmp= parseInt(this.end);
     copy.end= isNaN(jmp)?0:jmp;
     if(0===copy.end){
       throw new Error("Internal error");
       }
+    if(true===cond){
+      return new SC_RepeatBurstPointForever().bindTo(engine, parbranch, seq, path, cube, cinst);
+      }
+    else if(false==cond){
+      return new SC_RelativeJump(copy.end).bindTo(engine, parbranch, seq, path, cube, cinst);
+      }
+    copy.condition= cond;
+    copy._condition= this.condition;
     copy.seq= seq;
     return copy;
     };
@@ -2177,16 +2192,22 @@ function SC_IfRepeatPoint(cond){
 proto= SC_IfRepeatPoint.prototype;
 _SC.markProgram(proto);
 proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
-    const copy= new SC_Instruction(SC_Opcodes.IF_REPEAT_INIT);
     const binder= _SC._b(cube);
-    const cond= binder(this.condition);
-    copy.condition= cond;
-    copy._condition= this.condition;
+    const bound_cond= binder(this.condition);
     const jmp= parseInt(this.end);
+    const copy= new SC_Instruction(SC_Opcodes.IF_REPEAT_INIT);
     copy.end= isNaN(jmp)?0:jmp;
     if(0===copy.end){
       throw new Error("Internal error");
       }
+    if(true===bound_cond){
+      return new SC_RepeatPointForever().bindTo(engine, parbranch, seq, path, cube, cinst);
+      }
+    else if(false==bound_cond){
+      return new SC_RelativeJump(copy.end).bindTo(engine, parbranch, seq, path, cube, cinst);
+      }
+    copy.condition= bound_cond;
+    copy._condition= this.condition;
     copy.seq= seq;
     return copy;
     };
@@ -4927,6 +4948,24 @@ ACT:  switch(inst.oc){
           inst= caller;
           break;
           }
+        case SC_Opcodes.IF_REPEAT_BURST_INIT:{
+          if(!inst.condition(this)){
+            seq.idx+= inst.end;
+            inst= seq.seqElements[seq.idx];
+            break;
+            }
+          }
+        case SC_Opcodes.IF_REPEAT_BURST:{
+          inst.oc= SC_Opcodes.IF_REPEAT_BURST_TO_STOP;
+          this.registerForEndOfBurst(inst);
+          inst= seq.seqElements[++seq.idx];
+          break;
+          }
+        case SC_Opcodes.IF_REPEAT_BURST_TO_STOP:{
+          st= SC_Instruction_State.STOP;
+          inst= caller;
+          break;
+          }
         case SC_Opcodes.IF_REPEAT_INIT:{
           if(!inst.condition(this)){
             seq.idx += inst.end;
@@ -4940,13 +4979,7 @@ ACT:  switch(inst.oc){
           break;
           }
         case SC_Opcodes.IF_REPEAT_TO_STOP:{
-          if(!inst.condition(this)){
-            seq.idx += inst.end;
-            inst.oc = SC_Opcodes.IF_REPEAT_INIT;
-            inst = seq.seqElements[seq.idx];
-            break;
-            }
-          inst.oc = SC_Opcodes.IF_REPEAT;
+          inst.oc = SC_Opcodes.IF_REPEAT_INIT;
           st = SC_Instruction_State.STOP;
           inst = caller;
           break;
@@ -8116,6 +8149,27 @@ const SC= {
         const t= new SC_Seq(prgs);
         return t;
         }
+  , whileRepeatBurst: function(c){
+        const prgs= [];
+        var jump= 1;
+        if('function'!=typeof(c) && true!==c && false!==c
+           && ("object"!=typeof(c.t) || 'string'!=typeof(c.f))
+           && !(c instanceof SC_CubeBinding)){
+          throw new Error("invalid condition: "+c);
+          }
+        prgs[0]= new SC_IfRepeatBurstPoint(c);
+        for(var i= 1; i<arguments.length; i++){
+          const p= arguments[i];
+          if(undefined==p || p==SC_Nothing || !p.isAnSCProgram){ continue; }
+          prgs.push(p);
+          jump+= (p instanceof SC_Seq)?p.seqElements.length:1;
+          }
+        const end= new SC_RelativeJump(-jump);
+        prgs[prgs.length]= end;
+        prgs[0].end= jump+1;
+        const t= this.seq.apply(this, prgs);
+        return t;
+        }
   , repeatForever: function(n){
       Array.prototype.unshift.call(arguments, this.forever);
       return this.repeat.apply(this, arguments);
@@ -8175,12 +8229,12 @@ const SC= {
       }
     };
   Object.defineProperty(SC, "sc_build"
-                          , { value: 252
+                          , { value: 268
                             , writable: false
                               }
                           );
   Object.defineProperty(SC, "sc_version"
-                          , { value: "5.0.252.alpha"
+                          , { value: "5.0.268.alpha"
                             , writable: false
                               }
                           );
@@ -8805,7 +8859,7 @@ const SC= {
     , writable: false
       }
     );
-  Object.defineProperty(SC, "repeatIf"
+  Object.defineProperty(SC, "whileRepeat"
   , { value: function(c){
           const prgs= [];
           var jump= 1;
