@@ -698,8 +698,10 @@ Zone de control
                     +">"+config.splashConfig.title+"</span></div> "
                     +"<img id='SC_splash_FB_loading'"
                     +" src='images/gif/CP48_spinner.gif'/>"
-                    +"<div class='SC_splashH3' style='display:none;'>"
-                    +config.splashConfig.start
+                    +"<div "+(config.splashConfig.start_btn_style?("style='"
+		                                     +config.splashConfig.start_btn_style+"; display:none;'")
+		             :"class='SC_splashH3' style='display:none;'")+">"
+                    +config.splashConfig.start_btn_text
                     +"</div></div>";
             const im_anim=splashScreen.children[0].children[1];
             const btn=splashScreen.children[0].children[2];
@@ -1631,7 +1633,7 @@ Bubble view utility funs
                         ((this._sc_clock)?this._sc_clock:SC.tools).generateEvent(Evt_shadowReady);
                         }.bind(this));
                   }.bind(this, Evt_shadowReady));
-              this._sc_wc=(msg.waitClick)?msg.waitClick:false;
+              this._sc_wc=(msg.waitClick)?true:false;
               this._sc_pauseAfterEnd=(msg.pauseAfterEnd)?msg.pauseAfterEnd:0;
               this._sc_updateAppearance(msg);
               };
@@ -1674,7 +1676,7 @@ Bubble view utility funs
                   , SC.seq(
                       SC.await(Evt_shadowReady)
                     , SC.pause(2)
-                    , SC.repeatIf({ t: bubble_view, f: '_sc_textRemains' }
+                    , SC.whileRepeat({ t: bubble_view, f: '_sc_textRemains' }
                       , SC.action("_sc_progressiveText")
                       , SC.pause()
                         )
@@ -1712,7 +1714,7 @@ Bubble view utility funs
               this.hidden=false;
               this._sc_content.innerHTML=msg.text;
               SC.tools.Web.postTreatmentOfDOM(this._sc_content);
-              this._sc_wc=(msg.waitClick)?msg.waitClick:false;
+              this._sc_wc=(msg.waitClick)?true:false;
               this._sc_pauseAfterEnd=(msg.pauseAfterEnd)?msg.pauseAfterEnd:0;
               this._sc_updateAppearance(msg);
               };
@@ -2377,7 +2379,7 @@ Bubble view utility funs
               });
             this._sc_content=quickElt({
                 tag: 'div'
-              , id: 'WebToolsDOMID_pupup_content'
+              , id: 'WebToolsDOMID_popup_content'
                 });
             tmp.style.position="fixed";
             tmp.style.zIndex="25";

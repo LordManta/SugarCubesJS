@@ -237,7 +237,7 @@ SC.tools.displaySplash();
                 SC.par(
                   SC.repeat(SC.forever
                     , SC.await(SC.or("Evt_touchStart", "Evt_on_mouseDown", myKeyDown))
-                    , SC.test(SC.my("_sc_kt_isValid")
+                    , SC.test("_sc_kt_isValid"
                       , SC.seq(
                           SC.generate(data.Evt_snd)
                         , SC.generate("Evt_css_background", "green")
@@ -264,17 +264,17 @@ SC.tools.displaySplash();
                       )
                   , SC.repeatForever(
                         SC.await(Evt_groupView)
-                      , SC.action(SC.my("_sc_filter_display_group"))
+                      , SC.action("_sc_filter_display_group")
                       )
                   , SC.action("_sc_modified_key", SC.forever)
                   , SC.filter(systemKeyDown
                       , myKeyDown
-                      , SC.my("_sc_filter_key")
+                      , "_sc_filter_key"
                       , SC.forever
                       )
                   , SC.filter(systemKeyUp
                       , myKeyUp
-                      , SC.my("_sc_filter_key")
+                      , "_sc_filter_key"
                       , SC.forever
                       )
                   )

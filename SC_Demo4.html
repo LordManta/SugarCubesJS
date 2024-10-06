@@ -357,9 +357,9 @@ const the_CONTEXT= workspace.getContext("2d");
 workspace._sc_drop= false;
 
 workspace.sc_display=function(m){
-    if(this._sc_drop){
-      console.log("drop frame");
-      }
+    //if(this._sc_drop){
+    //  console.log("drop frame");
+    //  }
     this._sc_drop=true;
     var toDraw= m.getValuesOf(Evt_requestDisplay);
     toDraw= toDraw?toDraw:the_VOID_ARRAY;
@@ -412,11 +412,11 @@ By default binding of functions are done on the cube object.
     )
   );
 </script>
-<script type="text/javascript" src="Hat.js">
+<script type="text/javascript" src="sc_app_hat.js">
 </script>
-<script type="text/javascript" src="Bubble.js">
+<script type="text/javascript" src="sc_app_bubble.js">
 </script>
-<script type="text/javascript" src="Letter.js">
+<script type="text/javascript" src="sc_app_letter.js">
 </script>
 <script type="text/javascript">
 starterBlock.sc_act_hide= function(re){

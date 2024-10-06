@@ -22,7 +22,9 @@ SC.par(
 // Executed at initialisation of the test
 , init: function(){
     window.varCount= 0;
-    window.sc_test_isEnded= function(){ return 2>varCount; };
+    window.sc_test_isEnded= function(){
+      return 2>varCount;
+      };
     }
 , async: function(){
     varCount++;

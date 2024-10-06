@@ -1,19 +1,26 @@
-  {
+{
    prg:
 `SC.par(
   SC.whileRepeat(fun, SC.write('hello'))
 , SC.seq(SC.pause(5), SC.action(go))
   )`
- , fun: function(){
-     return globalCond;
-     }
- , go: function(){
-     globalCond = false;
-     }
+, fun: function(){
+       return globalCond;
+       }
+ , go: function(re){
+       toGo= true;
+       }
+ , async: function(){
+       if(toGo){
+         globalCond= false;
+	 toGo= false;
+         }
+       }
  , init: function(){
-     window.go = this.go;
-     window.fun = this.fun;
-     globalCond = true;
+     window.toGo= false;
+     window.go= this.go;
+     window.fun= this.fun;
+     globalCond= true;
      }
  , expected:
      `
