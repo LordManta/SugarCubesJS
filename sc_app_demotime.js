@@ -28,7 +28,7 @@ var bubble_view= SC.tools.Web.makeDiv({
       , SC.repeatForever(
           SC.kill(writting
             , SC.seq(
-                SC.repeat(SC.my("textSize")
+                SC.repeatLate("textSize"
                 , SC.action(SC.my("progressiveText"))
                 , SC.pause(1)
                   )
@@ -46,12 +46,14 @@ var bubble_view= SC.tools.Web.makeDiv({
     });
 
 bubble_view.notifyEndOfTypping= function(m){
+  console.warn("end of typing text");
   m.addEntry(typeEndedEvt);
   };
 bubble_view.text= "";
 bubble_view.toWriteTxt= "";
 bubble_view.toWriteTxtIdx= 0;
 bubble_view.textSize= function(){
+  console.log("get it", this.toWriteTxt.length);
   return this.toWriteTxt.length;
   };
 bubble_view.setNewText= function(engine){
@@ -364,8 +366,9 @@ function makeTalk(){
          );
     }
   var req_txt= {
-     speech: "Cliquez sur le bouton timeline1 pour activer la zone stop du haut !"
-     , r_delay: 500
+      speech: "Cliquez sur le bouton timeline1 pour activer la zone stop du haut !"
+    , r_delay: 500
+    , lang: "fr-FR"
      , rm: SC.tools.main
      , dir: 3
      , x: "20px"
@@ -845,9 +848,9 @@ graphMachine.addProgram(
   );
 
 /*******
- * Classe Buble
+ * Classe Bubble
  *******/
-function Buble(x, y, r, clr, startEvt){
+function Bubble(x, y, r, clr, startEvt){
   this.x= x;
   this.y= y;
   this.r= r;
@@ -871,8 +874,8 @@ function Buble(x, y, r, clr, startEvt){
     );
   };
 
-Buble.prototype= {
-  constructor: Buble
+Bubble.prototype= {
+  constructor: Bubble
 , draw: function(ctx){
     ctx.save();
     ctx.strokeStyle= "black";
@@ -896,7 +899,7 @@ Buble.prototype= {
   };
 
 /*******
- * Classe Buble
+ * Classe Zone
  *******/
 function Zone(x, y , r, zoneEvt, zc2, com, startEvt, clr, img){
   this.x= x;
@@ -1005,7 +1008,6 @@ Zone.prototype= {
     if(this.hidden){
       return;
       }
-    console.log("draw zone");
     ctx.save();
     ctx.translate(this.x, this.y);
     if(this.zoneVisible){
@@ -1107,7 +1109,7 @@ stopImage.src = "images/png/stop.png";
 
 new Zone(60,100,40, zone1, zone1C2, comA, show1g, "yellow", stopImage);
 new Zone(60,400,40, zone2, zone2C2, comB, show2g, "red", stopImage);
-buble = new Buble(400,300, 60, "green", show3g);
+buble = new Bubble(400,300, 60, "green", show3g);
 
 function InstantFrontier(params){
   this.x = params.x;

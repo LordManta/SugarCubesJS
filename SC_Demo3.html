@@ -60,13 +60,7 @@ One defines a mouse down sensor which will be activated when the user clicks in
 the first workspace.
 */
 const Sens_mouse_down= SC.sensor("Sens_mouse_down"
-, { dom_targets: [
-      { target: workspace1
-      , evt: "mousedown"
-        }
-      ]
-  }
-  );
+, { dom_targets: [ { target: workspace1, evt: "mousedown" } ] });
 
 /*
 One uses reactive events to handle most of the application logic.
@@ -257,12 +251,12 @@ orthogonal axe.
 This method checks if the mouse pointer coordinates are in the ball or not when
 click occurs.
 */
-Ball.prototype.checkClick=function(m){
-  const vals=m.sensorValueOf(Sens_mouse_down);
-  const rx=this.x-(vals.clientX-workspace1.offsetLeft);
-  const ry=this.y-(vals.clientY-workspace1.offsetTop);
-  this.clicked=(Math.sqrt(rx*rx+ry*ry)<this.r);
-  }
+Ball.prototype.checkClick= function(m){
+    const val= m.sensorValueOf(Sens_mouse_down);
+    const rx=this.x-(val.clientX-workspace1.offsetLeft);
+    const ry=this.y-(val.clientY-workspace1.offsetTop);
+    this.clicked=(Math.sqrt(rx*rx+ry*ry)<this.r);
+    };
 
 
 /*

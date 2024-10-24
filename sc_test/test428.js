@@ -6,7 +6,7 @@ SC.par(
     SC.await(sens1),
     SC.write('go')
     )
-, SC.repeat(
+, SC.repeatForever(
     SC.nothing()
     )
   )

@@ -4,8 +4,8 @@
  * Created : 15/02/2015 19:53
  * Part of the SugarCubes Project
  * version : 5.0 alpha
- * implantation : 0.2
- * Copyright 2015-2023.
+ * implantation : 0.3
+ * Copyright 2015-2024.
  */
 
 /*
@@ -41,7 +41,9 @@
   line-height:normal;
 }
 span.SC_splashH1{
-  font-size:7vh;
+  font-size:12vh;
+  font-weight: bold;
+  color: white;
 }
 div.SC_splashH3{
   border: 2px solid;

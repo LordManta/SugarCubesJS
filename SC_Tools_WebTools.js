@@ -235,10 +235,13 @@ Zone de control
             this.updateZonePos(0);
             }
           }
+        SC.globals.CP={
+            Evt_appendElement: SC.evt("appendElement")
+            };
 // Inspector Panel
         Object.defineProperty(SC.tools, "initPanel"
         , { value: function(){
-              var workspace=this;
+              var workspace= this;
               if(undefined===workspace.sc_getFPS){
                 workspace.sc_getFPS=function(){ return "NA"; }
                 }
@@ -378,22 +381,10 @@ Zone de control
               controlPanel.content.appendChild(tmpTable);
               controlPanel.content.appendChild(document.createElement("br"));
               controlPanel.content.appendChild(controlPanel.console);
-              controlPanel.setInspectorBtn= function(){
-                const inspector_btn= document.createElement("button");
-                inspector_btn.textContent= "Element Inspector";
-                inspector_btn.onclick= function(){
-                  if(SC.tools.elementInspector){
-                    SC.tools.generateEvent(
-                      SC.tools.elementInspector.Evt_setIcobjUnderInspection
-                    , null);
-                    }
-                  };
-                this.content.appendChild(inspector_btn);
-                };
-              if(undefined !== this.elementInspector){
-                this.controlPanel.setInspectorBtn();
-                }
-              const Sens_pointerEvtTracker=SC.sensor("Sens_pointerEvtTracker"
+              //if(undefined !== this.elementInspector){
+              //  this.controlPanel.setInspectorBtn();
+              //  }
+              const Sens_pointerEvtTracker= SC.sensor("Sens_pointerEvtTracker"
                                  , { dom_targets: [
                                        { target: document, evt: "click" }
                                      , { target: document, evt: "mousedown" }
@@ -412,67 +403,76 @@ Zone de control
                 this.console.appendChild(document.createTextNode(msg));
                 console.log.apply(console, arguments);
                 };
-	      SC.writeInPanel= controlPanel.writeInPanel.bind(controlPanel);
-              const Prg_trackEvent=SC.repeatForever(
-                SC.await(Sens_pointerEvtTracker)
-              , SC.action(function(evt, m){
-                   const val=m.sensorValueOf(evt);
-                   SC_evt_mouse_offset_x.textContent=Math.floor(val.offsetX);
-                   SC_evt_mouse_offset_y.textContent=Math.floor(val.offsetY);
-                   SC_evt_mouse_client_x.textContent=Math.floor(val.clientX);
-                   SC_evt_mouse_client_y.textContent=Math.floor(val.clientY);
-                   SC_evt_mouse_page_x.textContent=Math.floor(val.x);
-                   SC_evt_mouse_page_y.textContent=Math.floor(val.y);
-                   SC_evt_mouse_screen_x.textContent=Math.floor(val.screenX);
-                   SC_evt_mouse_screen_y.textContent=Math.floor(val.screenY);
-                 }.bind(controlPanel, Sens_pointerEvtTracker))
-                );
-              this.addProgram(Prg_trackEvent);
+              SC.writeInPanel= controlPanel.writeInPanel.bind(controlPanel);
+              const Prg_trackEvent=
+                SC.repeatForever(
+                  SC.await(Sens_pointerEvtTracker)
+                , SC.action(function(m){
+                      const val= m.sensorValueOf(Sens_pointerEvtTracker);
+                      SC_evt_mouse_offset_x.textContent= Math.floor(val.offsetX);
+                      SC_evt_mouse_offset_y.textContent= Math.floor(val.offsetY);
+                      SC_evt_mouse_client_x.textContent= Math.floor(val.clientX);
+                      SC_evt_mouse_client_y.textContent= Math.floor(val.clientY);
+                      SC_evt_mouse_page_x.textContent= Math.floor(val.x);
+                      SC_evt_mouse_page_y.textContent= Math.floor(val.y);
+                      SC_evt_mouse_screen_x.textContent= Math.floor(val.screenX);
+                      SC_evt_mouse_screen_y.textContent= Math.floor(val.screenY);
+                      })
+                  );
+              controlPanel.Act_screenShotCapture=  function(m){
+                  if(workspace.toDataURL){
+                    this.screenShot.src= workspace.toDataURL("image/png");
+                    }
+                  };
+              controlPanel.Act_updateIPS= function(m){
+                  this.SC_Panel_ips.textContent=" "
+                                   +SC.tools.main.getIPS()+" ";
+                  };
+              controlPanel.Act_updateFPS= function(m){
+                  if(workspace && workspace.sc_getFPS){
+                    this.SC_Panel_fps.textContent=" FPS : "
+                                +workspace.sc_getFPS()+" ";
+                    }
+                  };
+              controlPanel.Act_appendElement= function(re){
+                  const data= re.getValuesOf(SC.globals.CP.Evt_appendElement);
+                  if(data){
+                    const inspector_btn= data[0];
+                    this.content.appendChild(inspector_btn);
+                    }
+                  };
+              controlPanel.Act_updateParallelBranchesNumber= function(m){
+		  SC_toplevel_bn.textContent= m.getTopLevelParallelBranchesNumber();
+	          };
+              controlPanel.Act_updateInstantNumber= function(m){
+		  SC_instant_n_cell.textContent= m.getInstantNumber();
+	          };
               this.addProgram(
-                  SC.repeat(SC.forever
-                    , SC.action(function(m){
-                          if(workspace.sc_getFPS){
-                            this.SC_Panel_fps.textContent=" FPS : "
-                                        +workspace.sc_getFPS()+" ";
-                            }
-                          }.bind(controlPanel)
-                        )
+                SC.cube(controlPanel
+                , SC.par(
+                    SC.repeatForever(
+                      SC.await(SC.globals.CP.Evt_appendElement)
+                    , SC.action("Act_appendElement")
+                      )
+                  , Prg_trackEvent
+                  , SC.repeatForever(
+                      SC.action("Act_updateFPS")
+                    , SC.pause(200)
+                      )                    
+                  , SC.repeat(SC.forever
+                    , SC.action("Act_updateIPS")
                     , SC.pause(200)
                       )
-                    );
-              this.addProgram(
-                  SC.repeat(SC.forever
-                    , SC.action(function(m){
-                          this.SC_Panel_ips.textContent=" "
-                                         +SC.tools.main.getIPS()+" ";
-                        }.bind(controlPanel))
-                    , SC.pause(200)
+                  , SC.repeatForever(
+                      SC.await(controlPanel.Sens_screenShot)
+                    , SC.action("Act_screenShotCapture")
+                      )
+		  , SC.repeatForever(
+                      SC.action("Act_updateInstantNumber")
+                    , SC.action("Act_updateParallelBranchesNumber")
+                      )
                     )
-                );
-              this.addProgram(
-                  SC.repeatForever(
-                        SC.await(controlPanel.Sens_screenShot)
-                      , SC.action(
-                          function(m){
-                            if(workspace.toDataURL){
-                              this.screenShot.src
-                                =workspace.toDataURL("image/png");
-                              }
-                            }.bind(controlPanel))
-                    )
-                );
-              this.addProgram(
-                  SC.repeat(SC.forever
-                    , SC.action(function(view, m){
-                        view.textContent=SC.tools.main.getInstantNumber();
-                        }.bind(controlPanel, SC_instant_n_cell)
-                        )
-                    , SC.action(function SC_updateTLBN(view, m){
-                        view.textContent
-                          =SC.tools.main.getTopLevelParallelBranchesNumber();
-                        }.bind(controlPanel, SC_toplevel_bn)
-                        )
-                    )
+                  )
                 );
               this.main.setStdOut(controlPanel.writeInPanel.bind(controlPanel));
               Object.defineProperty(this, "controlPanel"
@@ -482,11 +482,9 @@ Zone de control
                 );
               Object.defineProperty(this, "setWorkspace"
               , { value: function(w){
-                    if(w instanceof HTMLElement){
-                      workspace=w;
-                      if(undefined===w.sc_getFPS){
-                        w.sc_getFPS=function(){ return "NA"; }
-                        }
+                    workspace= w;
+                    if(undefined===w.sc_getFPS){
+                      w.sc_getFPS=function(){ return "NA"; }
                       }
                     }
                 , writable: false
@@ -500,70 +498,91 @@ Zone de control
         , { value: SC.evt("Start")
           , writable: false
             }
-          );  
+          );
+        // WebApp Parameters
         if(this==window && params.appConfig){
           if(document.body){
-            throw new Error("WebApp init must be called as soon as possible while parsing the header of the page");
+            throw new Error("Initialisation too late: WebApp init must be called as soon as possible while parsing the header of the page");
             }
-          const config=params.appConfig;
+          if(SC.tools.appInited){
+            throw new Error("Initialisation already occured");
+            }
+          const config= params.appConfig;
           Object.defineProperty(SC.tools, "appInited"
           , { value: true
             , writable: false
               }
             );
-          var headTag=null;
-          headTag=document.createElement("title");          
-          if(config.appTitle.text){
+          // Construction des méta données de la page...
+          // - Le titre 
+          var headTag= document.createElement("title");          
+          if(config.appTitle && config.appTitle.text){
             if(config.appTitle.lang){
               headTag.setAttribute('lang', config.appTitle.lang);
               }
-            headTag.textContent=config.appTitle.text;
+            headTag.textContent= config.appTitle.text;
+            }
+          else if("string"==typeof(config.appTitle)){
+            headTag.textContent= config.appTitle;
             }
           else{
-            headTag.textContent=config.appTitle;
+            headTag.textContent= config.appTitle= "Sans Nom";
             }
           document.head.appendChild(headTag);
-          headTag=document.createElement("meta");
+          // - Le ou les auteurs
+          headTag= document.createElement("meta");
           headTag.setAttribute('name', 'author');
-          if(undefined!==config.appAuthors.content){
+          if(config.appAuthors && undefined!==config.appAuthors.content){
             if(config.appAuthors.lang){
               headTag.setAttribute('lang', config.appAuthors.lang);
               }
             headTag.setAttribute('content', config.appAuthors.content);
             }
-          else{
+          else if("string"==typeof(config.appAuthors)){
             headTag.setAttribute('content', config.appAuthors);
             }
+          else{
+            headTag.setAttribute('content', 'Sans auteur...');
+            }
           document.head.appendChild(headTag);
+          // - La description de la page
+          headTag= document.createElement("meta");
+          headTag.setAttribute('name', 'description');
           if(config.appDescription){
-            headTag=document.createElement("meta");
-            headTag.setAttribute('name', 'description');
             if(config.appDescription.content){
               if(config.appDescription.lang){
                 headTag.setAttribute('lang', config.appDescription.lang);
                 }
               headTag.setAttribute('content', config.appDescription.content);
               }
-            else{
+            else if("string"==typeof(config.appDescription)){
               headTag.setAttribute('content', config.appDescription);
               }
-            document.head.appendChild(headTag);
             }
+          else{
+            headTag.setAttribute('content', 'Sans description...');
+            }
+          document.head.appendChild(headTag);
+          // - Les mots clés qui ne sont ajoutés que si définis.
           if(config.appKeywords){
             headTag=document.createElement("meta");
             headTag.setAttribute('name', 'keywords');
-            if(undefined !== config.appKeywords.content){
+            if(undefined!==config.appKeywords.content){
               if(config.appKeywords.lang){
                 headTag.setAttribute('lang', config.appKeywords.lang);
                 }
               headTag.setAttribute('content', config.appKeywords.content);
               }
-            else{
+            else if("string"==typeof(config.appKeywords)){
               headTag.setAttribute('content', config.appKeywords);
+              }
+            else{
+              headTag.setAttribute('content', "Problème de définition des mots clés");
               }
             document.head.appendChild(headTag);
             }
-          headTag=document.createElement("meta");
+          // - Le viewport
+          headTag= document.createElement("meta");
           headTag.setAttribute('name', 'viewport');
           if(!config.viewport){
             headTag.setAttribute('content'
@@ -601,11 +620,12 @@ Zone de control
             headTag.setAttribute('content', tmp_vprt);
             }
           document.head.appendChild(headTag);
-          headTag=document.createElement("meta");
+          // - Meta elements for WebApp old school...
+          headTag= document.createElement("meta");
           headTag.setAttribute('name', 'apple-mobile-web-app-capable');
           headTag.setAttribute('content', 'yes');
           document.head.appendChild(headTag);
-          headTag=document.createElement("meta");
+          headTag= document.createElement("meta");
           headTag.setAttribute('name', 'apple-mobile-web-app-status-bar-style');
           if(config.statusBarConfig){
             headTag.setAttribute('content', config.statusBarConfig);
@@ -617,6 +637,7 @@ Zone de control
           headTag=document.createElement("meta");
           headTag.setAttribute('name', 'apple-touch-fullscreen');
           headTag.setAttribute('content', 'yes');
+          // - L'image de démarrage (utilisée sur les vielles version d'iOS.)
           document.head.appendChild(headTag);
           if(config.startup_img){
             for(var i in config.startup_img){
@@ -629,6 +650,7 @@ Zone de control
               document.head.appendChild(headTag);
               }
             }
+          // - l'icone d'application adaptée aux différnetes tailels d'écran.
           if(config.iconSet){
             for(var i of config.iconSet){
               headTag=document.createElement("link");
@@ -649,19 +671,30 @@ Zone de control
               document.head.appendChild(headTag);
               }
             }
-          const tmp_par=SC.par(SC.pause(10));
+          // Les paramètres précédents sont anciens et ne sont plus trop
+          // d'actualité... Ce sont ceux qu'on a utilisé pour DanceDoigts
+          // sur iOS comme sur Android.
+          // La partie qui suit sert à initialiser la gestion audio sur
+          // plateforme mobile qui doit explicitement être validée par l'appui
+          // sur un boutton par les utilisateurs.
+          const tmp_par= SC.par(SC.pause(10));
           if(config.audioSupport){
             if(SC.tools.audioToolbox){
+              SC.tools.audioToolbox.init();
+              tmp_par.add(SC.await(SC.tools.audioToolbox.Evt_audioLoaded));
               }
-            SC.tools.audioToolbox.init();
-            tmp_par.add(SC.await(SC.tools.audioToolbox.Evt_audioLoaded));
+            else{
+              throw new Error("audio support required by WebApp, but, no audioToolbox loaded.");
+              }
             }
+          // - Le paneu de contrôle des SugarCubes tools (dérivé de SC_Demo4
+          // DanceDoigts).
           if(config.controler){
             SC.tools.initPanel();
             if(config.controler_closed){
               SC.tools.controlPanel.toggle(false);
               }
-            if(config.controler_inspectorEnabled){
+            if(config.controler_inspectorEnabled && SC.tools.controlPanel.setInspectorBtn){
               SC.tools.controlPanel.setInspectorBtn();
               }
             }
@@ -695,13 +728,14 @@ Zone de control
                     +((undefined!=config.splashConfig.title_style)
                             ?(" style='"+config.splashConfig.title_style +"'")
                             :"")
-                    +">"+config.splashConfig.title+"</span></div> "
+                    +">"+(config.splashConfig.title?config.splashConfig.title:config.appTitle)
+                    +"</span></div> "
                     +"<img id='SC_splash_FB_loading'"
                     +" src='images/gif/CP48_spinner.gif'/>"
                     +"<div "+(config.splashConfig.start_btn_style?("style='"
-		                                     +config.splashConfig.start_btn_style+"; display:none;'")
-		             :"class='SC_splashH3' style='display:none;'")+">"
-                    +config.splashConfig.start_btn_text
+                                                     +config.splashConfig.start_btn_style+"; display:none;'")
+                             :"class='SC_splashH3' style='display:none;'")+">"
+                    +(config.splashConfig.start_btn_text?config.splashConfig.start_btn_text:"Start")
                     +"</div></div>";
             const im_anim=splashScreen.children[0].children[1];
             const btn=splashScreen.children[0].children[2];
@@ -736,7 +770,9 @@ Zone de control
                 SC.await(splashScreen.Sens_clickStart)
               , SC.action(function(m){
                   splashScreen.btn.textContent="Loading..."
-                  this.audioToolbox.loadAll();
+                  if(this.audioToolbox){
+                    this.audioToolbox.loadAll();
+                    }
                   }.bind(SC.tools))
               , tmp_par
               , SC.generate(splashScreen.Evt_allLoaded)
@@ -1251,6 +1287,7 @@ Liste des paramètres :
           this.speechAlternative(tts);
           const speakable=new SpeechSynthesisUtterance(tts.textContent);
           speakable.lang=params.get("lang", "fr-FR");
+	  console.log(speakable);
           speakable.Evt_startSpeak=params.get("start_evt"
                                              , SC.evt("Evt_startSpeak"));
           speakable.Evt_cancel=params.get("cancel", SC.evt("Evt_cancel"));
@@ -2059,26 +2096,26 @@ Bubble view utility funs
             }
           const frame=quickElt({ tag: 'div', cls: "interfaceMenuBar" });
           if(params.maskCmd){
-            const _sc_inners=[
-              "&nbsp;▶︎&nbsp;"
-            , "&nbsp;▼&nbsp;"
-              ];
-            const b=quickElt({
-                tag: 'span'
-              , innerHTML: _sc_inners[1]
-              , cls: "interfaceBtn"
-              , title: "Masquer/Afficher le code."
-                });
-            const Sens_click=SC.sensor('Sens_click', {
-              dom_targets: [{ target: b, evt: 'click' }] });
-            b._sc_click=function(s, re){
+            const _sc_inners= [
+                "&nbsp;▶︎&nbsp;"
+              , "&nbsp;▼&nbsp;"
+                ];
+            const b= quickElt({
+                  tag: 'span'
+                , innerHTML: _sc_inners[1]
+                , cls: "interfaceBtn"
+                , title: "Masquer/Afficher le code."
+                  });
+            const Sens_click= SC.sensor('Sens_click'
+	      , { dom_targets: [ { target: b, evt: 'click' } ] });
+            b._sc_click= function(s, re){
               const evt=re.sensorValueOf(s);
               const cmdBtn=evt.target;
               const code_parent=cmdBtn._sc_lst_root;
               const code_spc=code_parent.children[1];
               if(this.innerHTML==_sc_inners[0]&&code_spc.style.display=="none"){
                 this.innerHTML=_sc_inners[1];
-                code_spc.style.display="";
+                code_spc.style.display="flex";
                 code_parent._sc_maskUpdateFun(code_parent);
                 }
               else{
@@ -2088,7 +2125,9 @@ Bubble view utility funs
                 }
               }.bind(b, Sens_click);
             SC.tools.addProgram(SC.cube(b, SC.repeatForever(
-                  SC.await(Sens_click)
+		  SC.nop("enter loop")
+                , SC.await(Sens_click)
+		, SC.nop("click collapse ?")
                 , SC.action("_sc_click")
                   )
                 )

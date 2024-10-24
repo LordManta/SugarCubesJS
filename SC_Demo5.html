@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<!--
+This page provides a skeleton for a WebApp which uses SugarCubes and its
+modules.
+    //-->
+<html>
+ <head>
+  <meta charset="utf-8"/>
+  <script type="text/javascript" src="SugarCubes_min.js"></script>
+  <script type="text/javascript">
+/*
+This demo introduces the use of SugarCubes Tools: a set of utilities derived
+from The DanceDoigt experiments :
+https://cedric.cnam.fr/~susinij/ExoMot/
+to build old style WebApps working on tablets.
+It integrates the control panel from SC_Demo4, splash screen management,
+AudioToolbox and other WebTools.
+To enable this, it is recommended to use the SC.init() function providing a
+parameter object.
+*/
+SC.init({
+  // Tools parameters
+    tools: {
+    // baseDir: from where to find SugarCubes modules This is an early stage so
+    // many functions are yet to be implemented before it can be a robust API
+    // for mdules.
+      baseDir: ""
+    // List of modules to load (here : WebTools and AudioToobox)
+    , list: [ "AudioToolbox", "WebTools" ]
+    // Default reactive clock parameters:
+    // - delay: is provided beacuse the main reactive clock (SC.tools.main) will
+    //   be bound to a periodic sensor of period 15 ms.
+    // - init: provide the initial program
+    // - stdout: provide a default function for stdout, but here this parameter
+    //   will be overritten by the control panel configuration.
+    , mainConfig: {
+        init: SC.pauseForever()
+      , delay: 15
+      , stdout: SC.writeInConsole
+        }
+      }
+  // Application Parameters
+  // Those parameters will be used if the WebTools module is activated before.
+  , appConfig: {
+      // Web browser viewport configuration
+        viewport: {
+            width: "device-width"
+          , height: "device-height"
+          , init_scale: "1"
+          , max: "1"
+          , min: "1"
+          , scalable: "no"
+            }
+      // WebApp will support audio (that means AudioToolbox need to be loaded
+      // first...)
+      , audioSupport: true
+      // Splash screen configuration.
+      , splashConfig: {
+            title_style: "font-size: 12vh; color: white; font-weight: bold; /*text-shadow: 0.5vw 0.5vh 0.5vmax white;*/ padding:10px"
+          // Title of the start button on splash screen.
+          , start_btn_text: "Start"
+          // style used to display the start button
+          , start_btn_style: "padding:0vh 2vw 0vh 2vw; bottom: 10vh; left: 50%; position: absolute; border: 2px solid; border-radius: 1vh; font-size: 6vh; color: white; font-weight: bold;transform: translate(-50%, 0); --webkit-transform: translate(-50%, 0);"
+          // SugarCubes event triggered when the user clicks on the start button
+          , startEvt: SC.evt("evt")
+            }
+      // Apptitle used to be desplayed in the window title of the browser.
+      , appTitle: "SCAdventure"
+      , appAuthors: "Jean-Ferdy Susini"
+      , appDescription: "Prémisse à un petit jeu d'aventure et de combats ?"
+      // Activate the control panel
+      , controler: true
+      // Make the control panel in collapsed form at init
+      , controler_closed: true
+        }
+    }
+  );
+  </script>
+  <style>
+  body{
+  padding:0;
+  margin:0;
+  }
+  #workspace {
+    position:fixed;
+    border: solid 1px black;
+    margin:0;
+    padding:0;
+    top:0;
+    left:0;
+  }
+  #ClassicUIverlay{
+    display:none;
+  }
+  #SplashScreen{
+    position:fixed;
+    top:0;
+    left:0;
+    background-color:black;
+    text-align:center;
+    vertical-align:middle;
+    margin:0;
+    padding:0;
+    width:100vw;
+    height:100vh;
+  }
+  #SplashScreen h1{
+   margin-top:50vh;
+   color:white;
+  }
+  </style>
+ </head>
+ <body>
+  <script type="text/javascript">
+/***************************************
+ * Initialisation de la Machine Réactive
+ ***************************************/
+var main= SC.tools.main;
+</script>
+<canvas id="workspace" width="1024" height="768"></canvas>
+<script type="text/javascript" src="sc_app_camera.js"></script>
+<script type="text/javascript">
+/*
+Event interface.
+*/
+const Evt_graphicPOI= SC.evt("graphicPOI");
+const Evt_getDown= SC.evt("getDown");
+const Evt_barqueIsHere= SC.evt("barqueIsHere");
+const Evt_onBoard= SC.evt("onBoard");
+const Evt_moveOrder= SC.evt("moveOrder");
+const Evt_workCompleted= SC.evt("workCompleted");
+const Evt_attack= SC.evt("attack");
+const Evt_requestDisplayLvl1= SC.evt("requestDisplayLvl1");
+const Evt_requestDisplayLvl2= SC.evt("requestDisplayLvl2");
+const Evt_requestDisplayLvl3= SC.evt("requestDisplayLvl3");
+
+/*************************
+ * Définition du Workspace
+ *************************/
+const the_VOID_ARRAY=[];
+
+const canvas= document.getElementById("workspace");
+const workspace= new SC_Camera({ cvs: canvas });
+SC.tools.setWorkspace(workspace);
+/*
+fill the window with the workspace.
+*/
+workspace.sc_setDim(window.innerWidth, window.innerHeight);
+
+/*
+Declaration of interaction sensors
+*/
+const Sens_mouse_down= SC.sensor({ name: "mouse_down"
+    , dom_targets: [ { target: canvas, evt: "mousedown" } ] });
+const Sens_mouse_up= SC.sensor({ name: "mouse_up"
+    , dom_targets: [ { target: canvas, evt: "mouseup" } ] });
+const Sens_mouse_move= SC.sensor({ name: "mouse_move"
+    , dom_targets: [ { target: canvas, evt: "mousemove" } ] });
+const Sens_touch_start= SC.sensor({ name: "touch_start"
+    , dom_targets: [ { target: canvas, evt: "touchstart" } ] });
+const Sens_touch_end= SC.sensor({ name: "touch_end"
+    , dom_targets: [ { target: canvas, evt: "touchend" } ] });
+const Sens_touch_cancel= SC.sensor({ name: "touch_cancel"
+    , dom_targets: [ { target: canvas, evt: "touchcancel" } ] });
+const Sens_touch_move= SC.sensor({ name: "touch_move"
+    , dom_targets: [ { target: canvas , evt: "touchmove" } ] });
+
+
+/* Altération du comportement dans le workspace : désactivation des gestes
+ * systèmes. On en profite pour charger de la musique ou des fichiers audio
+ * au besoin.
+ */
+canvas.addEventListener("touchstart", function(evt){
+    evt.preventDefault();
+  });
+</script>
+<script type="text/javascript">
+/* Loading audio files using SC_Audiotoolbox */
+const Sound_slash= SC.tools.audioToolbox.addAudioFile({
+      src: 'audio/mp3/swosh.mp3'
+    , init: true
+    , burst: true });
+const Sound_clang= SC.tools.audioToolbox.addAudioFile({
+      src: 'audio/mp3/clang.mp3'
+    , init: true
+    , burst: true });
+const Sound_alright= SC.tools.audioToolbox.addAudioFile({
+      src: 'audio/mp3/Alright.mp3'
+    , init: true
+    , burst: true });
+const Sound_ayeCaptain= SC.tools.audioToolbox.addAudioFile({
+      src: 'audio/mp3/Aye_Captain.mp3'
+    , init: true
+    , burst: true });
+const Sound_captainOnBridge= SC.tools.audioToolbox.addAudioFile({
+      src: 'audio/mp3/Captain_On_The_Bridge.mp3'
+    , init: true
+    , burst: true });
+const Sound_workComplete= SC.tools.audioToolbox.addAudioFile({
+      src: 'audio/mp3/Warcraft_2_Peon_Work_Complete.mp3'
+    , init: true
+    , burst: true });
+const Sound_running= SC.tools.audioToolbox.addAudioFile({
+      src: 'audio/mp3/Running.mp3'
+    , init: true
+    , burst: true });
+const Sound_sailling= SC.tools.audioToolbox.addAudioFile({
+      src: 'audio/mp3/sailling.mp3'
+    , init: true
+    , burst: true });
+/*
+Displaying splash screen to make the user confirm loading audio 😉
+*/
+SC.tools.displaySplash();
+</script>
+<script type="text/javascript" src="sc_app_sprite.js"></script>
+<script type="text/javascript" src="sc_app_button.js"></script>
+<script type="text/javascript" src="sc_app_soldier.js"></script>
+<script type="text/javascript" src="sc_app_barque.js"></script>
+<script type="text/javascript" src="sc_app_tile_map.js"></script>
+<!--
+<script type="text/javascript" src="map.js"></script>
+    //-->
+<script type="text/javascript" src="Anachronism.js"></script>
+<script type="text/javascript" src="sc_app_world.js"></script>
+<script type="text/javascript">
+
+const soldier= new SC_Soldier("mainHero", 2030, 1740, TileMap);
+//const soldier= new SC_Soldier("mainHero", 6800, 1300, TileMap);
+
+var attackBtn= new SC_Button({
+      x: workspace.width-40
+    , y: workspace.height-60
+    , r: 30
+    , zoneEvt: Evt_attack
+    , e_disp: Evt_requestDisplayLvl3
+    , s_md: Sens_mouse_down
+    , s_mu: Sens_mouse_up
+    , s_mm: Sens_mouse_move
+    , s_ts: Sens_touch_start
+    , s_te: Sens_touch_end
+    , s_tc: Sens_touch_cancel
+    , s_tm: Sens_touch_move
+    , clr: "rgba(255,255,0,0.65)" });
+
+const orderCursor= {
+    x: 0
+  , y: 0
+  , clr: "rgba(0,255,0,0.25)"
+  , click: new Point2D(0, 0)
+  , completed: true
+    };
+orderCursor.draw= function(ctx, view){
+    if(this.completed){ return; }
+    const theCtx= ctx.save();
+    ctx.fillStyle= this.clr;
+    ctx.fillRect(this.x-view.x-15, this.y-view.y-15, 32, 32);
+    ctx.restore(theCtx);
+    };
+orderCursor.Act_updateCursor= function(re){
+    const data= re.getValuesOf(Evt_moveOrder);
+    if(data){
+      const coord= data[0];
+      this.x= coord.x;
+      this.y= coord.y;
+      var px= Math.floor(this.x/32);
+      var py= Math.floor(this.y/32);
+      if(TileMap.passmap[py*TileMap.width+px]<10){
+        this.clr= "rgba(255,255,255,0.25)";
+        }
+      else{
+        this.clr= "rgba(255,0,0,0.25)";
+        }
+      }
+    };
+orderCursor.Act_complete= function(re){
+    this.completed= true;
+    };
+orderCursor.filterMoveOrder= function(t){
+    if(t.type.startsWith("touch")){
+      this.click.setXY(t.pageX, t.pageY);
+      }
+    else{
+      this.click.setXY(t.x, t.y);
+      }
+    if(! attackBtn.inside(this.click)){
+      this.click.x+= TileMap.offset.x;
+      this.click.x= Math.floor(this.click.x/32)*32+15;
+      this.click.y+= TileMap.offset.y;
+      this.click.y= Math.floor(this.click.y/32)*32+15;
+      this.completed= false;
+      //console.warn("domevt=", t);
+      return this.click;
+      }
+    else{
+      return null;
+      }
+    };
+
+SC.tools.addProgram(
+  SC.cube(orderCursor
+  , SC.par(
+      SC.generate(Evt_requestDisplayLvl3, orderCursor, SC.forever)
+    , SC.repeatForever(
+        SC.await(Evt_moveOrder)
+      , SC.actionOn(Evt_moveOrder, "Act_updateCursor")
+        )
+    , SC.repeatForever(
+        SC.await(Evt_workCompleted)
+      , SC.action("Act_complete")
+        )
+    , SC.repeatForever(
+        SC.await(SC.or(Sens_mouse_up, Sens_touch_end))
+      , SC.par(
+          SC.filter(Sens_mouse_up, Evt_moveOrder, "filterMoveOrder")
+        , SC.filter(Sens_touch_end, Evt_moveOrder, "filterMoveOrder")
+          )
+        )
+      )
+    )
+  );
+
+//const barque1= makeBarque(6270, 1400, -1
+//       , new Point2D(TileMap.width*TileMap.tileWidth
+//                   , TileMap.height*TileMap.tileHeight), 370);
+//const barque2= makeBarque(5230, 1314, -1
+//       , new Point2D(TileMap.width*TileMap.tileWidth
+//                   , TileMap.height*TileMap.tileHeight), 1470);
+const barque1= makeBarque(2286, 1728, 2
+       , new Point2D(TileMap.width*TileMap.tileWidth
+                   , TileMap.height*TileMap.tileHeight), 1780);
+const barque2= makeBarque(7950, 1320, 2
+       , new Point2D(TileMap.width*TileMap.tileWidth
+                   , TileMap.height*TileMap.tileHeight), 2412);
+</script>
+</body>
+</html>

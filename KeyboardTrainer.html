@@ -192,13 +192,16 @@ SC.tools.addProgram(
            const data= re.getValuesOf(Evt_keyTypped);
            const ztc= this.children[1];
            if(data){
-             const sym=data[0];
-             if('⌫'==sym){
-               ztc.textContent= ztc.textContent.substring(0, ztc.textContent.length-1);
-               }
-             else{
-               ztc.textContent+= sym;
-               }
+	     for(var d of data){
+               const sym=d.sym;
+	       console.log("recieved", sym);
+               if('⌫'==sym){
+                 ztc.textContent= ztc.textContent.substring(0, ztc.textContent.length-1);
+                 }
+               else{
+                 ztc.textContent+= sym;
+                 }
+	       }
              }
           })
         )
@@ -242,9 +245,9 @@ SC.tools.displaySplash();
                           SC.generate(data.Evt_snd)
                         , SC.generate("Evt_css_background", "green")
                         , SC.kill(SC.or("Evt_touchStop","Evt_on_mouseUp", myKeyUp)
-                          , data.mod?SC.generateWrapped(Evt_modifier, data.mod, SC.forever):SC.generateWrapped(Evt_key, "_sc_getSymbol", SC.forever)
+                          , data.mod?SC.generate(Evt_modifier, data.mod, SC.forever):SC.generate(Evt_key, SC.my("_sc_prodSymbol"), SC.forever)
                             )
-                        , data.mod?SC.nothing():SC.generateWrapped(Evt_keyTypped, "_sc_getSymbol")
+                        , data.mod?SC.nothing():SC.generate(Evt_keyTypped, SC.my("_sc_prodSymbol"))
                           )
                       , SC.seq(SC.generate(Snd_error.Evt_play)
                         , SC.generate("SC_cubeAddBehaviorEvt"
@@ -279,15 +282,14 @@ SC.tools.displaySplash();
                       )
                   )
         });
+      key._sc_modifier= 0;
+      key._sc_prodSymbol= { sym: "" };
       key._sc_labels= (Array.isArray(data.lbl))?data.lbl:[data.lbl];
       if(undefined==key.__proto__._sc_kt_isValid){
         key.__proto__._sc_kt_isValid=function(re){
           return this._sc_kt_visible;
           };
         }
-      /*else{
-        console.warn("already defined");
-        }*/
       key._sc_vk_code= data.code;
       key._sc_vk_prod= Array.isArray(data.produce)?data.produce:undefined;
       if(key._sc_vk_prod){
@@ -311,9 +313,6 @@ SC.tools.displaySplash();
           return (filtered.length > 0)?filtered:undefined;
           };
         }
-      /*else{
-        console.warn("already defined");
-        }*/
       key._sc_my_group= data.group;
       if(undefined==key.__proto__._sc_filter_display_group){
         key.__proto__._sc_filter_display_group= function(re){
@@ -324,31 +323,23 @@ SC.tools.displaySplash();
              }
            };
         }
-      if(undefined==key.__proto__._sc_getSymbol){
-        key.__proto__._sc_getSymbol= function(){
-           if(this._sc_vk_prod){
-             return this._sc_vk_prod[0];
-             }
-           else{
-             return this.textContent;
-             }
-           };
-        }
       if(undefined==key.__proto__._sc_modified_key){
         key.__proto__._sc_modified_key= function(re){
            const vals= re.getValuesOf(Evt_modifier);
+           var mod=0;
            if(vals){
-             var mod=0;
              for(var m of vals){
                if(m>0){
                  mod|= m;
                  }
                }
+	     this._sc_modifier= mod;
              this.textContent= this._sc_labels[mod];
              }
            else{
              this.textContent= this._sc_labels[0];
              }
+           this._sc_prodSymbol.sym= (this._sc_vk_prod)?this._sc_vk_prod[mod]:this.textContent;
            };
         }
       if(data.offH){
@@ -534,17 +525,17 @@ SC.tools.displaySplash();
   var div_res = SC.tools.Web.makeDiv({
     beh:SC.repeat(SC.forever
             , SC.action(function(m){
-                var vals = m.getValuesOf(Evt_key);
-                if((undefined == vals)
+                const vals= m.getValuesOf(Evt_key);
+                if((undefined===vals)
                    ||(0 == vals.length)){
                   div_res.innerHTML="";
                   return;
                   }
-                var res = vals[0];
-                for(var i = 1; i < vals.length; i++){
-                  res+="➢"+vals[i]
+                var res= vals[0].sym;
+                for(var i= 1; i<vals.length; i++){
+                  res+="➢"+vals[i].sym
                   }
-                div_res.innerHTML=res;
+                div_res.innerHTML= res;
                 })
             )
     });
@@ -563,7 +554,7 @@ SC.tools.displaySplash();
     document.body.appendChild(img);
     }
   document.body.appendChild(div_res);
-  SC.tools.addProgram(SC.seq(SC.generate(Evt_groupView,12)));
+  SC.tools.addProgram(SC.seq(SC.generate(Evt_groupView, 12)));
   })();
   </script>
  </body>

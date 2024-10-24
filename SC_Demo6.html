@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Icobjes in a Web Page</title>
+<script type="text/javascript" src="SugarCubes_min.js">
+</script>
+<script type="text/javascript">
+const Demo6={
+  main: SC.clock({ init: SC.pauseForever() })
+, sensors: {}
+, events: {}
+  } ;
+Demo6.sensors.periodic= SC.periodic({ delay: 30 });
+Demo6.main.bindTo(Demo6.sensors.periodic);
+Demo6.main.setStdOut(SC.writeInConsole);
+</script>
+<style>
+.icobj {
+}
+.icobjizingChoice{
+  background-color: yellow;
+  border:1px solid black;
+}
+.icobjSelected{
+  box-shadow: 2px 2px 1px 1px rgba(0, 0, 10, .4);
+  outline : black dashed 1px;
+}
+.icobjControled{
+  box-shadow: 2px 2px 1px 1px rgba(0, 0, 10, .4);
+  outline : red dashed 1px;
+}
+.icobjControled::after{
+  position:relative;
+  content:url(images/png/icobj_control16.png);
+  height:16px;
+  width:16px;
+  bottom:-8px;
+  left:10px;
+}
+.icobjSelected::after{
+  /*box-shadow: 2px 2px 1px 1px rgba(0, 0, 10, .4);*/
+  content:url(images/png/mouse16.png);
+  height:16px;
+  width:16px;
+  position:relative;
+  bottom:-10px;
+  left:-10px;
+}
+.IcobjPanel {
+  display:inline-block;
+  position:fixed;
+  color:rgba(255,255,255,0.9);
+  background-color:rgba(0,0,0,0.6);
+  border-radius:10px;
+  padding: 5px;
+}
+</style>
+</head>
+<body>
+<script type="text/javascript" src="sc_app_model.js">
+</script>
+<span id="basic">Test</span>
+<h1>Démo des icobjs en Javascript</h1>
+<p>
+Les icobjs sur le Web ont déjà eu plusieurs implantations <a href="http://www-sop.inria.fr/meije/rc/WebIcobj/">WebIcobjs</a> sous la forme d'applets Java.
+Cette nouvelle version est intégrée au <strong>DOM</strong> et utilise Javascript comme moteur d'exécution enrichit de la librairie SuagarCubes v5.
+</p>
+<svg>
+  <circle cx="50" cy="50" r="40" stroke="black" stroke-width="3" fill="red" />
+  <rect x="200" y="200" width="300" height="100" style="fill:yellow;stroke-width:3;stroke:rgba(255,0,0,0.5)">
+  Sorry, your browser does not support inline SVG.  
+</svg>
+<h1>La fenêtre Tools</h1>
+<p>
+Une fenêtre d'outil permet de prendre le contrôle des icojs. La fenêtre comporte 3 outils principaux mais pour le moment seul l'outil 1 et l'outil 3 sont implantés.
+<ul>
+<li>En appuyant sur l'outil 3 : <img src ="images/png/OpenHand.png" style="width:16pt;height:16pt;"> on active l'outil de capture d'un icobj <img src ="images/png/ClosedHand.png" style="width:16pt;height:16pt;">. En cliquant sur un icobj dans ce mode, vous faites apparaitre le paneau de configuration css apparait et vous permet de mofier certaines valeurs afin de prendre le contrôle de l'objet graphique. L'icobj controlé voit sont comportement suspendu et un petite icone indique qu'il est en mode capturé. Dans ce mode le panneau d'édition css vous permet de modifier certains paramètres. Par exemple, en possitionnant l'attribut css position sur la valeur absolute, il devient possible de déplacer l'icobj avec la souris par drag &amp; drop.
+<li>La baguette magique (outil 1)  <img src ="images/png/wand24.png" style="width:16pt;height:16pt;"> en cliquant dessus, vous activez cet outil. Le paneau disparait et le curseur de la souris change. En survollant le document avec la souris, vous allez selectionner différents éléménts du document affiché en surbrillance (fiond jaune), l'un après l'autre. Choisissez un élément particulier, et appuyez sur la touche entrée de votre clavier. Sur tablette pour le moment cliquez sur le champ de texte éditable poiur faire apparaitre le clavier... L'élément devient un Icobj.
+</ul>
+<input type=text list=browsers >
+<datalist id=browsers >
+   <option> Hello World !
+   <option> Icobjs Powa !
+</datalist>
+
+</p>
+<p>Ceci est un test</p>
+<script type="text/javascript">
+//(function(){
+  var obj=document.getElementById("basic");
+  var icobj=icobjize(obj);
+  icobj.behavior=SC.par(
+                SC.repeat(SC.forever
+                  , SC.generate(icobj.set_dxEvt, 1)
+                  , icobj.$_scc_dx
+                  , SC.pause()
+                  , SC.repeat( 100
+                      , icobj.$_scc_x
+                      )
+                  , SC.generate(icobj.set_dxEvt, -1)
+                  , icobj.$_scc_dx
+                  , SC.pause()
+                  , SC.repeat( 100
+                      , icobj.$_scc_x
+                      )
+                  )
+                , SC.repeat(SC.forever, icobj.$_scc_updateView)
+                , SC.repeat(SC.forever
+                    , SC.generate(icobj.set_dwEvt, 1)
+                    , icobj.$_scc_dw
+                    , SC.pause()
+                    , SC.repeat( 50
+                        , icobj.$_scc_width
+                        )
+                    , SC.generate(icobj.set_dwEvt, -1)
+                    , icobj.$_scc_dw
+                    , SC.pause()
+                    , SC.repeat( 50
+                        , icobj.$_scc_width
+                        )
+                    )
+                , SC.repeat(SC.forever
+                    , SC.generate(icobj.set_dhEvt, 1)
+                    , icobj.$_scc_dh
+                    , SC.pause()
+                    , SC.repeat( 40
+                        , icobj.$_scc_height
+                        )
+                    , SC.generate(icobj.set_dhEvt, -1)
+                    , icobj.$_scc_dh
+                    , SC.pause()
+                    , SC.repeat( 40
+                        , icobj.$_scc_height
+                        )
+                    )
+                , SC.repeat(SC.forever
+                    , SC.generate(icobj.set_dyEvt, 1)
+                    , icobj.$_scc_dy
+                    , SC.pause()
+                    , SC.repeat( 100
+                        , icobj.$_scc_y
+                        )
+                    , SC.generate(icobj.set_dyEvt, -1)
+                    , icobj.$_scc_dy
+                    , SC.pause()
+                    , SC.repeat( 100
+                        , icobj.$_scc_y
+                        )
+                    )
+                , SC.seq(
+                    SC.action(function (){
+                                this.tailleF=16;
+                                }.bind(icobj))
+                    , SC.pause()
+                    , SC.repeat(SC.forever
+                        , SC.repeat(16
+                            , SC.action(function (){
+                                this.tailleF+=4;
+                                var fontval = this.tailleF+"px Times";
+                                Demo6.main.addEntry(this.setFontEvt, fontval)
+                                }.bind(icobj))
+                            )
+                        , SC.repeat(64
+                            , SC.action(function (){
+                                this.tailleF--;
+                                var fontval = this.tailleF+"px Times";
+                                Demo6.main.addEntry(this.setFontEvt, fontval)
+                                }.bind(icobj))
+                            )
+                        )
+                    )
+                );
+Demo6.main.addProgram(icobj.getIcobjBehavior());
+
+
+//var fibonacci = {
+//  /* processus somme : une fontion qui ajoute les cannaux c0 et c1 */
+//  sum: function(m){
+//    m.addEntry(this.c2, this.msg0+this.msg1);
+//    }
+//  /* processus follow : la première activation retourne c3 pouis c2 */
+//  , firstFollow1 : true
+//  , follow1: function(m){
+//    m.addEntry(this.c5, this.firstFollow1? this.msg3: this.msg2);
+//    this.firstFollow1=false;
+//    }
+//  /* processus follow 2 : la première activation retourne c4 pouis c7 */
+//  , firstFollow2 : true
+//  , follow2: function(m){
+//    m.addEntry(this.c0, this.firstFollow2? this.msg4: this.msg7);
+//    this.firstFollow2=false;
+//    }
+//  /* processus dup 1 : copie la valeur de c5 sur c8 et c6 */
+//  , dup1: function(m){
+//    m.addEntry(this.c8, this.msg5);
+//    m.addEntry(this.c6, this.msg5);
+//    }
+//  /* processus dup 2 : copie la valeur de c6 sur c7 et c1 */
+//  , dup2: function(m){
+//    m.addEntry(this.c7, this.msg6);
+//    m.addEntry(this.c1, this.msg6);
+//    }
+//  /* processus out : affiche le résultat */
+//  , out: function(m){
+//    console.log(this.msg8);
+//    }
+//  };
+//
+///*
+// * On crée les ressources permettant de simuler les canaux RPR en SC :
+// * - un event
+// * - une cellule qui mémorise les valeurs des events.
+// */
+//for(var i = 0; i < 9;i ++){
+//   var canalName = "c"+i;
+//   var evt = SC.evt(canalName);
+//   fibonacci[canalName] = evt;
+//   var canalMemoryName = "msg"+i;
+//   SC.addCell(fibonacci, canalMemoryName, 0, [evt]
+//              , SC.simpleCellFun(fibonacci, evt)
+//	      );
+//}
+//Demo6.main.addProgram(
+//               SC.cube(fibonacci
+//                 , SC.par(
+//                     SC.repeat(1000
+//                       , SC.par(
+//                           SC.seq(SC.await(fibonacci.c0), SC.cubeCell("$_scc_msg0"))
+//                           , SC.seq(SC.await(fibonacci.c1), SC.cubeCell("$_scc_msg1"))
+//                           )
+//                       , SC.pause()
+//                       , SC.action("sum")
+//                       )
+//                     //, SC.generate(fibonacci.c3, 1)
+//                     , SC.generate(fibonacci.c4, 0)
+//                     , SC.seq(
+//                         SC.await(fibonacci.c3)
+//			 , SC.cubeCell("$_scc_msg3")
+//                         , SC.pause()
+//                         , SC.action("follow1")
+//		         , SC.repeat(1000
+//                             , SC.seq(SC.await(fibonacci.c2),SC.cubeCell("$_scc_msg2"))
+//                             , SC.pause()
+//                             , SC.action("follow1")
+//                             )
+//			 )
+//                      , SC.seq(
+//                         SC.await(fibonacci.c4)
+//			 , SC.cubeCell("$_scc_msg4")
+//                         , SC.pause()
+//                         , SC.action("follow2")
+//		         , SC.repeat(1000
+//                             , SC.seq(SC.await(fibonacci.c7), SC.cubeCell("$_scc_msg7"))
+//                             , SC.pause()
+//                             , SC.action("follow2")
+//                             )
+//			 )
+//                     , SC.repeat(1000
+//                         , SC.await(fibonacci.c5)
+//                         , SC.cubeCell("$_scc_msg5")
+//                         , SC.pause()
+//                         , SC.action("dup1")
+//                         )
+//                     , SC.repeat(1000
+//                         , SC.await(fibonacci.c6)
+//                         , SC.cubeCell("$_scc_msg6")
+//                         , SC.pause()
+//                         , SC.action("dup2")
+//                         )
+//                     , SC.repeat(1000
+//                         , SC.await(fibonacci.c8)
+//                         , SC.cubeCell("$_scc_msg8")
+//                         , SC.pause()
+//                         , SC.action("out")
+//                         )
+//                     )
+//                )
+//      );
+//
+//
+//var sieve = {
+//  /* processus Init : produit régulièrement les entiers*/
+//  generator : {val:2}
+//  , newInitVal: function(m){
+//    this.generator.val++;
+//    }
+//  /* processus filter */
+//  , filter : function(prime, out, i){
+//    var tmp = this[i].val;
+//    if(0 != (tmp%prime)){
+//      Demo6.main.addEntry(this[out], {val: tmp});
+//      }
+//    }
+//  /* processus sift : */
+//  , sift_first: function(intern, sift){
+//    sift.prime = this[intern].val;
+//    Demo6.main.addEntry(this.c1, {val:sift.prime});
+//    }
+//  , sift: function(siftp){
+//    var tmp = this.newChanel();
+//    var siftn = {inChanNum: tmp, prime:0};
+//    var newFilterProc = SC.repeat(1000,
+//                            SC.await(this["c"+siftp.inChanNum])
+//                            , SC.cubeCell("$_scc_msg"+siftp.inChanNum)
+//                            , SC.pause()
+//                            , SC.action(sieve.filter.bind(sieve, siftp.prime, "c"+tmp, "msg"+siftp.inChanNum))
+//                            );
+//    var newSiftProc = SC.seq(
+//                        SC.await(this["c"+tmp])
+//                        , SC.cubeCell("$_scc_msg"+tmp)
+//                        , SC.pause()
+//                        , SC.action(this.sift_first.bind(this,"msg"+tmp, siftn))
+//                        , SC.pause()
+//                        , SC.action(sieve.sift.bind(sieve, siftn))
+//                        )
+//    /* Attention l'ajour dans le cube par cette solution rajoute deux instants :
+//     *  - un premier instant pour générer l'événement qui contient les 2 nouveaux processus à ajouter.
+//     *  - un instant suplémentaire pour que cet événement soit traité et les programmes ajoutés en parallèle
+//     */
+//    Demo6.main.addEntry(this.SC_cubeAddBehaviorEvt, SC.par(newFilterProc, newSiftProc));
+//    }
+//  /* processus out : affiche le résultat */
+//  , out: function(chan){
+//    console.log(this[chan].val);
+//    }
+//  };
+//
+///*
+// * On crée les ressources permettant de simuler les canaux RPR en SC :
+// * - un event
+// * - une cellule qui mémorise les valeurs des events.
+// */
+//sieve.newChanel = function(){
+//   var i = sieve.newChannelNumer++;
+//   var canalName = "c"+i;
+//   var evt = SC.evt(canalName);
+//   sieve[canalName] = evt;
+//   var canalMemoryName = "msg"+i;
+//   SC.addCell(sieve, canalMemoryName, {val:0}, [evt]
+//              , SC.simpleCellFun(sieve, evt)
+//	      );
+//   return i;
+//}
+//sieve.newChannelNumer = 0;
+//sieve.newChanel();
+//sieve.newChanel();
+//sieve.sift0 = { inChanNum: 0, prime:0};
+//Demo6.main.addProgram(
+//               SC.cube(sieve
+//                 , SC.par(
+//		     SC.seq(
+//		       SC.generate(sieve.c0, sieve.generator)
+//		       , SC.pause(3)
+//                       , SC.repeat(1000
+//                           , SC.action("newInitVal")
+//                           , SC.pause()
+//                           , SC.generate(sieve.c0, sieve.generator)
+//                           , SC.pause(3)
+//		           )
+//		       )
+//                     , SC.seq(
+//                         SC.await(sieve.c0)
+//                         , SC.cubeCell("$_scc_msg0")
+//                         , SC.pause()
+//                         , SC.action(sieve.sift_first.bind(sieve,"msg0", sieve.sift0))
+//                         //, SC.await(sieve.c0)
+//                         //, SC.cubeCell("$_scc_msg0")
+//                         , SC.pause()
+//                         , SC.action(sieve.sift.bind(sieve, sieve.sift0))
+//                         )
+//                     , SC.repeat(1000
+//                         , SC.await(sieve.c1)
+//                         , SC.cubeCell("$_scc_msg1")
+//                         , SC.pause()
+//                         , SC.action(sieve.out.bind(sieve, "msg1"))
+//                         )
+//		     )
+//                )
+//      );
+
+var myEvt=SC.evt("myEvt");
+var simpleCell=SC.cell({ init: 0, sideEffect: SC.toCellFun(null, myEvt), eventList: [myEvt] });
+Demo6.main.addProgram(SC.repeatForever(simpleCell));
+</script>
+<img src="images/png/Hat.png" width="32" height="32"/>
+<img src="images/png/Hat.png" class="toto"/>
+</body>
+</html>

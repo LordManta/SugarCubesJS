@@ -4,7 +4,7 @@
  * Created : 25/10/2015 at 21:31
  * version : 1.0 alpha
  * implantation : 0.0.3
- * Copyleft 2015-2021.
+ * Copyleft 2015-2024.
  */
 
 ;
@@ -47,11 +47,11 @@ if(SC && SC.sc_build>1 && SC.tools){
     , "filter"
       ];
     function activateElement(tmp){
-      tmp._sc_extension.beh=SC.cube(tmp, SC.nothing());
-      tmp._sc_extension.Evt_addInClassList=SC.evt("Evt_addInClassList");
-      tmp._sc_extension.Evt_removeFromClassList=SC.evt("Evt_removeFromClassList");
+      tmp._sc_extension.beh= SC.cube(tmp, SC.nothing());
+      tmp._sc_extension.Evt_addInClassList= SC.evt("Evt_addInClassList");
+      tmp._sc_extension.Evt_removeFromClassList= SC.evt("Evt_removeFromClassList");
       SC.toCell({ target: tmp, name: "classList", fun: function(val, re){
-          const tmp=re.getValuesOf(this._sc_extension.Evt_addInClassList);
+          const tmp= re.getValuesOf(this._sc_extension.Evt_addInClassList);
           if(tmp){
             for(var n of tmp){
               if(!val.contains(n)){
@@ -176,6 +176,9 @@ if(SC && SC.sc_build>1 && SC.tools){
         }
       if(p.position){
         elt.style.position=p.position;
+        }
+      if(p.content){
+        elt.textContent=p.content;
         }
       if(p.inH){
         elt.innerHTML=p.inH;
@@ -841,6 +844,17 @@ if(SC && SC.sc_build>1 && SC.tools){
               , SC.generate(this.elementInspector._sc_extension.Evt_hide)
               )
           ));
+      if(SC.globals.CP.Evt_appendElement){
+	console.log("submitting button to panel...");
+        const inspector_btn= SC.tools.Web.makeButton({
+            content: "Element Inspector"
+          , evt_click: this.elementInspector._sc_extension.Evt_show
+            });
+        SC.tools.generateEvent(SC.globals.CP.Evt_appendElement, inspector_btn);
+      }
+      else{
+        console.error("WebEnergize must be initialized after WebTools");
+        }
       };
     Object.defineProperty(SC.tools.Web, "initInspector"
                             , { value: initInspector
@@ -915,6 +929,11 @@ if(SC && SC.sc_build>1 && SC.tools){
                             );
     Object.defineProperty(SC.tools.Web, "makeImage"
                             , { value: makeElement.bind(SC.tools.Web, "img")
+                              , writable: false
+                                }
+                            );
+    Object.defineProperty(SC.tools.Web, "makeButton"
+                            , { value: makeElement.bind(SC.tools.Web, "button")
                               , writable: false
                                 }
                             );
