@@ -2,8 +2,8 @@
 
 **Authors:** Jean-Ferdy Susini, Olivier Pons, Claude Lion\
 **Created:** 2/12/2014 9:23 PM\
-**Version:** 5.0.561.alpha\
-**Build**: 561\
+**Version:** 5.0.583.alpha\
+**Build**: 583\
 **Copyleft 2014-2024**
 
 _This implementation is still in alpha stage, cause API is still mostly subject
@@ -18,15 +18,19 @@ parallel/concurrent programs* on top of sequential *Javascript*.
 Quick start:
 ------------
 
-We developed *SugarCubesJS* first to ease the build of *WebApps* deployed on smartphones and tablets in a scientific study : [DanceDoigt](http://jeanferdysusini.free.fr/DanceDoigt/).
-So the primary environment for *SugarCubesJS* is a Web page.
+*SugarCubesJS* has been first targeted to ease the build of *WebApps* deployed
+on smartphones and tablets an especially in a scientific study :
+[DanceDoigt](http://cedric.cnam.fr/~susinij/DanceDoigt/).
+So, the primary environment for *SugarCubesJS* is a Web page.
 
 1. load the library SugarCubes.js by adding :
    ```HTML
    <script type="text/javascript" src="SugarCubes.js">
    </script>
    ```
-   to your HTML page. One can use the following url to access online version of the library at : `http://jeanferdysusini.free.fr/SugarCubes.js`.
+   to the header section of your HTML page. One can use the following url to
+   access online version of the library at :
+   `http://jeanferdysusini.free.fr/SugarCubes.js`.
 
 2. In a script node, build a reactive execution environment to execute reactive programs :
    ```javascript

@@ -590,37 +590,45 @@ Zone de control
                  +',maximum-scale=1,minimum-scale=1,user-scalable=no');
             }
           else{
-            var tmp_vprt="";
-            var data=config.viewport;
-            var first=true;
+            var tmp_vprt= "";
+            var data= config.viewport;
+            var first= true;
             if(undefined!==data.width){
               tmp_vprt+=(first?"":",")+"width="+data.width;
-              first=false;
+              first= false;
               }
             if(undefined!==data.height){
               tmp_vprt+=(first?"":",")+"height="+data.height;
-              first=false;
+              first= false;
               }
             if(undefined!==data.init_scale){
               tmp_vprt+=(first?"":",")+"initial-scale="+data.init_scale;
-              first=false;
+              first= false;
               }
             if(undefined !== data.max){
-              tmp_vprt += (first?"":",")+"maximum-scale="+data.max;
-              first = false;
+              tmp_vprt+= (first?"":",")+"maximum-scale="+data.max;
+              first= false;
               }
             if(undefined !== data.min){
-              tmp_vprt += (first?"":",")+"minimum-scale="+data.min;
-              first = false;
+              tmp_vprt+= (first?"":",")+"minimum-scale="+data.min;
+              first= false;
               }
             if(undefined !== data.scalable){
-              tmp_vprt += (first?"":",")+"user-scalable="+data.scalable;
-              first = false;
+              tmp_vprt+= (first?"":",")+"user-scalable="+data.scalable;
+              first= false;
+              }
+            if(undefined !== data.minimal_ui){
+              tmp_vprt+= (first?"":",")+"minimal-ui";
+              first= false;
               }
             headTag.setAttribute('content', tmp_vprt);
             }
           document.head.appendChild(headTag);
           // - Meta elements for WebApp old school...
+          headTag= document.createElement("meta");
+          headTag.setAttribute('name', 'mobile-web-app-capable');
+          headTag.setAttribute('content', 'yes');
+          document.head.appendChild(headTag);
           headTag= document.createElement("meta");
           headTag.setAttribute('name', 'apple-mobile-web-app-capable');
           headTag.setAttribute('content', 'yes');
@@ -632,6 +640,24 @@ Zone de control
             }
           else{
             headTag.setAttribute('content', 'translucent white');
+            }
+          document.head.appendChild(headTag);
+          headTag= document.createElement("meta");
+          headTag.setAttribute('name', 'mobile-web-app-status-bar-style');
+          if(config.statusBarConfig){
+            headTag.setAttribute('content', config.statusBarConfig);
+            }
+          else{
+            headTag.setAttribute('content', 'translucent white');
+            }
+          document.head.appendChild(headTag);
+          headTag= document.createElement("meta");
+          headTag.setAttribute('name', 'apple-mobile-web-app-title');
+          if(config.appTitle){
+            headTag.setAttribute('content', config.appTitle);
+            }
+          else{
+            headTag.setAttribute('content', '...');
             }
           document.head.appendChild(headTag);
           headTag=document.createElement("meta");
@@ -2109,11 +2135,11 @@ Bubble view utility funs
             const Sens_click= SC.sensor('Sens_click'
 	      , { dom_targets: [ { target: b, evt: 'click' } ] });
             b._sc_click= function(s, re){
-              const evt=re.sensorValueOf(s);
-              const cmdBtn=evt.target;
-              const code_parent=cmdBtn._sc_lst_root;
-              const code_spc=code_parent.children[1];
-              if(this.innerHTML==_sc_inners[0]&&code_spc.style.display=="none"){
+              const evt= re.sensorValueOf(s);
+              const cmdBtn= evt.target;
+              const code_parent= cmdBtn._sc_lst_root;
+              const code_spc= code_parent.children[1];
+              if(this.innerHTML==_sc_inners[0] && code_spc.style.display=="none"){
                 this.innerHTML=_sc_inners[1];
                 code_spc.style.display="flex";
                 code_parent._sc_maskUpdateFun(code_parent);
@@ -2174,9 +2200,9 @@ Bubble view utility funs
             const b=quickElt({
                 tag: 'span'
               , innerHTML: "&nbsp;"
-                  +(params.downloadable?`<a download="${params.filePath}" htref="">`
+                  +(params.downloadable?`<a download="${params.filename}" htref="">`
                                        :"<span>")
-                  +params.filePath
+                  +params.filename
                   +(params.downloadable?"</a>":"</span>")
                   +"&nbsp;"
               , style: "font-size: 8pt;margin: 0;padding: 0;"
@@ -2240,7 +2266,7 @@ Bubble view utility funs
               code_tag.innerHTML=params.snip;
               }
             else{
-              code_tag.innerHTML=SC.tools.parseDoc({
+              code_tag.innerHTML=SC.tools.LST.parseDoc({
                                            src: code_tag.textContent
                                          , lang: params.lang
                                          , no_list: params.no_list
