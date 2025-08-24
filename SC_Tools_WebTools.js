@@ -2,7 +2,7 @@
  * File : SC_Tools_WebTools.js
  * Author : Jean-Ferdinand SUSINI (MNF)
  * Created : 20/12/2014 18:46
- * Copyleft 2017-2024.
+ * Copyleft 2017-2025.
  */
 
 ;
@@ -79,27 +79,27 @@ Zone de control
 */
         function Zone(conf){
           if(undefined==conf){
-            conf={};
+            conf= {};
             }
           if(undefined!==conf.zoneID){
-            this.num=conf.zoneID;
+            this.num= conf.zoneID;
             }
-          this.x=0;
-          this.y=0;
-          this.r=0; // rayon du cercle tactile
-          this.img_zoom=conf.img_zoom; // image associée
-          this.hidden=false;
-          this.zoneVisible=conf.zoneVisible;
-          this.bgcolor=conf.bg_color;
-          this.zoneEvt=conf.zoneEvt;
-          this.touched=false;
-          this.img=conf.img;
-          this.flip=false;
-          this.rotateImg=(undefined==conf.rotateImg)?0:conf.rotateImg;
+          this.x= 0;
+          this.y= 0;
+          this.r= 0; // rayon du cercle tactile
+          this.img_zoom= conf.img_zoom; // image associée
+          this.hidden= false;
+          this.zoneVisible= conf.zoneVisible;
+          this.bgcolor= conf.bg_color;
+          this.zoneEvt= conf.zoneEvt;
+          this.touched= false;
+          this.img= conf.img;
+          this.flip= false;
+          this.rotateImg= (undefined==conf.rotateImg)?0:conf.rotateImg;
           };
-        Zone.prototype.getBehavior=function(){
-          var localKill=SC.evt("localKill");
-          var res = SC.par(
+        Zone.prototype.getBehavior= function(){
+          var localKill= SC.evt("localKill");
+          var res= SC.par(
             SC.generate(requestDisplayLvl3, this, SC.forever)
             , SC.par(
                 SC.filter(SC_evt_mouse_down, this.zoneEvt, {t:this,f:"filterStart"},SC.forever)
@@ -235,7 +235,7 @@ Zone de control
             this.updateZonePos(0);
             }
           }
-        SC.globals.CP={
+        SC.globals.CP= {
             Evt_appendElement: SC.evt("appendElement")
             };
 // Inspector Panel
@@ -442,11 +442,11 @@ Zone de control
                     }
                   };
               controlPanel.Act_updateParallelBranchesNumber= function(m){
-		  SC_toplevel_bn.textContent= m.getTopLevelParallelBranchesNumber();
-	          };
+                  SC_toplevel_bn.textContent= m.getTopLevelParallelBranchesNumber();
+                  };
               controlPanel.Act_updateInstantNumber= function(m){
-		  SC_instant_n_cell.textContent= m.getInstantNumber();
-	          };
+                  SC_instant_n_cell.textContent= m.getInstantNumber();
+                  };
               this.addProgram(
                 SC.cube(controlPanel
                 , SC.par(
@@ -467,7 +467,7 @@ Zone de control
                       SC.await(controlPanel.Sens_screenShot)
                     , SC.action("Act_screenShotCapture")
                       )
-		  , SC.repeatForever(
+                  , SC.repeatForever(
                       SC.action("Act_updateInstantNumber")
                     , SC.action("Act_updateParallelBranchesNumber")
                       )
@@ -617,7 +617,7 @@ Zone de control
               tmp_vprt+= (first?"":",")+"user-scalable="+data.scalable;
               first= false;
               }
-            if(undefined !== data.minimal_ui){
+            if(undefined!==data.minimal_ui){
               tmp_vprt+= (first?"":",")+"minimal-ui";
               first= false;
               }
@@ -713,7 +713,7 @@ Zone de control
               throw new Error("audio support required by WebApp, but, no audioToolbox loaded.");
               }
             }
-          // - Le paneu de contrôle des SugarCubes tools (dérivé de SC_Demo4
+          // - Le panneau de contrôle des SugarCubes tools (dérivé de SC_Demo4
           // DanceDoigts).
           if(config.controler){
             SC.tools.initPanel();
@@ -879,26 +879,27 @@ Define globals and WebTools
                 ]
               }
             );
-        const WebTools={
+        const ic= { modal: false };
+        const WebTools= {
             loadData: function(url, act){
-              if(url){
-                console.log("WebTools_Tools.loadData()", url);
-                const loadSensor=SC.tools.loadData(url);
-                if(loadSensor){
-                  SC.tools.main.addProgram(
-                    SC.seq(
-                      SC.await(loadSensor)
-                    , SC.action(function(loadEvt, action, engine){
-                        const data=engine.sensorValueOf(loadEvt);
-                        if(data){
-                          action(data, engine, loadEvt);
-                          }
-                        }.bind(null, loadSensor, act))
-                      )
-                    );
+                if(url){
+                  console.log("WebTools_Tools.loadData()", url);
+                  const loadSensor=SC.tools.loadData(url);
+                  if(loadSensor){
+                    SC.tools.main.addProgram(
+                      SC.seq(
+                        SC.await(loadSensor)
+                      , SC.action(function(loadEvt, action, engine){
+                          const data=engine.sensorValueOf(loadEvt);
+                          if(data){
+                            action(data, engine, loadEvt);
+                            }
+                          }.bind(null, loadSensor, act))
+                        )
+                      );
+                    }
                   }
                 }
-              }
           , postTreatmentOfDOM: function(element, continuation){
               //if(element.parentElement){
                 const jfs_tags = element.getElementsByTagName("*");
@@ -983,43 +984,48 @@ Define globals and WebTools
                       if(!cvs.parentElement){
                         tag.appendChild(cvs);
                         }
-                      const drawingMethodName = tag.getAttribute("drawing");
+                      const drawingMethodName= tag.getAttribute("drawing");
                       WebTools.cvs_draw[drawingMethodName](cvs);
                       break;
                       }
                     case 'JFS_CODE':{
-                      var txt=tag.textContent;
-                      const wrapTag=((""==tag.getAttribute("inline"))
-                               ||("true"==tag.getAttribute("inline")))?"code":"pre";
-                      tag.style.display=("pre"==wrapTag)?"block":"inline";
-                      const base=document.createElement(wrapTag);
-                      base.style=tag.getAttribute("style");
-                      //base.jfs_src=base;
-                      const langAtt=tag.getAttribute("language")?tag.getAttribute("language"):"JAVA";
-                      const hideComments=(("pre"==wrapTag)&&((""==tag.getAttribute("hideComments"))
-                               ||("true"==tag.getAttribute("hideComments"))));
-                      const numbering=(("pre"==wrapTag)&&((""==tag.getAttribute("numbering"))
-                               ||("true"==tag.getAttribute("numbering"))));
-                      const collapsable=(("pre"==wrapTag)&&((""==tag.getAttribute("collapsable"))
-                               ||("true"==tag.getAttribute("collapsable"))));
-                      const downloadable=(("pre"==wrapTag)&&((""==tag.getAttribute("downloadable"))
-                               ||("true"==tag.getAttribute("downloadable"))));
-                      const selectable=(("pre"==wrapTag)&&((""==tag.getAttribute("selectable"))
-                               ||("true"==tag.getAttribute("selectable"))));
-                      const limitH=(("pre"==wrapTag)&&(tag.getAttribute("limitH")))?tag.getAttribute("limitH"):undefined;
+                      var txt= tag.textContent;
+                      const wrapTag= ((""==tag.getAttribute("inline"))
+                                  || ("true"==tag.getAttribute("inline")))?"code":"pre";
+                      tag.style.display= ("pre"==wrapTag)?"block":"inline";
+                      const base= document.createElement(wrapTag);
+                      base.style= tag.getAttribute("style");
+                      const langAtt= tag.getAttribute("language")?tag.getAttribute("language"):"JAVA";
+                      const hideComments= (("pre"==wrapTag)&&((""==tag.getAttribute("hideComments"))
+                                       || ("true"==tag.getAttribute("hideComments"))));
+                      const hidden_control= (("pre"==wrapTag)&&((""==tag.getAttribute("hc"))
+                                    || ("true"==tag.getAttribute("hc"))));
+                      const numbering= (("pre"==wrapTag)&&((""==tag.getAttribute("numbering"))
+                                    || ("true"==tag.getAttribute("numbering"))));
+                      const collapsable= (("pre"==wrapTag)&&((""==tag.getAttribute("collapsable"))
+                                      || ("true"==tag.getAttribute("collapsable"))));
+                      const downloadable= (("pre"==wrapTag)&&((""==tag.getAttribute("downloadable"))
+                                      || ("true"==tag.getAttribute("downloadable"))));
+                      const selectable= (("pre"==wrapTag)&&((""==tag.getAttribute("selectable"))
+                                     || ("true"==tag.getAttribute("selectable"))));
+                      const limitH= (("pre"==wrapTag)&&(tag.getAttribute("limitH")))?tag.getAttribute("limitH"):undefined;
                       if((""==tag.getAttribute("hlapi"))
                                ||("true"==tag.getAttribute("hlapi"))){
                         switch(langAtt.toUpperCase()){
                           case "C":{
-                            txt=SC.tools.LST.qp.preAPIC(txt);
+                            txt= SC.tools.LST.qp.preAPIC(txt);
+                            break;
+                            }
+                          case "C#":{
+                            txt= SC.tools.LST.qp.preAPICSharp(txt);
                             break;
                             }
                           case "JAVA":{
-                            txt=SC.tools.LST.qp.preAPIJava(txt);
+                            txt= SC.tools.LST.qp.preAPIJava(txt);
                             break;
                             }
                           case "JS":{
-                            txt=SC.tools.LST.qp.preAPIJS(txt);
+                            txt= SC.tools.LST.qp.preAPIJS(txt);
                             break;
                             }
                           }
@@ -1030,64 +1036,27 @@ Define globals and WebTools
                         WebTools.listings.qp.parse(base, txt, langAtt);
                         }
                       else {
-                        base.parsed=SC.tools.LST.jfs_parseDoc({
+                        base.parsed=SC.tools.LST.parseDoc({
                              src: txt
                            , lang: langAtt.toUpperCase()
                            , no_final_br: true
                              });
-                        /*switch(langAtt.toUpperCase()){
-                          case "XML":
-                          case "HTML":{
-                            base.parsed=this.jfs_XML_parse(txt, true, true, this.XML_listingAnotator);
-                            break;
-                            }
-                          case "BASH":{
-                            base.parsed=this.jfs_Bash_parse(txt, true, true, this.Bash_listingAnotator);
-                            break;
-                            }
-                          case "KEYV":{
-                            base.parsed=this.jfs_KEYV_parse(txt, { no_list: true
-                                                                   , no_final_br: true
-                                                                   , HLA: this.Bash_listingAnotator});
-                            break;
-                            }
-                          case "MAKF":{
-                            base.parsed=this.jfs_MKF_parse(txt, true, true, this.Bash_listingAnotator);
-                            break;
-                            }
-                          case "JS":{
-                            base.parsed=this.jfs_JS_parse(WebTools.listings.qp.preAPIJS(txt), true, true, this.JS_listingAnotator);
-                            break;
-                            }
-                          case "LUSTRE":{
-                            base.parsed=this.jfs_Lustre_parse(txt, true, true, this.Lustre_listingAnotator);
-                            break;
-                            }
-                          case "C":{
-                            base.parsed=this.jfs_C_parse(txt, true, true, this.C_listingAnotator);
-                            break;
-                            }
-                          case "JAVA":
-                          default: {
-                            base.parsed=this.jfs_java_parse(txt, true, true, this.listingAnotator);
-                            break;
-                            }
-                          }*/
                         }
                       tag.innerHTML='';
                       if(collapsable||numbering||selectable||hideComments||tag.getAttribute("filename")){
                         base.innerText=txt;
                         SC.tools.Web.formatSnipet({ selectCmd: selectable
-                                                   , lineNumberCmd: numbering
-                                                   , downloadable: downloadable
-                                                   , maskCmd: collapsable
-                                                   , commentCmd: hideComments
-                                                   , lang: langAtt.toUpperCase()
-                                                   , base: tag
-                                                   , snip: base.parsed[2]
-                                                   , limitH: limitH
-                                                   , filename: tag.getAttribute("filename")
-                                                     });
+                                                  , lineNumberCmd: numbering
+                                                  , downloadable: downloadable
+                                                  , maskCmd: collapsable
+                                                  , commentCmd: hideComments
+                                                  , lang: langAtt.toUpperCase()
+                                                  , base: tag
+                                                  , hidden_control: hidden_control
+                                                  , snip: base.parsed[2]
+                                                  , limitH: limitH
+                                                  , filename: tag.getAttribute("filename")
+                                                    });
                         }
                       else{
                         tag.appendChild(base);
@@ -1105,6 +1074,9 @@ Define globals and WebTools
                 }
               }
             };
+        if(params.modal_stack){
+          initModalStack();
+          }
         SC.tools.main.bindTo(SC.globals.globalKeydownSensor);
         SC.tools.addProgram(
           SC.par(
@@ -1112,7 +1084,7 @@ Define globals and WebTools
               SC.globals.globalKeydownSensor
               , SC.globals.globalKeydown.home
               , function(evt){
-                  if(evt.which == 36){
+                  if(evt.which==36 && !ic.modal){
                     return "home";
                     }
                   }
@@ -1122,7 +1094,7 @@ Define globals and WebTools
                 SC.globals.globalKeydownSensor
                 , SC.globals.globalKeydown.end
                 , function(evt){
-                    if(evt.which == 35){
+                    if(evt.which==35 && !ic.modal){
                       return "end";
                       }
                     }
@@ -1132,7 +1104,7 @@ Define globals and WebTools
                 SC.globals.globalKeydownSensor
                 , SC.globals.globalKeydown.left
                 , function(evt){
-                    if(evt.which == 37){
+                    if(evt.which==37 && !ic.modal){
                       return "left";
                       }
                     }
@@ -1142,7 +1114,7 @@ Define globals and WebTools
                 SC.globals.globalKeydownSensor
                 , SC.globals.globalKeydown.right
                 , function(evt){
-                    if(evt.which == 39){
+                    if(evt.which==39 && !ic.modal){
                       return "right";
                       }
                     }
@@ -1152,8 +1124,8 @@ Define globals and WebTools
                 SC.globals.globalKeydownSensor
                 , SC.globals.globalKeydown.up
                 , function(evt){
-                    if(evt.which == 38){
-                      return "right";
+                    if(evt.which==38 && !ic.modal){
+                      return "up";
                       }
                     }
                 , SC.forever
@@ -1162,8 +1134,8 @@ Define globals and WebTools
                 SC.globals.globalKeydownSensor
                 , SC.globals.globalKeydown.down
                 , function(evt){
-                    if(evt.which == 40){
-                      return "right";
+                    if(evt.which==40 && !ic.modal){
+                      return "down";
                       }
                     }
                 , SC.forever
@@ -1172,7 +1144,7 @@ Define globals and WebTools
                 SC.globals.globalKeydownSensor
                 , SC.globals.globalKeydown.esc
                 , function(evt){
-                    if(evt.which == 27){
+                    if(evt.which==27){
                       return "esc";
                       }
                     }
@@ -1313,7 +1285,7 @@ Liste des paramètres :
           this.speechAlternative(tts);
           const speakable=new SpeechSynthesisUtterance(tts.textContent);
           speakable.lang=params.get("lang", "fr-FR");
-	  console.log(speakable);
+          //console.log(speakable);
           speakable.Evt_startSpeak=params.get("start_evt"
                                              , SC.evt("Evt_startSpeak"));
           speakable.Evt_cancel=params.get("cancel", SC.evt("Evt_cancel"));
@@ -1506,32 +1478,35 @@ Bubble view utility funs
           return tmp;
           };
         function fromIdentifiedEltGetPath(elt){
-          var tmp=elt;
-          const res=[];
+          var tmp= elt;
+          const res= [];
           while(null!=tmp && tmp.id=="" && document.body!=tmp){
             res.push(
               Array.prototype.indexOf.call(tmp.parentElement.children
               , tmp));
-            tmp=tmp.parentElement;
+            tmp= tmp.parentElement;
             }
           res.push(tmp.id);
           return res;
           };
-        function quickElt(p={ tag: 'div' }){
-          const res=document.createElement(p.tag);
+        function quickElt(p= { tag: 'div' }){
+          const res= document.createElement(p.tag);
           if(p.id){
-            res.id=p.id;
+            res.setAttribute("id", p.id);
             }
           if("string"==typeof(p.cls)){
             res.classList.add(p.cls);
             }
-          if("array"==typeof(p.cls)){
+          else if("array"==typeof(p.cls)){
             for(var cls of this.cls){
               res.classList.add(cls);
               }
             }
           if(p.innerHTML){
-            res.innerHTML=p.innerHTML;
+            res.innerHTML= p.innerHTML;
+            }
+          if(p.text){
+            res.textContent= p.text;
             }
           if(p.width){
             res.setAttribute("width", p.width);
@@ -1540,10 +1515,10 @@ Bubble view utility funs
             res.setAttribute("height", p.height);
             }
           if(p.style){
-            res.style=p.style;
+            res.style= p.style;
             }
           if(p.src){
-            res.src=p.src;
+            res.src= p.src;
             }
           if(p.alt){
             res.setAttribute('alt', p.alt);
@@ -1554,14 +1529,14 @@ Bubble view utility funs
           return res;
           }
         function mkBubbleMenuBar(){
-          const bar=quickElt({ tag: 'div'
+          const bar= quickElt({ tag: 'div'
               , style:`position: relative;
                        width: 100%;
                        padding: 0;
                        border: 0;
                        margin: 0;`
                 });
-          const moveView=quickElt({ tag: 'img'
+          const moveView= quickElt({ tag: 'img'
               , width: 24
               , height: 24
               , style: `cursor: pointer;`
@@ -1570,7 +1545,7 @@ Bubble view utility funs
               , title: "Déplacer la bulle"
                 });
           bar.appendChild(moveView);
-          const editView=quickElt({ tag: 'img'
+          const editView= quickElt({ tag: 'img'
               , width: 24
               , height: 24
               , style: `cursor: pointer;`
@@ -1579,7 +1554,7 @@ Bubble view utility funs
               , title: "Editer la bulle"
                 });
           bar.appendChild(editView);
-          const saveView=quickElt({ tag: 'img'
+          const saveView= quickElt({ tag: 'img'
               , width: 24
               , height: 24
               , style: `cursor: pointer;`
@@ -1588,7 +1563,7 @@ Bubble view utility funs
               , title: "Enregistrer la bulle sur le serveur (connexion internet nécessaire)."
                 });
           bar.appendChild(saveView);
-          const minimizeView=quickElt({ tag: 'img'
+          const minimizeView= quickElt({ tag: 'img'
               , width: 24
               , height: 24
               , style: `cursor: pointer;`
@@ -1597,7 +1572,7 @@ Bubble view utility funs
               , title: "Réduire la bulle"
                 });
           bar.appendChild(minimizeView);
-          const deleteView=quickElt({ tag: 'img'
+          const deleteView= quickElt({ tag: 'img'
               , width: 24
               , height: 24
               , style: `cursor: pointer;`
@@ -1622,15 +1597,15 @@ Bubble view utility funs
               }
             );            
           };
-        function simpleCommentBubble(params={}){
+        function simpleCommentBubble(params= {}){
           //console.log("make bubble...", params);
           if(undefined===this.scc_bubbles_link){
             loadBubbleCSS();
             }
-          const bubble_frame=quickElt({ tag: 'div' 
+          const bubble_frame= quickElt({ tag: 'div' 
             , cls: 'SC_bubble_textFrame'
               });
-          const bubble_view=quickElt({ tag: 'div'
+          const bubble_view= quickElt({ tag: 'div'
             , cls: "SC_bubble_text_0"
               });
           bubble_view.Evt_show=SC.evt("show");
@@ -1647,10 +1622,10 @@ Bubble view utility funs
               this._sc_bar.style.display=s?'block':'none';
               }
             }
-          bubble_view._sc_content=quickElt({ tag: 'div' });
+          bubble_view._sc_content= quickElt({ tag: 'div' });
           bubble_view.appendChild(bubble_view._sc_content);          
           bubble_view._sc_updateAppearance=bubble_view_setNewText;
-          bubble_view._sc_ok=quickElt({ tag: "div"
+          bubble_view._sc_ok= quickElt({ tag: "div"
               , style: `text-align: right;
                         margin: 0;
                         padding: 0;`
@@ -1670,7 +1645,7 @@ Bubble view utility funs
             );
           bubble_view.Evt_talkEnded=SC.evt("talkEnded");
           if(params.typer){
-            bubble_view._sc_shadow=quickElt({ tag: "div" });
+            bubble_view._sc_shadow= quickElt({ tag: "div" });
             bubble_view._sc_pauseAfterEnd=0;
             bubble_view._sc_toWriteTxt=bubble_view._sc_text="";
             bubble_view._sc_toWriteTxtIdx=0;
@@ -1796,7 +1771,10 @@ Bubble view utility funs
                                    , SC.purge(data.pre)))
                                  :data.pre;
               data.post=(data.icn)?(SC.seq(SC.action(function(icn){
-                                          this._sc_frame.removeChild(icn);
+                                          if(/*this._sc_frame.children.includes(icn)
+                                            && */icn.parentElement==this._sc_frame){
+                                            this._sc_frame.removeChild(icn);
+                                            }
                                           }.bind(this, data.icn))
                                     , SC.purge(data.post)))
                                   :data.post;
@@ -1904,26 +1882,26 @@ Bubble view utility funs
             }
           );
         function getCookies(){
-          const res=[];
-          const decodedCookie=decodeURIComponent(document.cookie);
+          const res= [];
+          const decodedCookie= decodeURIComponent(document.cookie);
           if(decodedCookie==""){
             return res;
             }
-          const ca=decodedCookie.split(';');
-          var cookie={};
+          const ca= decodedCookie.split(';');
+          var cookie= {};
           for(var i=0; i<ca.length; i++){
-            var c=ca[i];
+            var c= ca[i];
             while(' '==c.charAt(0)){
-              c=c.substring(1);
+              c= c.substring(1);
               }
-            const splt=c.indexOf('=');
+            const splt =c.indexOf('=');
             console.log("=>", splt);
-            const k=(splt<0)?c:c.substring(0, splt);
-            const v=(splt<0)?"":c.substring(splt+1);
-            cookie.name=k;
-            cookie.value=v;
+            const k= (splt<0)?c:c.substring(0, splt);
+            const v= (splt<0)?"":c.substring(splt+1);
+            cookie.name= k;
+            cookie.value= v;
             res.push(cookie);
-            cookie={};
+            cookie= {};
             }
           return res;
           };
@@ -2120,7 +2098,7 @@ Bubble view utility funs
             document.head.appendChild(cssLink);
             lst_css_needed=false;
             }
-          const frame=quickElt({ tag: 'div', cls: "interfaceMenuBar" });
+          const frame= quickElt({ tag: 'div', cls: "interfaceMenuBar" });
           if(params.maskCmd){
             const _sc_inners= [
                 "&nbsp;▶︎&nbsp;"
@@ -2133,7 +2111,7 @@ Bubble view utility funs
                 , title: "Masquer/Afficher le code."
                   });
             const Sens_click= SC.sensor('Sens_click'
-	      , { dom_targets: [ { target: b, evt: 'click' } ] });
+              , { dom_targets: [ { target: b, evt: 'click' } ] });
             b._sc_click= function(s, re){
               const evt= re.sensorValueOf(s);
               const cmdBtn= evt.target;
@@ -2151,9 +2129,9 @@ Bubble view utility funs
                 }
               }.bind(b, Sens_click);
             SC.tools.addProgram(SC.cube(b, SC.repeatForever(
-		  SC.nop("enter loop")
+                  SC.nop("enter loop")
                 , SC.await(Sens_click)
-		, SC.nop("click collapse ?")
+                , SC.nop("click collapse ?")
                 , SC.action("_sc_click")
                   )
                 )
@@ -2163,7 +2141,7 @@ Bubble view utility funs
             params.code_parent._sc_lst_visBtn=b;
             }
           if(params.selectCmd){
-            const b=quickElt({
+            const b= quickElt({
                 tag: 'span'
               , innerHTML: WebTools.listingTools.strings.SELECT_BTN
               , cls: "interfaceBtn"
@@ -2174,7 +2152,7 @@ Bubble view utility funs
             params.code_parent._sc_lst_selBtn=b;
             }
           if(params.commentCmd){
-            const b=quickElt({
+            const b= quickElt({
                 tag: 'span'
               , innerHTML: WebTools.listingTools.strings.COMMENT_BTN_NO
               , cls: "interfaceBtn"
@@ -2186,7 +2164,7 @@ Bubble view utility funs
             params.code_parent._sc_lst_cmtBtn=b;
             }
           if(params.lineNumberCmd){
-            const b=quickElt({
+            const b= quickElt({
                 tag: 'span'
               , innerHTML: WebTools.listingTools.strings.LN_BTN_NO
               , cls: "interfaceBtn"
@@ -2197,7 +2175,7 @@ Bubble view utility funs
             params.code_parent._sc_lst_lnBtn=b;
             }
           if(params.filename){
-            const b=quickElt({
+            const b= quickElt({
                 tag: 'span'
               , innerHTML: "&nbsp;"
                   +(params.downloadable?`<a download="${params.filename}" htref="">`
@@ -2223,7 +2201,7 @@ Bubble view utility funs
             }
           return frame;
           };
-        function formatSnipet(params={}){
+        function formatSnipet(params= {}){
           var code_parent=null;
           var code_section=null;
           var anchor=null;
@@ -2233,40 +2211,44 @@ Bubble view utility funs
           var code_tag=(params.base)?params.base
                                     :('string'==typeof(params.id))
                                          ?document.getElementById(params.id)
-                                         :quickElt({tag: "pre"});
+                                         :quickElt({ tag: "pre" });
           if(undefined==code_tag
               || !['PRE','CODE', 'JFS_CODE'].includes(code_tag.tagName)){
             throw new Error("code element doesn't exist");
             }
           if('JFS_CODE'==code_tag.tagName){
-            code_parent=code_tag;
+            code_parent= code_tag;
             }
           else{
-            params.base=code_tag;
+            params.base= code_tag;
             }
           if(!code_tag._sc_tooled){
-            const prt=code_tag.parentElement;
+            const prt= code_tag.parentElement;
             if('JFS_CODE'==code_tag.tagName){
-              code_tag=quickElt({ tag: "pre" });
+              code_tag= quickElt({ tag: "pre" });
               }
-            params.base=code_tag;
+            params.base= code_tag;
             code_tag.classList.add('jfs_snipet');
-            anchor=prt;
+            anchor= prt;
             if(undefined==code_parent){
-              code_parent=quickElt({ tag: 'jfs_code'
+              code_parent= quickElt({ tag: 'jfs_code'
                                    , cls: 'jfs_snipetRoot' });
               }
-            code_section=quickElt({ tag: 'section'
-              , style: 'position: relative; display: flex;' });
-            pre_line=quickElt({ tag: 'pre' , cls: 'lnr' });
+            code_section= quickElt({ tag: 'section'
+              , style: 'position: relative; display: flex; border: 1px solid black;' });
+            if(params.limitH){
+              code_section.style.height= params.limitH;
+              code_section.style.overflowY= "scroll";
+              }
+            pre_line= quickElt({ tag: 'pre' , cls: 'lnr' });
             code_parent.appendChild(code_section);
             code_section.appendChild(pre_line)
             code_section.appendChild(code_tag)
             if(params.snip){
-              code_tag.innerHTML=params.snip;
+              code_tag.innerHTML= params.snip;
               }
             else{
-              code_tag.innerHTML=SC.tools.LST.parseDoc({
+              code_tag.innerHTML= SC.tools.LST.parseDoc({
                                            src: code_tag.textContent
                                          , lang: params.lang
                                          , no_list: params.no_list
@@ -2274,15 +2256,16 @@ Bubble view utility funs
                                          , annotator: params.annotator
                                          })[2];
               }
-            code_tag.style.width=params.w?params.w:"";
-            params.code_parent=code_parent;
-            code_parent._sc_lst_code=code_tag;
-            const frame=makeInterface(params);
-            const src_nb_lines=code_tag.innerText.split("\n").length;
-            pre_line.textContent=makeLNText(src_nb_lines);
-            code_tag._sc_lst_lines=pre_line;
+            code_tag.style.width= params.w?params.w:"";
+            params.code_parent= code_parent;
+            code_parent._sc_lst_code= code_tag;
+            console.warn(" tooled ? code_parent", code_parent, "code_tag", code_tag, code_parent._sc_lst_code);
+            const frame= makeInterface(params);
+            const src_nb_lines= code_tag.innerText.split("\n").length;
+            pre_line.textContent= makeLNText(src_nb_lines);
+            code_tag._sc_lst_lines= pre_line;
             code_parent.insertBefore(frame, code_section);
-            const bg_hi_pre=quickElt({ tag: 'pre'
+            const bg_hi_pre= quickElt({ tag: 'pre'
               , style: code_tag.getAttribute("style") });
             bg_hi_pre.style.position="absolute";
             bg_hi_pre.style.margin="0";
@@ -2314,6 +2297,13 @@ Bubble view utility funs
             if(params.notVisible && !params.notVisible){
               toggle_codeVisibility(code_parent);
               }
+            if(params.hidden_control){
+              frame.style.display="none";
+              }
+            }
+          else {
+            console.warn(" not tool ? code_parent", code_parent, "code_tag", code_tag);
+            code_parent._sc_lst_code= code_tag;
             }
           return code_parent;
           };
@@ -2328,6 +2318,16 @@ Bubble view utility funs
           if(SC.globals.popup){
             return;
             }
+          const cssLink= document.createElement("link");
+          cssLink.setAttribute('rel', 'stylesheet');
+          cssLink.setAttribute('href', params.tools.baseDir
+                                       +'SC_Tools_Popup.css');
+          document.head.appendChild(cssLink);
+          Object.defineProperty(WebTools, "scc_popup_link"
+          , { value: cssLink
+            , writable: false
+              }
+            );            
           SC.globals.popup={
               Evt_hide: SC.evt("hide")
             , Evt_show: SC.evt("show")
@@ -2338,7 +2338,7 @@ Bubble view utility funs
           //    loaded: SC.evt("loaded")
           //  , displayNews: SC.evt("displayNews")
           //    };
-          const DP=quickElt({
+          const DP= quickElt({
                 tag: 'img'
               , id : "JFS_DOMID_currentImgInTheImageViewer"
               , alt: "Capture d'écran"
@@ -2411,26 +2411,26 @@ Bubble view utility funs
             , writable: false
               }
             );
-          const popupTools=quickElt({
+          const popupTools= quickElt({
               tag: 'div'
             , id: 'SCWebTools_DOMID_popup_screen'
               }
             );
-          popupTools._sc_setPopupOffset=function(m){
+          popupTools._sc_setPopupOffset= function(m){
             if(! SC.tools.Web.identified){
-              this.style.top="30pt";
+              this.style.top= "30pt";
               }
-            this.style.display="";
+            this.style.display= "";
             };
-          popupTools.Evt_esc=SC.evt("esc")
-          popupTools.hiddable="none";
-          popupTools._sc_displayHide=function(re){
-            this.style.display=this.hiddable;
+          popupTools.Evt_esc= SC.evt("esc")
+          popupTools._sc_hiddable_word= "none";
+          popupTools._sc_displayHide= function(re){
+            this.style.display= this._sc_hiddable_word;
             }
-          const pp=params.popup;
+          const pp= params.popup;
           popupTools._sc_init=(pp && pp.init)?pp.init:function(re){
             console.log("std popup init");
-            const tmp=quickElt({
+            const tmp= quickElt({
                 tag: 'img'
               , cls: "WebTools_IHMStyle_CloseBtn"
               , src: "images/png/Close.png"
@@ -2442,7 +2442,7 @@ Bubble view utility funs
             tmp.addEventListener('click', function(evt){
               SC.tools.main.generateEvent(SC.globals.popup.Evt_hide);
               });
-            this._sc_content=quickElt({
+            this._sc_content= quickElt({
                 tag: 'div'
               , id: 'WebToolsDOMID_popup_content'
                 });
@@ -2548,6 +2548,130 @@ Bubble view utility funs
           , writable: false
             }
           );
+        function initModalStack(){
+          if(this.scc_modal_dialog_link){
+            return;
+            }
+          const cssLink= document.createElement("link");
+          cssLink.setAttribute('rel', 'stylesheet');
+          cssLink.setAttribute('href', params.tools.baseDir
+                                       +'SC_Tools_ModalDialog.css');
+          document.head.appendChild(cssLink);
+          Object.defineProperty(WebTools, "scc_modal_dialog_link"
+          , { value: cssLink
+            , writable: false
+              }
+            );            
+          const zeModalStack= document.createElement("div");
+          zeModalStack._sc_modalStackContent= [];
+          zeModalStack.setAttribute("class", "SC_modal_popup");
+          zeModalStack.Evt_showContent= SC.evt("Evt_showContent");
+          zeModalStack.Evt_close= SC.evt("close");
+          zeModalStack.Evt_return= SC.evt("return");
+          zeModalStack.innerHTML= `<div class="SC_modal_dialog"><span class="close_box">&times;</span><div></div></div>`;
+          zeModalStack.Sens_close= SC.sensor("close", {
+                dom_targets: [ { target: zeModalStack.children[0].children[0]
+                               , evt: 'click' } ]
+                });
+          zeModalStack._sc_toggleModal= function(){
+              this.classList.toggle("SC_popup_modal_transition");
+              };
+          zeModalStack._sc_showHTML= function(msg){
+              const zeMenu= this.children[0];
+              const zeContent= zeMenu.children[1];
+              const tmpContent= [];
+              while(zeContent.childNodes[0]){
+                tmpContent.push(zeContent.removeChild(zeContent.childNodes[0]));
+                 }              
+              if(tmpContent.length>0){
+                console.warn("stacking on top of", tmpContent);
+                zeModalStack._sc_modalStackContent.push({
+                    x: zeMenu.style.left
+                  , y: zeMenu.style.top
+                  , content: tmpContent
+                  , resp: this._sc_resp
+                    });
+                }
+              zeMenu.style.left= msg.x?msg.x:"50%";
+              zeMenu.style.top= msg.y?msg.y:"50%";
+              zeContent.appendChild(msg.content);
+              this._sc_resp= msg.resp?msg.resp:{};
+              ic.modal= true;
+              this.classList.add("SC_popup_modal_transition");
+              };
+          zeModalStack.Act_showHTML= function(re){
+              const data= re.getValuesOf(this.Evt_showContent);
+	      console.log("got content ?");
+              if(data){
+                const msg= data[0];
+                this._sc_showHTML(msg);
+                }
+              };
+          zeModalStack.Act_close= function(re){
+              const resp= this._sc_resp;
+              const zeMenu= this.children[0];
+              const zeContent= zeMenu.children[1];                
+              zeContent.innerHTML= ``;
+              if(this._sc_modalStackContent.length>0){
+                const heap= this._sc_modalStackContent.pop();
+                zeMenu.style.left= heap.x;
+                zeMenu.style.top= heap.y;
+                var i= 0;
+                while(heap.content[i]){
+                  zeContent.appendChild(heap.content[i++]);
+                  }
+                this._sc_resp= heap.resp;
+                }
+              else{
+                this.classList.remove("SC_popup_modal_transition");
+                ic.modal= false;
+                }
+              SC.tools.generateEvent(this.Evt_return, resp);
+              };
+          SC.tools.addProgram(
+            SC.cube(zeModalStack
+            , SC.par(
+                SC.actionOn("Evt_showContent", "Act_showHTML"
+                          , undefined, SC.forever)
+              , SC.actionOn(SC.or("Sens_close", "Evt_close")
+                          , "Act_close", undefined, SC.forever)
+              , SC.action(()=>{document.body.appendChild(zeModalStack)})
+                )
+              )
+            );
+          SC.globals.ModalStack={
+            Evt_disp: zeModalStack.Evt_showContent
+          , Evt_return: zeModalStack.Evt_return
+          , Evt_close: zeModalStack.Evt_close
+            };
+          };
+        //Object.defineProperty(WebTools, "initModalStack"
+        //, { value: initModalStack
+        //  , writable: false
+        //    }
+        //  );
+        Object.defineProperty(WebTools, "setLSItem"
+        , { value: function(key, value){
+                if(localStorage){
+                  localStorage.setItem(key, JSON.stringify(value));
+                  }
+                }
+          , writable: false
+            }
+          );
+        Object.defineProperty(WebTools, "getLSItem"
+        , { value: function(key){
+                if(localStorage){
+                  return JSON.parse(localStorage.getItem(key));
+                  }
+                }
+          , writable: false
+            }
+          );
+        Object.defineProperty(WebTools, "mke"
+        , { value: quickElt
+          , writable: false
+            });
 ///* affichage de la photo dans le cadre dédié */
 //JFS.paperTool = SC.tools.makeDiv({
 //  id : 'JFSDOMID_pageViewer'
@@ -2586,8 +2710,14 @@ Bubble view utility funs
 //  img_thumb.style.alt=the_alt;
 //  document.getElementById(the_id).appendChild(img_thumb);
 //}
-
-
+        Object.defineProperty(WebTools, 'processPrevElement'
+        , { value: function processIt(x){
+                var element= (x)?x:document.currentScript.previousElementSibling;
+                SC.tools.Web.postTreatmentOfDOM(element);
+                }
+          , enumerable: true
+            }
+          );
         return WebTools;
         }).call(sc_global, p)
     , writable: false

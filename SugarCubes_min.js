@@ -3,12 +3,13 @@
  * Authors : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.582.alpha
- * build: 582
+ * version : 5.0.780.alpha
+ * build: 780
  * Copyleft 2014-2025.
  */
 ;
 (function(sc_global){ 
+function NO_FUN(){};
 const SC_Instruction_state_str= [
     "UNDF" 
   , "SUSP" 
@@ -16,32 +17,141 @@ const SC_Instruction_state_str= [
   , "OEOI" 
   , "STOP"
   , "WAIT"
-  , "STEP" 
   , "HALT"
   , "TERM"
     ];
 Object.freeze(SC_Instruction_state_str);
-const SC_Instruction_State= {
+const SC_IState= {
     toString: function(state){
       return SC_Instruction_state_str[state]+":"+state;
       }
     };
 for(var st in SC_Instruction_state_str){
-  SC_Instruction_State[SC_Instruction_state_str[st]]= st;
+  SC_IState[SC_Instruction_state_str[st]]= parseInt(st);
   }
-Object.freeze(SC_Instruction_State);
+Object.freeze(SC_IState);
+function PurgeableCollection(){
+  if(!(this instanceof PurgeableCollection)){
+    return new PurgeableCollection();
+    }
+  if(undefined!=sc_global.WeakMap){
+    const res= new sc_global.WeakMap();
+    res.cleanup= NO_FUN;
+    return res;
+    }
+  this.collection= {};
+  this._sc_weak= undefined!=sc_global.WeakRef;
+  Object.freeze(this);
+  };
+(function(){
+  const proto= PurgeableCollection.prototype;
+  proto.get= function(sym){
+      const tk= this.collection[sym];
+      return (this._sc_weak && tk)?tk.deref():tk;
+      };
+  proto.has= function(sym){
+      return undefined!==this.get(sym);
+      };
+  proto.set= function(sym, val){
+      if(undefined!==val){
+        if(this._sc_weak){
+          this.collection[sym]= new sc_global.WeakRef(val);
+          }
+        else{
+          this.collection[sym]= val;
+          }
+        }
+      else{
+        delete(this.collection[sym]);
+        }
+      };
+  proto.rm= function(sym){
+      delete(this.collection[sym]);
+      };
+  proto.cleanup= function(){
+      const ks= Object.keys(this.collection);
+      const kl= ks.length;
+      for(var i= 0; i<kl; i++){
+        const k=ks[i];
+        if(undefined===this.get(k)){
+          delete(this.collection[k]);
+          }
+        }
+      };
+  Object.freeze(proto);
+  })();
+function SC_Parameters(p, check){
+  if(undefined===p && undefined===check){
+    return this;
+    }
+  if("object"==typeof(p)){
+    if(p instanceof SC_Parameters){
+      return p;
+      }
+    const kiz= Object.keys(p);
+    const kl= kiz.length
+    for(var n= 0; n<kl; n++){
+      const key= kiz[n];
+      this[key]= p[key];
+      }
+    if(Array.isArray(check)){
+      const len= check.length;
+      for(var n= 0; n<len; n++){
+        const key= check[n];
+        if(undefined===this[key]){
+          console.wran(key+" is mandatory but not defined");
+          return undefined;
+          }
+        }
+      }
+    }
+  else{
+    return Array.isArray(check)?undefined:p;
+    }
+  };
+(function(){
+  const proto= SC_Parameters.prototype;
+  Object.defineProperty(proto, "_"
+  , { value: function(name, dval){
+          const v= this[name];
+          return (undefined!==v || (null!==v && undefined===dval))?v:dval;
+          }
+    , writable: false
+      });
+  Object.defineProperty(proto, "_e"
+  , { value: function(name){
+          const v= this[name];
+          return undefined!==v;
+          }
+    , writable: false
+      });
+  Object.defineProperty(proto, "toString"
+  , { value: function(){
+          var res= "SC_Parameters:={";
+          const kiz= Object.keys(this);
+          const klen= kiz.length;
+          for(var n= 0; n<klen; n++){
+            const key= kiz[n];
+            res+= " "+key+": "+this[key];
+            }
+          return res+"}";
+          }
+    , writable: false
+      });
+  Object.freeze(proto);
+  })();
 const SC_Global_Manager= {
     clocks: []
-  , attachments: {}
+  , attachments: new PurgeableCollection()
   , registerBinder: function(binder){
-        this.attachments[binder.sens.iids]= binder;
+        this.attachments.set(binder.sens.iids, binder);
         }
   , connect: function(sid, ream){
-        const binder= this.attachments[sid.iids];
+        const binder= this.attachments.get(sid.iids);
         binder.add(ream);
         }
   , disconnect: function(sid, ream){
-        const binder= this.attachments[sid.iids];
+        const binder= this.attachments.get(sid.iids);
         binder.remove(ream);
         }
   , addToRegisteredMachines: function(m){
@@ -62,7 +172,6 @@ const SC_Global_Manager= {
       function(sensorId, val){
         const rm= this.clocks;
         const ll= rm.length;
-        const sensName= sensorId.iids;
         for(var m= 0 ; m<ll; m++){
           const machine= rm[m];
           machine.sampleSensor(sensorId, val);
@@ -70,7 +179,6 @@ const SC_Global_Manager= {
         }
     };
 Object.freeze(SC_Global_Manager);
-function NO_FUN(){};
 function SC_LateBinding(){
   const obj= arguments[0];
   const args= arguments[1];
@@ -145,89 +253,91 @@ function SC_LateBinding(){
     this.args= obj.p; 
     }
   };
-var proto= SC_LateBinding.prototype;
-Object.defineProperty(proto, "isBinding"
-, { enumerable: false, value: true, writable: false });
-Object.defineProperty(proto, "resolve"
-, { enumerable: false
-  , value: function(){
-        if(undefined!==this.value){
+(function(){
+  const proto= SC_LateBinding.prototype;
+  Object.defineProperty(proto, "isBinding"
+    , { enumerable: false, value: true, writable: false });
+  Object.defineProperty(proto, "resolve"
+  , { enumerable: false
+    , value: function(){
+          if(undefined!==this.value){
+            return this.value;
+            }
+          var val= undefined;
+          if(this.tgt && this.name){
+            const getter= function(){
+                var val= this.tgt[this.name];
+                if(undefined==val && this.tgt._sc_extension){
+                  val= this.tgt._sc_extension[this.name];
+                  }
+                if(undefined==val){
+                  console.warn("target still not found : ", this.name, "on",
+                                                                        this.tgt);
+                  return this;
+                  }
+                return val;
+                };
+            val= getter.call(this);
+            if(val!=this && "function"!=typeof(val)){
+              Object.defineProperty(this, "value", { get: getter });
+              }
+            else if("function"==typeof(val) && undefined===this.__){
+              Object.defineProperty(this, this.vf?"fun":"__", { value: val,
+                                                               writable: false });
+              }
+            }
+          if(this.__){
+            if(undefined!=this.args){
+              const p= [ this.tgt ].concat(this.args);
+              val= this.__.bind.apply(this.__, p);
+              }
+            else if(undefined!==this.tp){
+              val= this.__.bind(this.tgt, this.tgt[this.tp]);
+              }
+            else{
+              val= this.__.bind(this.tgt);
+              }
+            Object.defineProperty(this, "value", { get: val });
+            }
+          else if(this.fun && this.vf){
+            if(undefined!=this.args){
+              const p= [ this.tgt ].concat(this.args);
+              Object.defineProperty(this, "value"
+              , { value: this.fun.bind.apply(this.fun, p)
+                , writable: false });
+              }
+            else if(undefined!==this.tp){
+              const p= [ this.tgt ].concat([ this.tgt[this.tp] ]);
+              Object.defineProperty(this, "value"
+              , { value: this.fun.bind.apply(this.fun, p)
+                , writable: false });
+              }
+            else{
+              Object.defineProperty(this, "value"
+              , { value: this.fun.bind(this.tgt)
+                , writable: false });
+              }
+            }
+          else{
+            if(undefined===val){
+              debugger;
+              }
+            }
           return this.value;
           }
-        var val= undefined;
-        if(this.tgt && this.name){
-          const getter= function(){
-              var val= this.tgt[this.name];
-              if(undefined==val && this.tgt._sc_extension){
-                val= this.tgt._sc_extension[this.name];
-                }
-              if(undefined==val){
-                console.warn("target still not found : ", this.name, "on",
-                                                                      this.tgt);
-                return this;
-                }
-              return val;
-              };
-          val= getter.call(this);
-          if(val!=this && "function"!=typeof(val)){
-            Object.defineProperty(this, "value", { get: getter });
-            }
-          else if("function"==typeof(val) && undefined===this.__){
-            Object.defineProperty(this, this.vf?"fun":"__", { value: val,
-                                                             writable: false });
-            }
-          }
-        if(this.__){
-          if(undefined!=this.args){
-            const p= [ this.tgt ].concat(this.args);
-            val= this.__.bind.apply(this.__, p);
-            }
-          else if(undefined!==this.tp){
-            val= this.__.bind(this.tgt, this.tgt[this.tp]);
-            }
-          else{
-            val= this.__.bind(this.tgt);
-            }
-          Object.defineProperty(this, "value", { get: val });
-          }
-        else if(this.fun && this.vf){
-          if(undefined!=this.args){
-            const p= [ this.tgt ].concat(this.args);
-            Object.defineProperty(this, "value"
-            , { value: this.fun.bind.apply(this.fun, p)
-              , writable: false });
-            }
-          else if(undefined!==this.tp){
-            const p= [ this.tgt ].concat([ this.tgt[this.tp] ]);
-            Object.defineProperty(this, "value"
-            , { value: this.fun.bind.apply(this.fun, p)
-              , writable: false });
-            }
-          else{
-            Object.defineProperty(this, "value"
-            , { value: this.fun.bind(this.tgt)
-              , writable: false });
-            }
+    , writable: false });
+  Object.defineProperty(proto, "toString"
+  , { enumerable: false
+    , value: function(){
+        if(this.name || this.tgt){
+          return "@."+this.name+"";
           }
         else{
-          if(undefined===val){
-            debugger;
-            }
+          return this.resolve.toString();
           }
-        return this.value;
         }
-  , writable: false });
-Object.defineProperty(proto, "toString"
-, { enumerable: false
-  , value: function(){
-      if(this.name || this.tgt){
-        return "@."+this.name+"";
-        }
-      else{
-        return this.resolve.toString();
-        }
-      }
-  , writable: false });
+    , writable: false });
+  })();
 function SC_LateBinding_setCube(b, obj){
   if(b instanceof SC_LateBinding){
     if(b.tgt){
@@ -292,22 +402,28 @@ function SC_LateNumBinding(){
     }
   }
 function SC_CubeExposedState(){};
-proto= SC_CubeExposedState.prototype;
-Object.defineProperty(proto, "toString"
-, { value: function(){
-        return "$@";
-        }
-  , writable: false });
+(function(){
+  const proto= SC_CubeExposedState.prototype;
+  Object.defineProperty(proto, "toString"
+  , { value: function(){
+          return "$@";
+          }
+    , writable: false });
+  Object.freeze(proto);
+  })();
 function SC_CubeExposedStateInternal(){};
-proto= SC_CubeExposedStateInternal.prototype;
-proto.exposedState= function(m){
-    return this.cube.getExposeReader(m);
-    };
-proto.setCube= function(cube){
-    this.cube=cube;
-    return this;
-    };
-proto.__proto__= SC_CubeExposedState.prototype;
+(function(){
+  const proto= SC_CubeExposedStateInternal.prototype;
+  proto.exposedState= function(m){
+      return this.cube.getExposeReader(m);
+      };
+  proto.setCube= function(cube){
+      this.cube= cube;
+      return this;
+      };
+  proto.__proto__= SC_CubeExposedState.prototype;
+  Object.freeze(proto);
+  })();
 const _SC= {
     markProgram: function(p){
         Object.defineProperty(p, "isAnSCProgram", { value: true
@@ -491,24 +607,24 @@ const _SC= {
   };
 function SC_cubify(params){
   if(undefined==params){
-    params={};
+    params= {};
     }
   Object.defineProperty(this, "SC_cubeAddBehaviorEvt"
-                          , {enumerable: false
-                             , value: ((undefined != params.addEvent)
+                          , { enumerable: false
+                            , value: ((undefined!=params.addEvent)
                                           ? params.addEvent
                                           : SC.evt("addBehaviorEvt"))
-                             , writable: false
-                             }
-                          );
+                            , writable: false
+                              }
+                            );
   Object.defineProperty(this, "SC_cubeKillEvt"
-                          , {enumerable: false
-                             , value: ((undefined != params.killEvent)
+                          , { enumerable: false
+                            , value: ((undefined!=params.killEvent)
                                           ? params.killEvent
                                           : SC.evt("killSelf"))
-                             , writable: false
-                             }
-                          );
+                            , writable: false
+                              }
+                            );
   if(params.sci){
     params.sci.call(this);
     }
@@ -517,13 +633,13 @@ const VOID_VALUES= [];
 Object.freeze(VOID_VALUES);
 var nextEventID= 0;
 function SC_EventId(params){
-  this.makeNew=params.makeNew;
-  this.distribute=params.distribute;
-  const registeredMachines={};
+  this.makeNew= params.makeNew;
+  this.distribute= params.distribute;
+  const registeredMachines= {};
   Object.defineProperty(this, "internalId"
          , { value: nextEventID++, writable: false });
   Object.defineProperty(this, "iids"
-         , { value: ""+this.internalId, writable: false });
+         , { value: new String(""+this.internalId), writable: false });
   Object.defineProperty(this, "name"
          , { value: "&_"+this.internalId+"_"+params.name, writable: false } );
   Object.defineProperty(this, "bindTo"
@@ -680,7 +796,7 @@ function SC_SensorId(params){
   Object.defineProperty(this, "internalId"
          , { value: nextEventID++, writable: false });
   Object.defineProperty(this, "iids"
-         , { value: ""+this.internalId, writable: false });
+         , { value: new String(this.internalId), writable: false });
   Object.defineProperty(this, "name"
          , { value: "#_"+this.internalId+"_"+params.name, writable: false });
   const boundClocks= [];
@@ -806,21 +922,21 @@ function SC_SensorId(params){
                    if(undefined==dom_targets){
                      return;
                      }
-		   if(Array.isArray(dom_targets)){
+                   if(Array.isArray(dom_targets)){
                      for(var t of dom_targets){
                        if(t.target && "object"==typeof(t.target)
                           && t.evt && "string"==typeof(t.evt)){
                          t.target.addEventListener(t.evt, handler);
                          }
                        }
-		     }
-		   else if("object"==typeof(dom_targets)){
-		     var t= dom_targets
+                     }
+                   else if("object"==typeof(dom_targets)){
+                     var t= dom_targets
                      if(t.target && "object"==typeof(t.target)
                         && t.evt && "string"==typeof(t.evt)){
                        t.target.addEventListener(t.evt, handler);
                        }
-		     }
+                     }
                    }.bind(this, handler), writable: false } );
       }
     }
@@ -849,7 +965,7 @@ function SC_SampledId(params){
   Object.defineProperty(this, "name"
          , { value: "#_"+this.internalId+"_"+params.name, writable: false });
   Object.defineProperty(this, "iids"
-         , { value: ""+this.internalId, writable: false });
+         , { value: new String(""+this.internalId), writable: false });
   Object.defineProperty(this, "bindTo"
            , { value: function(engine, parbranch, seq, path, cube, cinst){
                  const sens=engine.getSensor(this);
@@ -1186,7 +1302,9 @@ const SC_OpcodesNames = [
   , "CUBE_ACTION_FOREVER"
   , "CUBE_ACTION_FOREVER_HALTED"
   , "CUBE_ACTION_FOREVER_CONTROLED"
-  , "PAR_BRANCH"
+  , "SEQ_BRANCH_OF_PAR"
+  , "BRANCH_ENDED"
+  , "GEN_VAL"
   , "LOG"
   , "RESET_ON_INIT"
   , "RESET_ON"
@@ -1211,10 +1329,10 @@ const SC_Opcodes={
       return inst?this.toString(inst.oc):"inst=undefined";
       }
     };
-for(var n = 0; n < SC_OpcodesNames.length; n++){
-  SC_Opcodes[SC_OpcodesNames[n]] = n;
+for(var n= 0; n<SC_OpcodesNames.length; n++){
+  SC_Opcodes[SC_OpcodesNames[n]]= n;
   }
-SC_Opcodes.nb_of_instructions = SC_OpcodesNames.length;
+SC_Opcodes.nb_of_instructions= SC_OpcodesNames.length;
 Object.freeze(SC_Opcodes);
 function SC_Instruction(opcode){
   this.oc=SC_Opcodes.NOP;
@@ -1318,30 +1436,30 @@ SC_Instruction.prototype={
       case SC_Opcodes.MATCH_CHOOSEN:{
         return this.path.awake(m, flag, toEOI);
         }
-      case SC_Opcodes.PAR_BRANCH:{
+      case SC_Opcodes.SEQ_BRANCH_OF_PAR:{
         var res = false;
-        if(SC_Instruction_State.SUSP == this.flag){
+        if(SC_IState.SUSP == this.flag){
           return true;
           }
-        if((SC_Instruction_State.WEOI != this.flag)
-          &&(SC_Instruction_State.WAIT != this.flag)){
+        if((SC_IState.WEOI != this.flag)
+          &&(SC_IState.WAIT != this.flag)){
           throw new Error("pb awaiking par branch "
-                 +SC_Instruction_State.toString(this.flag)+" !");
+                 +SC_IState.toString(this.flag)+" !");
           console.trace();
           return false;
           }
         res = this.path.awake(m, flag, toEOI);
-        if(toEOI && (SC_Instruction_State.WEOI == this.flag)){
+        if(toEOI && (SC_IState.WEOI == this.flag)){
           return res;
           }
         if(res){
-          ((SC_Instruction_State.WEOI == this.flag)
+          ((SC_IState.WEOI == this.flag)
                         ?this.itsPar.waittingEOI
                         :this.itsPar.waitting).remove(this);
           ((toEOI)?this.itsPar.waittingEOI
                   :this.itsPar.suspended).append(this);
-          this.flag = (toEOI)?SC_Instruction_State.WEOI
-                             :SC_Instruction_State.SUSP;
+          this.flag = (toEOI)?SC_IState.WEOI
+                             :SC_IState.SUSP;
           }
         return res;
         }
@@ -1511,10 +1629,10 @@ SC_Instruction.prototype={
             }
           }
         else{
-          var b = new SC_ParBranch(pb, this, SC_Nothing);
-          b.prg = p.bindTo(engine, b, null, b, this.cube, this.cinst);
-          b.path = this;
-          b.purgeable = true;
+          var b= new SC_SeqBranchOfPar(pb, this, SC_Nothing);
+          b.setProgram(p.bindTo(engine, b, null, b, this.cube, this.cinst));
+          b.path= this;
+          b.purgeable= true;
           this.branches.push(b);
           this.suspended.append(b);
           if(b.hasPotential){
@@ -1561,12 +1679,8 @@ SC_Instruction.prototype={
       case SC_Opcodes.PAR:{
         break;
         }
-      case SC_Opcodes.PAR_BRANCH:{
-        var t = this.permanentEmitters.indexOf(b);
-        if(t > -1){
-          this.permanentEmitters.splice(t,1);
-          }
-        if(null != this.itsParent){
+      case SC_Opcodes.SEQ_BRANCH_OF_PAR:{
+        if(null!=this.itsParent){
           this.itsParent.unregisterFromProduction(this.itsPar);
           }
         else{
@@ -1578,17 +1692,12 @@ SC_Instruction.prototype={
                        +SC_Opcodes.toString(this.oc));
       }
     }
-, registerForProduction: function(b, perma){
-    if(perma){
-      if(this.permanentEmitters.indexOf(b) < 0){
-        this.permanentEmitters.push(b);
-        }
-      }
-    if(this.emitters.indexOf(b) < 0){
+, registerForProduction: function(b){
+    if(this.emitters.indexOf(b)<0){
       this.emitters.push(b);
       }
-    if(null != this.itsParent){
-      this.itsParent.registerForProduction(this.itsPar, perma);
+    if(null!=this.itsParent){
+      this.itsParent.registerForProduction(this.itsPar);
       }
     }
 , removeBranch: function(elt){
@@ -1612,153 +1721,7 @@ SC_Instruction.prototype={
     this.futur=this.sideEffect(this.state, m.reactInterface);
     }
 , swap: function(){
-    this.state=this.futur;
-    }
-, generateValues: function(m){
-    switch(this.oc){
-      case SC_Opcodes.GENERATE_BURST_INIT:
-      case SC_Opcodes.GENERATE_BURST_TO_STOP:
-      case SC_Opcodes.GENERATE_BURST_INLINE__TO_STOP:
-      case SC_Opcodes.GENERATE_BURST_INLINE_INIT:
-      case SC_Opcodes.GENERATE_INIT:
-      case SC_Opcodes.GENERATE:
-      case SC_Opcodes.GENERATE_BUT_FOREVER_HALTED:
-      case SC_Opcodes.GENERATE_BUT_FOREVER_CONTROLED:
-      case SC_Opcodes.GENERATE_INIT_INLINE:
-      case SC_Opcodes.GENERATE_INLINE:
-      case SC_Opcodes.GENERATE_INLINE_BUT_FOREVER_HALTED:
-      case SC_Opcodes.GENERATE_INLINE_BUT_FOREVER_CONTROLED:
-      case SC_Opcodes.GENERATE_ONE_INLINE:
-      case SC_Opcodes.GENERATE_ONE:
-      case SC_Opcodes.GENERATE_FOREVER_INIT:
-      case SC_Opcodes.GENERATE_FOREVER_HALTED:
-      case SC_Opcodes.GENERATE_FOREVER_CONTROLED:{
-        this.evt.generateValues(m, this.val);
-        break;
-        }
-      case SC_Opcodes.GENERATE_CELL_INIT:
-      case SC_Opcodes.GENERATE_CELL:
-      case SC_Opcodes.GENERATE_CELL_BUT_FOREVER_HALTED:
-      case SC_Opcodes.GENERATE_CELL_BUT_FOREVER_CONTROLED:
-      case SC_Opcodes.GENERATE_CELL_INIT_INLINE:
-      case SC_Opcodes.GENERATE_CELL_INLINE:
-      case SC_Opcodes.GENERATE_CELL_INLINE_BUT_FOREVER_HALTED:
-      case SC_Opcodes.GENERATE_CELL_INLINE_BUT_FOREVER_CONTROLED:
-      case SC_Opcodes.GENERATE_ONE_CELL_INLINE:
-      case SC_Opcodes.GENERATE_ONE_CELL:
-      case SC_Opcodes.GENERATE_FOREVER_CELL_INIT:
-      case SC_Opcodes.GENERATE_FOREVER_CELL_HALTED:
-      case SC_Opcodes.GENERATE_FOREVER_CELL_CONTROLED:{
-        this.evt.generateValues(m, this.val.val());
-        break;
-        }
-      case SC_Opcodes.GENERATE_FUN_INIT:
-      case SC_Opcodes.GENERATE_FUN:
-      case SC_Opcodes.GENERATE_FUN_BUT_FOREVER_HALTED:
-      case SC_Opcodes.GENERATE_FUN_BUT_FOREVER_CONTROLED:
-      case SC_Opcodes.GENERATE_FUN_INIT_INLINE:
-      case SC_Opcodes.GENERATE_FUN_INLINE:
-      case SC_Opcodes.GENERATE_FUN_INLINE_BUT_FOREVER_HALTED:
-      case SC_Opcodes.GENERATE_FUN_INLINE_BUT_FOREVER_CONTROLED:
-      case SC_Opcodes.GENERATE_ONE_FUN_INLINE:
-      case SC_Opcodes.GENERATE_ONE_FUN:
-      case SC_Opcodes.GENERATE_FOREVER_FUN_INIT:
-      case SC_Opcodes.GENERATE_FOREVER_FUN_HALTED:
-      case SC_Opcodes.GENERATE_FOREVER_FUN_CONTROLED:{
-        this.evt.generateValues(m, this.val(m));
-        break;
-        }
-      case SC_Opcodes.GENERATE_EXPOSE_INIT:
-      case SC_Opcodes.GENERATE_EXPOSE:
-      case SC_Opcodes.GENERATE_EXPOSE_BUT_FOREVER_HALTED:
-      case SC_Opcodes.GENERATE_EXPOSE_BUT_FOREVER_CONTROLED:
-      case SC_Opcodes.GENERATE_EXPOSE_INIT_INLINE:
-      case SC_Opcodes.GENERATE_EXPOSE_INLINE:
-      case SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER_HALTED:
-      case SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER_CONTROLED:
-      case SC_Opcodes.GENERATE_ONE_EXPOSE_INLINE:
-      case SC_Opcodes.GENERATE_ONE_EXPOSE:
-      case SC_Opcodes.GENERATE_FOREVER_EXPOSE_INIT:
-      case SC_Opcodes.GENERATE_FOREVER_EXPOSE_HALTED:
-      case SC_Opcodes.GENERATE_FOREVER_EXPOSE_CONTROLED:{
-        this.evt.generateValues(m, this.val.getExposeReader(m));
-        break;
-        }
-      case SC_Opcodes.GENERATE_FOREVER_LATE_VAL:{
-        if(this.val instanceof SC_LateBinding){
-          var res = this.val.resolve();
-          }
-        if(this.val instanceof SC_Instruction
-            && this.val.oc == SC_Opcodes.CELL){
-          this.evt.generateValues(m, this.val.val());
-          }
-        else if("function" == typeof(this.val)){
-          this.evt.generateValues(m, this.val(m));
-          }
-        else if(this.val instanceof SC_CubeExposedState){
-          this.evt.generateValues(m, this.val.exposedState(m));
-          }
-        else{
-          this.evt.generateValues(m, this.val);
-          }
-        break;
-        }
-      case SC_Opcodes.FILTER_FOREVER_NO_ABS:
-      case SC_Opcodes.FILTER_FOREVER_NO_ABS_REGISTERED:
-      case SC_Opcodes.FILTER_FOREVER:
-      case SC_Opcodes.FILTER_NO_ABS:
-      case SC_Opcodes.FILTER_NO_ABS_INIT:
-      case SC_Opcodes.FILTER:
-      case SC_Opcodes.FILTER_ONE:
-      case SC_Opcodes.FILTER_ONE_NO_ABS:{
-        if(this.val instanceof SC_LateBinding){
-          var res = this.val.resolve();
-          }
-        if(this.val instanceof SC_Instruction
-            && this.val.oc == SC_Opcodes.CELL){
-          this.evt.generateValues(m, this.val.val());
-          }
-        else if("function" == typeof(this.val)){
-          this.evt.generateValues(m, this.val(m));
-          }
-        else if(this.val instanceof SC_CubeExposedState){
-          this.evt.generateValues(m, this.val.exposedState(m));
-          }
-        else{
-          this.evt.generateValues(m, this.val);
-          }
-        this.val = null;
-        break;
-        }
-      case SC_Opcodes.PAR_DYN_FORCE:
-      case SC_Opcodes.PAR_FORCE:
-      case SC_Opcodes.PAR_DYN_TO_REGISTER:
-      case SC_Opcodes.PAR_DYN:
-      case SC_Opcodes.PAR:{
-        const pbl = this.prodBranches.length;
-        for(var nb = 0; nb < pbl; nb++){
-          const pb = this.prodBranches[nb];
-          const el = pb.emitters.length;
-          if(0 == el){
-            const pel = pb.permanentEmitters.length;
-            for(var i = 0; i < pel; i++){
-              pb.permanentEmitters[i].generateValues(m);
-              }
-            }
-          else{
-            for(var i = 0; i < el; i++){
-              pb.emitters[i].generateValues(m);
-              }
-            pb.emitters = [];
-            }
-          }
-        break;
-        }
-      default:{
-        throw new Error("generateValues : undefined opcode "
-                     +SC_Opcodes.toString(this.oc));
-        }
-      }
+    this.state= this.futur;
     }
 , its: function(nom){
     return this.o["$"+nom];
@@ -1989,6 +1952,10 @@ SC_Instruction.prototype={
     }
 , updateAtEndOfBurst: function(clock){
     switch(this.oc){
+      case SC_Opcodes.REPEAT_BURST_FOREVER: 
+      case SC_Opcodes.PAUSE_BURST:{ 
+        break;
+        }
       case SC_Opcodes.PAUSE_BURST_STOPPED:{
         this.oc= SC_Opcodes.PAUSE_BURST_DONE;
         break;
@@ -3967,41 +3934,47 @@ SC_SimpleActionOnEvent.prototype = {
           +"else call("+this.defaultAct.toString()+") ";
       }
   };
-function SC_ParBranch(aParent, aPar, prg){
-  this.oc = SC_Opcodes.PAR_BRANCH;
-  this.prev = null;
-  this.next = null;
-  this.prg = prg;
-  this.flag = SC_Instruction_State.SUSP;
-  this.itsParent = aParent;
-  this.itsPar = aPar;
-  this.emitters = [];
-  this.permanentEmitters = [];
-  this.subBranches = [];
-  this.hasPotential = false;
-  this.purgeable = false;
-  this.path = null;
-  this.idxInProd = -1;
-  if(null != aParent){
+function SC_SeqBranchOfPar(aParent, aPar, prg){
+  this.oc= SC_Opcodes.SEQ_BRANCH_OF_PAR;
+  this.prev= null;
+  this.next= null;
+  this.prg= prg;
+  this.seqElements= [];
+  this.idx=0;
+  this.flag= SC_IState.SUSP;
+  this.itsParent= aParent;
+  this.itsPar= aPar;
+  this.emitters= [];
+  this.subBranches= [];
+  this.hasPotential= false;
+  this.purgeable= false;
+  this.path= null;
+  this.idxInProd= -1;
+  this.remains= [];
+  this.genIdx= 0;
+  if(null!=aParent){
     aParent.subBranches.push(this);
     }
   };
-SC_ParBranch.prototype = {
-  constructor: SC_ParBranch
-, declarePotential: function(){
+(function(){
+const proto= SC_SeqBranchOfPar.prototype;
+proto.setProgram= function(prg){
+    this.prg= prg;
+    };
+proto.declarePotential= function(){
     if(this.hasPotential){
       return;
       }
-    this.hasPotential = true;
-    this.idxInProd = this.itsPar.registerInProdBranch(this);
-    if(null != this.itsParent){
+    this.hasPotential= true;
+    this.idxInProd= this.itsPar.registerInProdBranch(this);
+    if(null!=this.itsParent){
       this.itsParent.declarePotential();
       }
-    }
-, registerForProduction: SC_Instruction.prototype.registerForProduction
-, unregisterFromProduction: SC_Instruction.prototype.unregisterFromProduction
-, awake: SC_Instruction.prototype.awake
-  };
+    };
+proto.registerForProduction= SC_Instruction.prototype.registerForProduction;
+proto.unregisterFromProduction= SC_Instruction.prototype.unregisterFromProduction;
+proto.awake= SC_Instruction.prototype.awake;
+})();
 function SC_Queues(){
   this.start = null;
   };
@@ -4053,7 +4026,7 @@ function SC_Par(args, channel){
       console.error("pb", i);
       debugger;
       }
-    this.branches.push(new SC_ParBranch(null, null, i));
+    this.branches.push(new SC_SeqBranchOfPar(null, null, i));
     }
   };
 SC_Par.prototype={
@@ -4074,8 +4047,8 @@ SC_Par.prototype={
     copy.itsParent = null;
     copy.cube = cube;
     for(var tmp of this.branches){
-      var b = new SC_ParBranch(parbranch, copy, SC_nothing);
-      b.prg = tmp.prg.bindTo(engine, b, null, b, cube, cinst);
+      var b = new SC_SeqBranchOfPar(parbranch, copy, SC_nothing);
+      b.setProgram(tmp.prg.bindTo(engine, b, null, b, cube, cinst));
       b.path = copy;
       copy.branches.push(b);
       copy.suspended.append(b);
@@ -4109,7 +4082,7 @@ SC_Par.prototype={
         }
       }
     else{
-      var b = new SC_ParBranch(null, null, p);
+      var b = new SC_SeqBranchOfPar(null, null, p);
       this.branches.push(b);
       }
     }
@@ -4120,7 +4093,7 @@ function SC_ParDyn(channel, args){
     }
   this.branches = [];
   for(var i in args){
-    this.branches.push(new SC_ParBranch(null, this, args[i]));
+    this.branches.push(new SC_SeqBranchOfPar(null, this, args[i]));
     }
   this.channel = channel;
   };
@@ -4140,8 +4113,8 @@ SC_ParDyn.prototype = {
     copy.prodBranches = [];
     copy.originalBranches = [];
     for(var i of this.branches){
-      var b = new SC_ParBranch(parbranch, copy, SC_nothing);
-      b.prg = i.prg.bindTo(engine, b, null, b, cube, cinst);
+      var b = new SC_SeqBranchOfPar(parbranch, copy, SC_nothing);
+      b.setProgram(i.prg.bindTo(engine, b, null, b, cube, cinst));
       b.path = copy;
       copy.branches.push(b);
       copy.originalBranches.push(b);
@@ -4439,16 +4412,19 @@ function SC_Dump(p){
   this.p= p;
   _SC.markProgram(this);
   };
-SC_Dump.prototype.bindTo= function(engine, parbranch, seq, path, cube, cinst){
+(function(){
+const proto= SC_Dump.prototype;
+proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
     var copy= new SC_Instruction(SC_Opcodes.DUMP_INIT);
     copy.p= this.p.bindTo(engine, parbranch, null, copy, cube, cinst);
     copy.path= path;
     return copy;
     };
-SC_Dump.prototype.toString= function(){
+proto.toString= function(){
     return "dump "+this.p.toString()
             +" end dump ";
     };
+})();
 function SC_When(c){
   this.c= c;
   this.elsB= 0;
@@ -4545,6 +4521,12 @@ function SC_Cube(o, p, extension){
     }
   this.toAdd= [];
   };
+function SC_CubeReader(){
+  };
+(function(){
+  const proto= SC_CubeReader.prototype;
+  Object.freeze(proto);
+})();
 SC_Cube.prototype= {
   constructor: SC_Cube
 , isAnSCProgram: true
@@ -4567,38 +4549,36 @@ SC_Cube.prototype= {
     const Evt_kill= this.o.SC_cubeKillEvt;
     copy.killEvt = Evt_kill.bindTo(engine, parbranch
                                  , null, copy, cube, cinst);
-    copy.swapList = this.swapList;
-    copy.exposeReader = {};
-    copy.exposedState = {
-      exposeInstant:-1
-      };
-    const cells = copy.swapList;
+    copy.swapList= this.swapList;
+    copy.exposeReader= new SC_CubeReader();
+    copy.exposedState= { exposeInstant: -1 };
+    const cells= copy.swapList;
     if(cells){
       for(var i of cells){
-        const idn = i.id;
+        const idn= i.id;
         Object.defineProperty(copy.exposeReader
-                   , idn
-                   , {get:(function(name){
-                         return this[name];
-                         }).bind(copy.exposedState, idn)
-                      }
-                      );
-        copy.exposedState[idn] = null;
+        , idn
+        , { get: (function(name){
+                return this[name];
+                }).bind(copy.exposedState, idn)
+            }
+          );
+        copy.exposedState[idn]= null;
         }
       }
     Object.defineProperty(copy.o
                         , "SC_me"
-                        , { value: copy.exposeReader , writable:false }
+                        , { value: new SC_CubeExposedState() , writable: false }
                         );
     var tmp_par_dyn;
-    var tmp_beh=tmp_par_dyn=SC.parex(this.o.SC_cubeAddBehaviorEvt
+    var tmp_beh= tmp_par_dyn= SC.parex(this.o.SC_cubeAddBehaviorEvt
              , this.p
                );
     for(var i=0; i<this.toAdd.length; i++){
       tmp_par_dyn.add(this.toAdd[i]);
       }
     copy.path=path;
-    var swap_text="(function(state, m){";
+    var swap_text="(function(state, m){ this.exposeInstant=m.instantNumber; ";
     if(cells){
       for(var k of cells){
         switch(k.type){
@@ -4612,29 +4592,19 @@ SC_Cube.prototype= {
             }
           case 'var':
           default:{
-            swap_text += "  this."+k.id
-                      +" = state."+k.id
-                      +";";
+            swap_text+= "  this."+k.id
+                      + " = state."+k.id
+                      + ";";
             break;
             }
           }
         }
       }
-    swap_text += "})";
+    swap_text+= " })";
     copy.exposedState.__proto__= copy.o;
-    copy.swap = (cells)?eval(swap_text).bind(copy.exposedState, copy.o):NO_FUN;
-    if(copy.o._sc_init && "function"==typeof(copy.o._sc_init)){
-      copy.init= copy.o._sc_init.bind(copy.o);
-      }
-    else{
-      copy.init= binder(this.init);
-      }
-    if(copy.o._sc_lastWill && "function"==typeof(copy.o._sc_lastWill)){
-      copy.lastWill= copy.o._sc_lastWill.bind(copy.o);
-      }
-    else{
-      copy.lastWill= binder(this.lastWill);
-      }
+    copy.swap = cells?(eval(swap_text).bind(copy.exposedState, copy.o)):NO_FUN;
+    copy.init= binder(this.init);
+    copy.lastWill= binder(this.lastWill);
     copy.p= tmp_beh.bindTo(engine, parbranch, null
                       , copy, copy.o, copy);
     copy.dynamic= tmp_par_dyn;
@@ -4823,7 +4793,7 @@ function SC_Machine(params){
   this.forEOB= [];
   this.name= (params.name)?params.name:"machine_"+SC.count;
   SC_cubify.apply(this);
-  this.prg.cube = this;
+  this.prg.cube= this;
   this.setStdOut(params.fun_stdout);
   this.setStdErr(params.fun_stderr);
   this.traceEvt=new SC_Event({ name: "traceEvt" });
@@ -4833,17 +4803,17 @@ function SC_Machine(params){
   if(params.init && params.init.isAnSCProgram){
     this.addProgram(params.init);
     }
-  this.ips = 0;
-  this.reactMeasuring = 0;
-  this.environment={};
+  this.ips= 0;
+  this.reactMeasuring= 0;
+  this.environment= new PurgeableCollection();
   this.reactInterface= new SC_ReactiveInterface();
-  this.reactInterface.getIPS=this.getIPS.bind(this);
-  this.reactInterface.writeToStdout=function(s){
+  this.reactInterface.getIPS= this.getIPS.bind(this);
+  this.reactInterface.writeToStdout= function(s){
     this.pending.push({ e: this.traceEvt, v: s })
     }.bind(this);
-  this.reactInterface.getInstantNumber=this.getInstantNumber.bind(this);
+  this.reactInterface.getInstantNumber= this.getInstantNumber.bind(this);
   this.reactInterface.getTopLevelParallelBranchesNumber
-                      =this.getTopLevelParallelBranchesNumber.bind(this);
+                      = this.getTopLevelParallelBranchesNumber.bind(this);
   this.reactInterface.sensorValueOf= function(sensorID){
     if(sensorID instanceof SC_SensorId){
       const val= this.generated_values[sensorID.iids];
@@ -4851,7 +4821,7 @@ function SC_Machine(params){
       }
     throw new Error("ask for value of non sensor ID");
     }.bind(this);
-  this.reactInterface.addEntry=function(evtName, value){
+  this.reactInterface.addEntry= function(evtName, value){
       if(evtName instanceof SC_EventId){
         this.addEntry(evtName, value);
         }
@@ -4859,7 +4829,7 @@ function SC_Machine(params){
         throw new Error("invalid event Id : "+evtName);
         }
       }.bind(this);
-  this.reactInterface.addProgram=function(prg){
+  this.reactInterface.addProgram= function(prg){
     if(prg.isAnSCProgram){
       this.addProgram(prg);
       }
@@ -4893,16 +4863,19 @@ SC_Machine.prototype = {
     return this.id;
     }
 , enablePrompt: function(flag){
-    this.promptEnabled = flag;
+    this.promptEnabled= flag;
     }
 , setStdOut: function(stdout){
-    this.stdOut = ("function" == typeof(stdout))?stdout:NO_FUN;
+    this.stdOut= ("function"==typeof(stdout))?stdout:NO_FUN;
+    }
+, setDumpTraceFun: function(stdout){
+    this.dumpTraceFun= ("function"==typeof(stdout))?stdout:NO_FUN;
     }
 , setStdErr: function(stderr){
-    this.stdErr = ("function" == typeof(stderr))?stderr:NO_FUN;
+    this.stdErr= ("function" == typeof(stderr))?stderr:NO_FUN;
     }
 , addEntry: function(evtId, val){
-    const evt=this.getEvent(evtId);
+    const evt= this.getEvent(evtId);
     this.pending.push({ e: evt, v: val });
     }
 , addProgram: function(p){
@@ -4918,40 +4891,40 @@ SC_Machine.prototype = {
     return this.ips;
     }
 , collapse: function(){
-    this.prg = null;
-    this.promptEnabled = false;
-    this.whenGettingThread = null;
-    this.permanentActions = null;
-    this.permanentGenerate = null;
-    this.permanentActionsOn = null;
-    this.permanentActionsOnOnly = null;
-    this.cubeActions = null;
-    this.permanentCubeActions = null;
-    this.lastWills = null
-    this.actions = null;
-    this.actionsOnEvents = null;
-    this.cells=null;
-    this.pending = null;
-    this.pendingSensors = null;
-    this.pendingPrograms = null;
-    this.parActions = null;
-    this.stdOut = NO_FUN;
-    this.traceEvt=null;
-    this.writeEvt=null;
+    this.prg= null;
+    this.promptEnabled= false;
+    this.whenGettingThread= null;
+    this.permanentActions= null;
+    this.permanentGenerate= null;
+    this.permanentActionsOn= null;
+    this.permanentActionsOnOnly= null;
+    this.cubeActions= null;
+    this.permanentCubeActions= null;
+    this.lastWills= null
+    this.actions= null;
+    this.actionsOnEvents= null;
+    this.cells= null;
+    this.pending= null;
+    this.pendingSensors= null;
+    this.pendingPrograms= null;
+    this.parActions= null;
+    this.stdOut= NO_FUN;
+    this.traceEvt= null;
+    this.writeEvt= null;
     this.forEOB= null;
-    this.environment=null;
-    if(this.timer != 0){
+    this.environment= null;
+    if(0!=this.timer){
       clearInterval(this.timer);
-      this.timer = 0;
+      this.timer= 0;
       }
-    this.addProgram = NO_FUN;
-    this.addEntry = NO_FUN;
-    this.getTopLevelParallelBranchesNumber = function(){ return 0; };
+    this.addProgram= NO_FUN;
+    this.addEntry= NO_FUN;
+    this.getTopLevelParallelBranchesNumber= function(){ return 0; };
     }
 , getEvent: function(id){
-    var res=this.environment[id.iids];
+    var res= this.environment.get(id.iids);
     if(undefined==res){
-      this.environment[id.iids]=res=new SC_Event(id, this);
+      this.environment.set(id.iids, res= new SC_Event(id, this));
       }
     else if(!(res instanceof SC_Event)){
       throw new Error("invalid event type");
@@ -4959,9 +4932,9 @@ SC_Machine.prototype = {
     return res;
     }
 , getSensor: function(id){
-    var res= this.environment[id.iids];
+    var res= this.environment.get(id.iids);
     if(undefined==res){
-      this.environment[id.iids]= res= new SC_Sensor(id);
+      this.environment.set(id.iids, res= new SC_Sensor(id));
       }
     else if(!(res instanceof SC_Sensor)){
       throw new Error("invalid sensor type");
@@ -4972,7 +4945,7 @@ SC_Machine.prototype = {
     const sensor= this.getSensor(sensId);
     sensor.sampleVal= val;
     if(!sensor.sampled){
-      sensor.sampled=true;
+      sensor.sampled= true;
       this.pendingSensors.push(sensor);
       }
     }
@@ -4983,23 +4956,23 @@ SC_Machine.prototype = {
     this.actionsOnEvents.push(f);
     }
 , addPermanentGenerate: function(inst, genVal){
-    const evt = inst.evt;
+    const evt= inst.evt;
     evt.permanentGenerators.push(inst);
-    evt.permanentValuatedGenerator += genVal;
-    const t = this.permanentGenerate.indexOf(evt);
-    if(0 > t){
+    evt.permanentValuatedGenerator+= genVal;
+    const t= this.permanentGenerate.indexOf(evt);
+    if(0>t){
       this.permanentGenerate.push(evt);
       }
     }
 , removeFromPermanentGenerate: function(inst, genVal){
-    const evt = inst.evt;
-    const t = evt.permanentGenerators.indexOf(inst);
-    if(t > -1){
+    const evt= inst.evt;
+    const t= evt.permanentGenerators.indexOf(inst);
+    if(t>-1){
       evt.permanentGenerators.splice(t, 1);
-      evt.permanentValuatedGenerator -= genVal;
+      evt.permanentValuatedGenerator-= genVal;
       }
-    if(0 == evt.permanentGenerators.length){
-      const te = this.permanentGenerate.indexOf(evt);
+    if(0==evt.permanentGenerators.length){
+      const te= this.permanentGenerate.indexOf(evt);
       this.permanentGenerate.splice(te, 1);
       }
     }
@@ -5007,27 +4980,27 @@ SC_Machine.prototype = {
     this.permanentActions.push(fun);
     }
 , removeFromPermanent: function(fun){
-    var t = this.permanentActions.indexOf(fun);
-    if(t > -1){
-      this.permanentActions.splice(t,1);
+    const t= this.permanentActions.indexOf(fun);
+    if(t>-1){
+      this.permanentActions.splice(t, 1);
       }
     }
 , addPermanentActionOnOnly: function(inst){
     this.permanentActionsOnOnly.push(inst);
     }
 , removeFromPermanentActionsOnOnly: function(inst){
-    var t = this.permanentActionsOnOnly.indexOf(inst);
-    if(t > -1){
-      this.permanentActionsOnOnly.splice(t,1);
+    const t= this.permanentActionsOnOnly.indexOf(inst);
+    if(t>-1){
+      this.permanentActionsOnOnly.splice(t, 1);
       }
     }
 , addPermanentActionOn: function(inst){
     this.permanentActionsOn.push(inst);
     }
 , removeFromPermanentActionsOn: function(inst){
-    var t = this.permanentActionsOn.indexOf(inst);
-    if(t > -1){
-      this.permanentActionsOn.splice(t,1);
+    var t= this.permanentActionsOn.indexOf(inst);
+    if(t>-1){
+      this.permanentActionsOn.splice(t, 1);
       }
     }
 , addCubeFun: function(inst){
@@ -5037,12 +5010,12 @@ SC_Machine.prototype = {
     this.permanentCubeActions.push(inst);
     }
 , removeFromPermanentCube: function(inst){
-    var t = this.permanentCubeActions.indexOf(inst);
-    if(t > -1){
-      this.permanentCubeActions.splice(t,1);
+    var t= this.permanentCubeActions.indexOf(inst);
+    if(t>-1){
+      this.permanentCubeActions.splice(t, 1);
       }
     }
-, addFun:  function(fun){
+, addFun: function(fun){
     this.actions.push(fun);
     }
 , addDynPar: function(p){
@@ -5053,7 +5026,7 @@ SC_Machine.prototype = {
       }
 , react: function(){
    if(this.ended){ return !this.ended; }
-    var res = SC_Instruction_State.STOP;
+    var res = SC_IState.STOP;
     if(0<this.toContinue){
       this.burstMode= true;
       this.toContinue--;
@@ -5089,20 +5062,20 @@ SC_Machine.prototype = {
     for(var i in tmp){
       this.prg.addBranch(tmp[i], null, this);
       }
-    this.actions = [];
-    this.cubeActions = [];
-    this.actionsOnEvents = [];
-    this.cells=[];
-    this.lastWills = [];
-    this.parActions = [];
+    this.actions= [];
+    this.cubeActions= [];
+    this.actionsOnEvents= [];
+    this.cells= [];
+    this.lastWills= [];
+    this.parActions= [];
     if(this.promptEnabled){
       this.stdOut("\n"+this.instantNumber+" -: ");
       }
-    while(SC_Instruction_State.SUSP == (res = this.activate())){
+    while(SC_IState.SUSP == (res = this.activate())){
       }
-    if((SC_Instruction_State.OEOI == res)||(SC_Instruction_State.WEOI == res)){
+    if((SC_IState.OEOI == res)||(SC_IState.WEOI == res)){
       this.eoi();
-      res = SC_Instruction_State.STOP;
+      res = SC_IState.STOP;
       }
     this.reactInterface.getValuesOf= function(evtID){
       if(evtID instanceof SC_EventId){
@@ -5118,7 +5091,7 @@ SC_Machine.prototype = {
         return this.getSensor(id).isPresent(this);
         }
       }.bind(this);
-    this.prg.generateValues(this);
+    this.generateValues();
     for(var cell in this.cells){
       this.cells[cell].prepare(this);
       }
@@ -5255,11 +5228,15 @@ SC_Machine.prototype = {
     for(var i=0; i<this.parActions.length; i++){
       this.parActions[i].computeAndAdd(this);
       }
-    for(var will of this.lastWills){
+    const lws= this.lastWills;
+    const lwsl= lws.length;
+    for(var n= 0; n<lwsl; n++){
+      const will= lws[n];
       will(this.reactInterface);
       }
     if(this.writeEvt.isPresent(this)){
       for(var msg of this.writeEvt.getValues(this)){
+        if(msg._){ msg= "["+this.instantNumber+": "+msg.t+"]"; }
         this.stdOut(msg);
         }
       }
@@ -5292,14 +5269,14 @@ SC_Machine.prototype = {
         this.reactMeasuring = performance.now();
         }
       }
-    this.ended=(res==SC_Instruction_State.TERM);
+    this.ended=(res==SC_IState.TERM);
     if(this.ended){
       this.collapse();
       SC_Global_Manager.removeFromRegisteredMachines(this);
       }
-    this.reactInterface.getValuesOf=undefined;
-    this.reactInterface.presenceOf=undefined;
-    this.burstMode=false;
+    this.reactInterface.getValuesOf= undefined;
+    this.reactInterface.presenceOf= undefined;
+    this.burstMode= false;
     return !this.ended;
     }
 , trace(){
@@ -5311,7 +5288,7 @@ SC_Machine.prototype = {
     console.log.apply(console, args);
     }
 , activate: function(){
-    var st = SC_Instruction_State.SUSP;
+    var st = SC_IState.SUSP;
     var inst = this.prg;
     var seq = null;
     var control_body = false;
@@ -5336,7 +5313,7 @@ ACT:  switch(inst.oc){
           inst.oc= SC_Opcodes.REPEAT_BURST_FOREVER_STOP;
           }
         case SC_Opcodes.REPEAT_BURST_FOREVER_STOP:{
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -5347,7 +5324,7 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.REPEAT_FOREVER_TO_STOP:{
           inst.oc = SC_Opcodes.REPEAT_FOREVER;
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -5358,7 +5335,7 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.REPEAT_N_TIMES_BUT_FOREVER_TO_STOP:{
           inst.oc = SC_Opcodes.REPEAT_N_TIMES_BUT_FOREVER;
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -5388,7 +5365,7 @@ ACT:  switch(inst.oc){
             break;
             }
           inst.oc= SC_Opcodes.REPEAT_N_TIMES;
-          st= SC_Instruction_State.STOP;
+          st= SC_IState.STOP;
           inst= caller;
           break;
           }
@@ -5399,7 +5376,7 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.REPEAT_LATE_N_TIMES_BUT_FOREVER_TO_STOP:{
           inst.oc= SC_Opcodes.REPEAT_LATE_N_TIMES_BUT_FOREVER;
-          st= SC_Instruction_State.STOP;
+          st= SC_IState.STOP;
           inst= caller;
           break;
           }
@@ -5429,7 +5406,7 @@ ACT:  switch(inst.oc){
             break;
             }
           inst.oc= SC_Opcodes.REPEAT_LATE_N_TIMES;
-          st= SC_Instruction_State.STOP;
+          st= SC_IState.STOP;
           inst= caller;
           break;
           }
@@ -5440,7 +5417,7 @@ ACT:  switch(inst.oc){
           break;
           }
         case SC_Opcodes.REPEAT_BURST_N_TIMES_BUT_FOREVER_TO_STOP:{
-          st= SC_Instruction_State.STOP;
+          st= SC_IState.STOP;
           inst= caller;
           break;
           }
@@ -5464,7 +5441,7 @@ ACT:  switch(inst.oc){
           break;
           }
         case SC_Opcodes.REPEAT_BURST_N_TIMES_TO_STOP:{
-          st= SC_Instruction_State.STOP;
+          st= SC_IState.STOP;
           inst= caller;
           break;
           }
@@ -5482,7 +5459,7 @@ ACT:  switch(inst.oc){
           break;
           }
         case SC_Opcodes.IF_REPEAT_BURST_TO_STOP:{
-          st= SC_Instruction_State.STOP;
+          st= SC_IState.STOP;
           inst= caller;
           break;
           }
@@ -5500,7 +5477,7 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.IF_REPEAT_TO_STOP:{
           inst.oc = SC_Opcodes.IF_REPEAT_INIT;
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -5511,7 +5488,7 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.CUBE_ACTION:{
           this.addCubeFun(inst);
-          st = SC_Instruction_State.TERM;
+          st = SC_IState.TERM;
           inst = caller;
           break;
           }
@@ -5524,14 +5501,14 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.CUBE_ACTION_N_TIMES_INLINE_BUT_FOREVER:{
           this.addPermanentCubeFun(inst);
-          st= SC_Instruction_State.HALT;
+          st= SC_IState.HALT;
           inst.oc= SC_Opcodes.CUBE_ACTION_N_TIMES_INLINE_BUT_FOREVER_HALTED;
           inst= caller;
           break;
           }
         case SC_Opcodes.CUBE_ACTION_N_TIMES_INLINE_BUT_FOREVER_CONTROLED:{
           this.addPermanentCubeFun(inst);
-          st= SC_Instruction_State.STOP;
+          st= SC_IState.STOP;
           inst= caller;
           break;
           }
@@ -5555,7 +5532,7 @@ ACT:  switch(inst.oc){
             inst = seq.seqElements[++seq.idx];
             }
           else{
-            st = SC_Instruction_State.STOP;
+            st = SC_IState.STOP;
             inst = caller;
             }
           break;
@@ -5568,21 +5545,21 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.CUBE_ACTION_N_TIMES_BUT_FOREVER:{
           this.addPermanentCubeFun(inst);
-          st = SC_Instruction_State.HALT;
+          st = SC_IState.HALT;
           inst.oc = SC_Opcodes.CUBE_ACTION_N_TIMES_BUT_FOREVER_HALTED;
           inst = caller;
           break;
           }
         case SC_Opcodes.CUBE_ACTION_N_TIMES_BUT_FOREVER_CONTROLED:{
           this.addCubeFun(inst);
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
         case SC_Opcodes.CUBE_ACTION_N_TIMES_INIT:{
           inst.count = inst.times;
           if(inst.count == 0){
-            st = SC_Instruction_State.TERM;
+            st = SC_IState.TERM;
             inst = caller;
             break;
             }
@@ -5597,10 +5574,10 @@ ACT:  switch(inst.oc){
           inst.count--;
           if(0 == inst.count){
             inst.oc = SC_Opcodes.CUBE_ACTION_N_TIMES_INIT;
-            st = SC_Instruction_State.TERM;
+            st = SC_IState.TERM;
             }
           else{
-            st = SC_Instruction_State.STOP;
+            st = SC_IState.STOP;
             }
           inst = caller;
           break;
@@ -5613,14 +5590,14 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.CUBE_ACTION_FOREVER:{
           this.addPermanentCubeFun(inst);
-          st = SC_Instruction_State.HALT;
+          st = SC_IState.HALT;
           inst.oc = SC_Opcodes.CUBE_ACTION_FOREVER_HALTED;
           inst = caller;
           break;
           }
         case SC_Opcodes.CUBE_ACTION_FOREVER_CONTROLED:{
           this.addCubeFun(inst);
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -5631,7 +5608,7 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.ACTION:{
           this.addFun(inst.closure);
-          st = SC_Instruction_State.TERM;
+          st = SC_IState.TERM;
           inst = caller;
           break;
           }
@@ -5643,14 +5620,14 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.ACTION_N_TIMES_INLINE_BUT_FOREVER:{
           this.addPermanentFun(inst.closure);
-          st = SC_Instruction_State.HALT;
+          st = SC_IState.HALT;
           inst.oc = SC_Opcodes.ACTION_N_TIMES_INLINE_BUT_FOREVER_HALTED;
           inst = caller;
           break;
           }
         case SC_Opcodes.ACTION_N_TIMES_INLINE_BUT_FOREVER_CONTROLED:{
           this.addFun(inst.closure);
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -5674,7 +5651,7 @@ ACT:  switch(inst.oc){
             inst = seq.seqElements[++seq.idx];
             }
           else{
-            st = SC_Instruction_State.STOP;
+            st = SC_IState.STOP;
             inst = caller;
             }
           break;
@@ -5687,21 +5664,21 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.ACTION_N_TIMES_BUT_FOREVER:{
           this.addPermanentFun(inst.closure);
-          st = SC_Instruction_State.HALT;
+          st = SC_IState.HALT;
           inst.oc = SC_Opcodes.ACTION_N_TIMES_BUT_FOREVER_HALTED;
           inst = caller;
           break;
           }
         case SC_Opcodes.ACTION_N_TIMES_BUT_FOREVER_CONTROLED:{
           this.addFun(inst.closure);
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
         case SC_Opcodes.ACTION_N_TIMES_INIT:{
           inst.count = inst.times;
           if(inst.count == 0){
-            st = SC_Instruction_State.TERM;
+            st = SC_IState.TERM;
             inst = caller;
             break;
             }
@@ -5716,10 +5693,10 @@ ACT:  switch(inst.oc){
           inst.count--;
           if(0 == inst.count){
             inst.oc = SC_Opcodes.ACTION_N_TIMES_INIT;
-            st = SC_Instruction_State.TERM;
+            st = SC_IState.TERM;
             }
           else{
-            st = SC_Instruction_State.STOP;
+            st = SC_IState.STOP;
             }
           inst = caller;
           break;
@@ -5732,14 +5709,14 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.ACTION_FOREVER:{
           this.addPermanentFun(inst.closure);
-          st = SC_Instruction_State.HALT;
+          st = SC_IState.HALT;
           inst.oc = SC_Opcodes.ACTION_FOREVER_HALTED;
           inst = caller;
           break;
           }
         case SC_Opcodes.ACTION_FOREVER_CONTROLED:{
           this.addFun(inst.closure);
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -5754,7 +5731,7 @@ ACT:  switch(inst.oc){
           break;
           }
         case SC_Opcodes.SEQ_BACK:{
-          if(SC_Instruction_State.TERM == st){
+          if(SC_IState.TERM == st){
             if(inst.idx >= inst.max){
               inst.oc = SC_Opcodes.SEQ;
               inst.idx = 0;
@@ -5773,75 +5750,75 @@ ACT:  switch(inst.oc){
           break;
           }
         case SC_Opcodes.SEQ_ENDED:{
-          st=SC_Instruction_State.TERM;
+          st=SC_IState.TERM;
           inst=caller;
           break;
           }
         case SC_Opcodes.HALT:{
-          st=SC_Instruction_State.HALT;
+          st=SC_IState.HALT;
           inst=caller;
           break;
           }
         case SC_Opcodes.PAUSE_INLINE:{
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           seq.idx++;
           inst = caller;
           break;
           }
         case SC_Opcodes.PAUSE_BURST:{
           inst.oc= SC_Opcodes.PAUSE_BURST_STOPPED;
-          st= SC_Instruction_State.STOP;
+          st= SC_IState.STOP;
           this.registerForEndOfBurst(inst);
           inst= caller;
           break;
           }
         case SC_Opcodes.PAUSE_BURST_STOPPED:{
-          st= SC_Instruction_State.STOP;
+          st= SC_IState.STOP;
           inst= caller;
           break;
           }
         case SC_Opcodes.PAUSE_BURST_DONE:{
           inst.oc= SC_Opcodes.PAUSE_BURST;
-          st= SC_Instruction_State.TERM;
+          st= SC_IState.TERM;
           inst= caller;
           break;
           }
         case SC_Opcodes.PAUSE:{
           inst.oc = SC_Opcodes.PAUSE_DONE;
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
         case SC_Opcodes.PAUSE_DONE:{
           inst.oc = SC_Opcodes.PAUSE;
-          st = SC_Instruction_State.TERM;
+          st = SC_IState.TERM;
           inst = caller;
           break;
           }
         case SC_Opcodes.PAUSE_BURST_UNTIL_STOP:{
-          st= SC_Instruction_State.STOP;
+          st= SC_IState.STOP;
           inst= caller;
           break;
           }
         case SC_Opcodes.PAUSE_BURST_UNTIL_DONE:{
-          st= SC_Instruction_State.TERM;
+          st= SC_IState.TERM;
           inst.oc= SC_Opcodes.PAUSE_BURST_UNTIL;
           inst= caller;
           break;
           }
         case SC_Opcodes.PAUSE_BURST_UNTIL:{
-          st= SC_Instruction_State.OEOI;
+          st= SC_IState.OEOI;
           inst= caller;
           break;
           }
         case SC_Opcodes.PAUSE_UNTIL_DONE:{
-          st = SC_Instruction_State.TERM;
+          st = SC_IState.TERM;
           inst.oc = SC_Opcodes.PAUSE_UNTIL;
           inst = caller;
           break;
           }
         case SC_Opcodes.PAUSE_UNTIL:{
-          st = SC_Instruction_State.OEOI;
+          st = SC_IState.OEOI;
           inst = caller;
           break;
           }
@@ -5856,7 +5833,7 @@ ACT:  switch(inst.oc){
             break;
             }
           inst.count--;
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -5867,12 +5844,12 @@ ACT:  switch(inst.oc){
         case SC_Opcodes.PAUSE_N_TIMES:{
           if(0 == inst.count){
             inst.oc = SC_Opcodes.PAUSE_N_TIMES_INIT;
-            st = SC_Instruction_State.TERM;
+            st = SC_IState.TERM;
             inst = caller;
             break;
             }
           inst.count--;
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -5882,7 +5859,7 @@ ACT:  switch(inst.oc){
         case SC_Opcodes.PAUSE_BURST_N_TIMES:{
           if(0==inst.count){
             inst.oc= SC_Opcodes.PAUSE_BURST_N_TIMES_INIT;
-            st= SC_Instruction_State.TERM;
+            st= SC_IState.TERM;
             inst= caller;
             break;
             }
@@ -5890,7 +5867,7 @@ ACT:  switch(inst.oc){
           this.registerForEndOfBurst(inst);
           }
         case SC_Opcodes.PAUSE_BURST_N_TIMES_STOPPED:{
-          st= SC_Instruction_State.STOP;
+          st= SC_IState.STOP;
           inst= caller;
           break;
           }
@@ -5911,7 +5888,7 @@ ACT:  switch(inst.oc){
           this.toContinue= Math.max(this.toContinue, inst.count
                                                     +this.startReaction
                                                     -this.instantNumber);
-          st= SC_Instruction_State.TERM;
+          st= SC_IState.TERM;
           inst= caller;
           break;
           }
@@ -5934,7 +5911,7 @@ ACT:  switch(inst.oc){
                                                , inst.count(this.reactInterface)
                                                 +this.startReaction
                                                 -this.instantNumber);
-          st= SC_Instruction_State.TERM;
+          st= SC_IState.TERM;
           inst= caller;
           break;
           }
@@ -5943,7 +5920,7 @@ ACT:  switch(inst.oc){
           break;
           }
         case SC_Opcodes.NOTHING:{
-          st = SC_Instruction_State.TERM;
+          st = SC_IState.TERM;
           inst = caller;
           break;
           }
@@ -5954,7 +5931,7 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.GENERATE_ONE_NO_VAL:{
           inst.evt.generate(this);
-          st = SC_Instruction_State.TERM;
+          st = SC_IState.TERM;
           inst = caller;
           break;
           }
@@ -5973,7 +5950,7 @@ ACT:  switch(inst.oc){
         case SC_Opcodes.GENERATE_ONE:{
           inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
-          st = SC_Instruction_State.TERM;
+          st = SC_IState.TERM;
           inst = caller;
           break;
           }
@@ -5993,13 +5970,13 @@ ACT:  switch(inst.oc){
           inst.evt.generate(this);
           this.addPermanentGenerate(inst, 0);
           inst.oc = SC_Opcodes.GENERATE_FOREVER_NO_VAL_HALTED;
-          st = SC_Instruction_State.HALT;
+          st = SC_IState.HALT;
           inst = caller;
           break;
           }
         case SC_Opcodes.GENERATE_FOREVER_NO_VAL_CONTROLED:{
           inst.evt.generate(this);
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -6015,7 +5992,7 @@ ACT:  switch(inst.oc){
           this.registerForEndOfBurst(inst);
           this.addPermanentGenerate(inst, 1);
           inst.oc = SC_Opcodes.GENERATE_FOREVER_HALTED;
-          st = SC_Instruction_State.HALT;
+          st = SC_IState.HALT;
           inst = caller;
           break;
           }
@@ -6026,18 +6003,24 @@ ACT:  switch(inst.oc){
             }
           }
         case SC_Opcodes.GENERATE_FOREVER:{
-          inst.itsParent.registerForProduction(inst,true);
+          inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
           this.addPermanentGenerate(inst, 1);
-          inst.oc = SC_Opcodes.GENERATE_FOREVER_HALTED;
-          st = SC_Instruction_State.HALT;
-          inst = caller;
+          inst.oc= SC_Opcodes.GENERATE_FOREVER_HALTED;
+          st= SC_IState.STOP;
+          inst= caller;
+          break;
+          }
+        case SC_Opcodes.GENERATE_FOREVER_HALTED:{
+          inst.itsParent.registerForProduction(inst);
+          st= SC_IState.STOP;
+          inst= caller;
           break;
           }
         case SC_Opcodes.GENERATE_FOREVER_CONTROLED:{
           inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -6048,18 +6031,24 @@ ACT:  switch(inst.oc){
             }
           }
         case SC_Opcodes.GENERATE_FOREVER_EXPOSE:{
-          inst.itsParent.registerForProduction(inst,true);
+          inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
           this.addPermanentGenerate(inst, 1);
           inst.oc = SC_Opcodes.GENERATE_FOREVER_EXPOSE_HALTED;
-          st = SC_Instruction_State.HALT;
+          st = SC_IState.STOP;
+          inst = caller;
+          break;
+          }
+        case SC_Opcodes.GENERATE_FOREVER_EXPOSE_HALTED:{
+          inst.itsParent.registerForProduction(inst);
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
         case SC_Opcodes.GENERATE_FOREVER_EXPOSE_CONTROLED:{
           inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -6070,18 +6059,24 @@ ACT:  switch(inst.oc){
             }
           }
         case SC_Opcodes.GENERATE_FOREVER_FUN:{
-          inst.itsParent.registerForProduction(inst,true);
+          inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
           this.addPermanentGenerate(inst, 1);
           inst.oc = SC_Opcodes.GENERATE_FOREVER_FUN_HALTED;
-          st = SC_Instruction_State.HALT;
+          st = SC_IState.STOP;
+          inst = caller;
+          break;
+          }
+        case SC_Opcodes.GENERATE_FOREVER_FUN_HALTED:{
+          inst.itsParent.registerForProduction(inst);
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
         case SC_Opcodes.GENERATE_FOREVER_FUN_CONTROLED:{
           inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -6092,40 +6087,52 @@ ACT:  switch(inst.oc){
             }
           }
         case SC_Opcodes.GENERATE_FOREVER_CELL:{
-          inst.itsParent.registerForProduction(inst, true);
+          inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
           this.addPermanentGenerate(inst, 1);
-          inst.oc = SC_Opcodes.GENERATE_FOREVER_CELL_HALTED;
-          st = SC_Instruction_State.HALT;
-          inst = caller;
+          inst.oc= SC_Opcodes.GENERATE_FOREVER_CELL_HALTED;
+          st= SC_IState.STOP;
+          inst= caller;
+          break;
+          }
+        case SC_Opcodes.GENERATE_FOREVER_CELL_HALTED:{
+          inst.itsParent.registerForProduction(inst);
+          st= SC_IState.STOP;
+          inst= caller;
           break;
           }
         case SC_Opcodes.GENERATE_FOREVER_CELL_CONTROLED:{
           inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
-          st = SC_Instruction_State.STOP;
-          inst = caller;
+          st= SC_IState.STOP;
+          inst= caller;
           break;
           }
         case SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER_INIT:{
           if(control_body){
-            inst.oc = SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER_CONTROLED;
+            inst.oc= SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER_CONTROLED;
             break;
             }
           }
         case SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER:{
-          inst.itsParent.registerForProduction(inst, true);
+          inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
           this.addPermanentGenerate(inst, 1);
-          inst.oc = SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER_HALTED;
-          st = SC_Instruction_State.HALT;
-          inst = caller;
+          inst.oc= SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER_HALTED;
+          st= SC_IState.STOP;
+          inst= caller;
+          break;
+          }
+        case SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER_HALTED:{
+          inst.itsParent.registerForProduction(inst);
+          st= SC_IState.STOP;
+          inst= caller;
           break;
           }
         case SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER_CONTROLED:{
           inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -6150,7 +6157,7 @@ ACT:  switch(inst.oc){
             inst = seq.seqElements[++seq.idx];
             break;
             }
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -6161,18 +6168,24 @@ ACT:  switch(inst.oc){
             }
           }
         case SC_Opcodes.GENERATE_FUN_INLINE_BUT_FOREVER:{
-          inst.itsParent.registerForProduction(inst, true);
+          inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
           this.addPermanentGenerate(inst, 1);
-          inst.oc = SC_Opcodes.GENERATE_FUN_INLINE_BUT_FOREVER_HALTED;
-          st = SC_Instruction_State.HALT;
-          inst = caller;
+          inst.oc= SC_Opcodes.GENERATE_FUN_INLINE_BUT_FOREVER_HALTED;
+          st= SC_IState.STOP;
+          inst= caller;
+          break;
+          }
+        case SC_Opcodes.GENERATE_FUN_INLINE_BUT_FOREVER_HALTED:{
+          inst.itsParent.registerForProduction(inst);
+          st= SC_IState.STOP;
+          inst= caller;
           break;
           }
         case SC_Opcodes.GENERATE_FUN_INLINE_BUT_FOREVER_CONTROLED:{
           inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -6197,7 +6210,7 @@ ACT:  switch(inst.oc){
             inst = seq.seqElements[++seq.idx];
             break;
             }
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -6208,18 +6221,24 @@ ACT:  switch(inst.oc){
             }
           }
         case SC_Opcodes.GENERATE_CELL_INLINE_BUT_FOREVER:{
-          inst.itsParent.registerForProduction(inst, true);
+          inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
           this.addPermanentGenerate(inst, 1);
-          inst.oc = SC_Opcodes.GENERATE_CELL_INLINE_BUT_FOREVER_HALTED;
-          st = SC_Instruction_State.HALT;
-          inst = caller;
+          inst.oc= SC_Opcodes.GENERATE_CELL_INLINE_BUT_FOREVER_HALTED;
+          st= SC_IState.STOP;
+          inst= caller;
+          break;
+          }
+        case SC_Opcodes.GENERATE_CELL_INLINE_BUT_FOREVER_HALTED:{
+          inst.itsParent.registerForProduction(inst);
+          st= SC_IState.STOP;
+          inst= caller;
           break;
           }
         case SC_Opcodes.GENERATE_CELL_INLINE_BUT_FOREVER_CONTROLED:{
           inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -6244,7 +6263,7 @@ ACT:  switch(inst.oc){
             inst = seq.seqElements[++seq.idx];
             break;
             }
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -6255,7 +6274,7 @@ ACT:  switch(inst.oc){
           inst.oc= SC_Opcodes.GENERATE_BURST_INLINE_BUT_FOREVER_TO_STOP;
           }
         case SC_Opcodes.GENERATE_BURST_INLINE_BUT_FOREVER_TO_STOP:{
-          st= SC_Instruction_State.STOP;
+          st= SC_IState.STOP;
           inst= caller;
           break;
           }
@@ -6283,7 +6302,7 @@ ACT:  switch(inst.oc){
           this.registerForEndOfBurst(inst);
           }
         case SC_Opcodes.GENERATE_BURST_INLINE_TO_STOP:{
-          st= SC_Instruction_State.STOP;
+          st= SC_IState.STOP;
           inst= caller;
           break;
           }
@@ -6294,18 +6313,24 @@ ACT:  switch(inst.oc){
             }
           }
         case SC_Opcodes.GENERATE_INLINE_BUT_FOREVER:{
-          inst.itsParent.registerForProduction(inst, true);
+          inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
           this.addPermanentGenerate(inst, 1);
-          inst.oc = SC_Opcodes.GENERATE_INLINE_BUT_FOREVER_HALTED;
-          st = SC_Instruction_State.HALT;
-          inst = caller;
+          inst.oc= SC_Opcodes.GENERATE_INLINE_BUT_FOREVER_HALTED;
+          st= SC_IState.STOP;
+          inst= caller;
+          break;
+          }
+        case SC_Opcodes.GENERATE_INLINE_BUT_FOREVER_HALTED:{
+          inst.itsParent.registerForProduction(inst);
+          st= SC_IState.STOP;
+          inst= caller;
           break;
           }
         case SC_Opcodes.GENERATE_INLINE_BUT_FOREVER_CONTROLED:{
           inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -6330,7 +6355,7 @@ ACT:  switch(inst.oc){
             inst = seq.seqElements[++seq.idx];
             break;
             }
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -6341,18 +6366,24 @@ ACT:  switch(inst.oc){
             }
           }
         case SC_Opcodes.GENERATE_EXPOSE_BUT_FOREVER:{
-          inst.itsParent.registerForProduction(inst, true);
+          inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
           this.addPermanentGenerate(inst, 1);
-          inst.oc = SC_Opcodes.GENERATE_EXPOSE_BUT_FOREVER_HALTED;
-          st = SC_Instruction_State.HALT;
-          inst = caller;
+          inst.oc= SC_Opcodes.GENERATE_EXPOSE_BUT_FOREVER_HALTED;
+          st= SC_IState.STOP;
+          inst= caller;
+          break;
+          }
+        case SC_Opcodes.GENERATE_EXPOSE_BUT_FOREVER_HALTED:{
+          inst.itsParent.registerForProduction(inst);
+          st= SC_IState.STOP;
+          inst= caller;
           break;
           }
         case SC_Opcodes.GENERATE_EXPOSE_BUT_FOREVER_CONTROLED:{
           inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -6374,11 +6405,11 @@ ACT:  switch(inst.oc){
           inst.count--;
           if(0 == inst.count){
             inst.oc = SC_Opcodes.GENERATE_EXPOSE_INIT;
-            st = SC_Instruction_State.TERM;
+            st = SC_IState.TERM;
             inst = caller;
             break;
             }
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -6389,18 +6420,24 @@ ACT:  switch(inst.oc){
             }
           }
         case SC_Opcodes.GENERATE_FUN_BUT_FOREVER:{
-          inst.itsParent.registerForProduction(inst, true);
+          inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
           this.addPermanentGenerate(inst, 1);
-          inst.oc = SC_Opcodes.GENERATE_FUN_BUT_FOREVER_HALTED;
-          st = SC_Instruction_State.HALT;
-          inst = caller;
+          inst.oc= SC_Opcodes.GENERATE_FUN_BUT_FOREVER_HALTED;
+          st= SC_IState.STOP;
+          inst= caller;
+          break;
+          }
+        case SC_Opcodes.GENERATE_FUN_BUT_FOREVER_HALTED:{
+          inst.itsParent.registerForProduction(inst);
+          st= SC_IState.STOP;
+          inst= caller;
           break;
           }
         case SC_Opcodes.GENERATE_FUN_BUT_FOREVER_CONTROLED:{
           inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -6422,11 +6459,11 @@ ACT:  switch(inst.oc){
           inst.count--;
           if(0 == inst.count){
             inst.oc = SC_Opcodes.GENERATE_FUN_INIT;
-            st = SC_Instruction_State.TERM;
+            st = SC_IState.TERM;
             inst = caller;
             break;
             }
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -6437,18 +6474,24 @@ ACT:  switch(inst.oc){
             }
           }
         case SC_Opcodes.GENERATE_CELL_BUT_FOREVER:{
-          inst.itsParent.registerForProduction(inst, true);
+          inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
           this.addPermanentGenerate(inst, 1);
-          inst.oc = SC_Opcodes.GENERATE_CELL_BUT_FOREVER_HALTED;
-          st = SC_Instruction_State.HALT;
-          inst = caller;
+          inst.oc= SC_Opcodes.GENERATE_CELL_BUT_FOREVER_HALTED;
+          st= SC_IState.STOP;
+          inst= caller;
+          break;
+          }
+        case SC_Opcodes.GENERATE_CELL_BUT_FOREVER_HALTED:{
+          inst.itsParent.registerForProduction(inst);
+          st= SC_IState.STOP;
+          inst= caller;
           break;
           }
         case SC_Opcodes.GENERATE_CELL_BUT_FOREVER_CONTROLED:{
           inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -6470,22 +6513,23 @@ ACT:  switch(inst.oc){
           inst.count--;
           if(0 == inst.count){
             inst.oc = SC_Opcodes.GENERATE_CELL_INIT;
-            st = SC_Instruction_State.TERM;
+            st = SC_IState.TERM;
             inst = caller;
             break;
             }
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
         case SC_Opcodes.GENERATE_BURST_BUT_FOREVER:{
-          inst.itsParent.registerForProduction(inst, true);
+          inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
           this.registerForEndOfBurst(inst);
           inst.oc= SC_Opcodes.GENERATE_BURST_BUT_FOREVER_TO_STOP;
           }
         case SC_Opcodes.GENERATE_BURST_BUT_FOREVER_TO_STOP:{
-          st= SC_Instruction_State.STOP;
+          inst.itsParent.registerForProduction(inst);
+          st= SC_IState.STOP;
           inst= caller;
           break;
           }
@@ -6507,7 +6551,7 @@ ACT:  switch(inst.oc){
           inst.count--;
           if(0==inst.count){
             inst.oc= SC_Opcodes.GENERATE_BURST_INIT;
-            st= SC_Instruction_State.TERM;
+            st= SC_IState.TERM;
             inst= caller;
             break;
             }
@@ -6515,23 +6559,29 @@ ACT:  switch(inst.oc){
           this.registerForEndOfBurst(inst);
           }
         case SC_Opcodes.GENERATE_BURST_TO_STOP:{
-          st= SC_Instruction_State.STOP;
+          st= SC_IState.STOP;
           inst= caller;
           break;
           }
         case SC_Opcodes.GENERATE_BUT_FOREVER:{
-          inst.itsParent.registerForProduction(inst, true);
+          inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
           this.addPermanentGenerate(inst, 1);
-          inst.oc = SC_Opcodes.GENERATE_BUT_FOREVER_HALTED;
-          st = SC_Instruction_State.HALT;
-          inst = caller;
+          inst.oc= SC_Opcodes.GENERATE_BUT_FOREVER_HALTED;
+          st= SC_IState.STOP;
+          inst= caller;
+          break;
+          }
+        case SC_Opcodes.GENERATE_BUT_FOREVER_HALTED:{
+          inst.itsParent.registerForProduction(inst);
+          st= SC_IState.STOP;
+          inst= caller;
           break;
           }
         case SC_Opcodes.GENERATE_BUT_FOREVER_CONTROLED:{
           inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -6553,11 +6603,11 @@ ACT:  switch(inst.oc){
           inst.count--;
           if(0 == inst.count){
             inst.oc = SC_Opcodes.GENERATE_INIT;
-            st = SC_Instruction_State.TERM;
+            st = SC_IState.TERM;
             inst = caller;
             break;
             }
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -6577,7 +6627,7 @@ ACT:  switch(inst.oc){
             inst = seq.seqElements[++seq.idx];
             break;
             }
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -6594,10 +6644,10 @@ ACT:  switch(inst.oc){
           inst.count--;
           if(0 == inst.count){
             inst.oc = SC_Opcodes.GENERATE_NO_VAL_INIT;
-            st = SC_Instruction_State.TERM;
+            st = SC_IState.TERM;
             }
           else{
-            st = SC_Instruction_State.STOP;
+            st = SC_IState.STOP;
             }
           inst = caller;
           break;
@@ -6610,7 +6660,7 @@ ACT:  switch(inst.oc){
           inst.caller=caller;
           inst.config.registerInst(this, inst);
           inst.oc=SC_Opcodes.AWAIT_REGISTRED_INLINE;
-          st=SC_Instruction_State.WAIT;
+          st=SC_IState.WAIT;
           inst=caller;
           break;
           }
@@ -6621,19 +6671,19 @@ ACT:  switch(inst.oc){
             inst=seq.seqElements[++seq.idx];
             break;
             }
-          st=SC_Instruction_State.WAIT;
+          st=SC_IState.WAIT;
           inst=caller;
           break;
           }
         case SC_Opcodes.AWAIT:{
           if(inst.config.isPresent(this)){
-            st = SC_Instruction_State.TERM;
+            st = SC_IState.TERM;
             inst = caller;
             break;
             }
           inst.config.registerInst(this, inst);
           inst.oc = SC_Opcodes.AWAIT_REGISTRED
-          st = SC_Instruction_State.WAIT;
+          st = SC_IState.WAIT;
           inst = caller;
           break;
           }
@@ -6641,11 +6691,11 @@ ACT:  switch(inst.oc){
           if(inst.config.isPresent(this)){
             inst.oc = SC_Opcodes.AWAIT;
             inst.config.unregister(inst);
-            st = SC_Instruction_State.TERM;
+            st = SC_IState.TERM;
             inst = caller;
             break;
             }
-          st = SC_Instruction_State.WAIT;
+          st = SC_IState.WAIT;
           inst = caller;
           break;
           }
@@ -6656,7 +6706,7 @@ ACT:  switch(inst.oc){
             }
           inst.oc = SC_Opcodes.WHEN_REGISTERED;
           inst.c.registerInst(this, inst);
-          st = SC_Instruction_State.WEOI;
+          st = SC_IState.WEOI;
           inst = caller;
           break;
           }
@@ -6667,7 +6717,7 @@ ACT:  switch(inst.oc){
             inst = seq.seqElements[++seq.idx];
             break;
             }
-          st = SC_Instruction_State.WEOI;
+          st = SC_IState.WEOI;
           inst = caller;
           break;
           }
@@ -6685,7 +6735,7 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.KILL_BACK:{
           switch(st){
-            case SC_Instruction_State.TERM:{
+            case SC_IState.TERM:{
               caller = inst.caller;
               inst.oc = SC_Opcodes.KILL_SUSP;
               inst.c.unregister(inst);
@@ -6693,44 +6743,44 @@ ACT:  switch(inst.oc){
               inst = seq.seqElements[seq.idx];
               break ACT;
               }
-            case SC_Instruction_State.SUSP:{
+            case SC_IState.SUSP:{
               caller = inst;
               inst = inst.p;
               break;
               }
-            case SC_Instruction_State.WEOI:{
+            case SC_IState.WEOI:{
               caller = inst.caller;
               inst.oc = SC_Opcodes.KILL_WEOI;
               inst = inst.caller;
               break;
               }
-            case SC_Instruction_State.OEOI:{
+            case SC_IState.OEOI:{
               caller = inst.caller;
               inst.oc = SC_Opcodes.KILL_OEOI;
-              st = SC_Instruction_State.WEOI;
+              st = SC_IState.WEOI;
               inst = inst.caller;
               break;
               }
-            case SC_Instruction_State.STOP:{
+            case SC_IState.STOP:{
               caller=inst.caller;
               inst.oc=SC_Opcodes.KILL_STOP;
-              st=SC_Instruction_State.WEOI;
+              st=SC_IState.WEOI;
               inst=inst.caller;
               break;
               }
-            case SC_Instruction_State.WAIT:{
+            case SC_IState.WAIT:{
               caller = inst.caller;
               inst.oc = SC_Opcodes.KILL_WAIT;
-              st=(inst.c.isPresent(this))?SC_Instruction_State.WEOI
-                                           :SC_Instruction_State.WAIT;
+              st=(inst.c.isPresent(this))?SC_IState.WEOI
+                                           :SC_IState.WAIT;
               inst = inst.caller;
               break;
               }
-            case SC_Instruction_State.HALT:{
+            case SC_IState.HALT:{
               caller = inst.caller;
               inst.oc = SC_Opcodes.KILL_HALT;
-              st=(inst.c.isPresent(this))?SC_Instruction_State.WEOI
-                                           :SC_Instruction_State.WAIT;
+              st=(inst.c.isPresent(this))?SC_IState.WEOI
+                                           :SC_IState.WAIT;
               inst = inst.caller;
               break;
               }
@@ -6743,7 +6793,7 @@ ACT:  switch(inst.oc){
         case SC_Opcodes.KILL_WEOI:
         case SC_Opcodes.KILL_WAIT:
         case SC_Opcodes.KILL_HALT:{
-          st = SC_Instruction_State.WEOI;
+          st = SC_IState.WEOI;
           caller = inst = inst.caller;
           break;
           }
@@ -6764,45 +6814,45 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.RESET_ON_BACK:{
           switch(st){
-            case SC_Instruction_State.TERM:{
+            case SC_IState.TERM:{
               caller= inst.caller;
               inst.oc= SC_Opcodes.RESET_ON_INIT;
               inst.config.unregister(inst);
               inst= caller;
               break;
               }
-            case SC_Instruction_State.SUSP:{
+            case SC_IState.SUSP:{
               caller= inst;
               inst= inst.prog;
               break;
               }
-            case SC_Instruction_State.WEOI:{
+            case SC_IState.WEOI:{
               caller= inst.caller;
               inst.oc= SC_Opcodes.RESET_ON_WEOI;
               inst=inst.caller;
               break;
               }
-            case SC_Instruction_State.STOP:{
-              st=SC_Instruction_State.OEOI;
+            case SC_IState.STOP:{
+              st=SC_IState.OEOI;
               }
-            case SC_Instruction_State.OEOI:{
+            case SC_IState.OEOI:{
               caller= inst.caller;
               inst.oc= SC_Opcodes.RESET_ON_P_OEOI;
               inst= inst.caller;
               break;
               }
-            case SC_Instruction_State.HALT:{
+            case SC_IState.HALT:{
               caller= inst.caller;
               inst.oc= SC_Opcodes.RESET_ON_WAIT;
-              st= (inst.config.isPresent(this))?SC_Instruction_State.OEOI
-                                               :SC_Instruction_State.WAIT;
+              st= (inst.config.isPresent(this))?SC_IState.OEOI
+                                               :SC_IState.WAIT;
               inst=inst.caller;
               break;
               }
-            case SC_Instruction_State.WAIT:{
+            case SC_IState.WAIT:{
               caller= inst.caller;
-              st= (inst.config.isPresent(this))?SC_Instruction_State.WEOI
-                                               :SC_Instruction_State.WAIT;
+              st= (inst.config.isPresent(this))?SC_IState.WEOI
+                                               :SC_IState.WAIT;
               inst.oc= SC_Opcodes.RESET_ON_WAIT;
               inst= inst.caller;
               break;
@@ -6826,7 +6876,7 @@ ACT:  switch(inst.oc){
             inst.oc = SC_Opcodes.CONTROL_REGISTERED_SUSP;
             }
           else{
-            st = SC_Instruction_State.WAIT;
+            st = SC_IState.WAIT;
             caller = inst = inst.caller;
             break;
             }
@@ -6840,40 +6890,40 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.CONTROL_REGISTERED_BACK:{
           switch(st){
-            case SC_Instruction_State.SUSP:{
+            case SC_IState.SUSP:{
               inst = inst.p;
               break;
               }
-            case SC_Instruction_State.OEOI:
-            case SC_Instruction_State.WEOI:{
+            case SC_IState.OEOI:
+            case SC_IState.WEOI:{
               caller = inst.caller;
               inst.oc = SC_Opcodes.CONTROL_REGISTERED_EOI;
-              st = SC_Instruction_State.WEOI;
+              st = SC_IState.WEOI;
               inst = caller;
               break;
               }
-            case SC_Instruction_State.STOP:{
+            case SC_IState.STOP:{
               caller = inst.caller;
               inst.oc = SC_Opcodes.CONTROL_REGISTERED_CHECK;
-              st = SC_Instruction_State.WAIT;
+              st = SC_IState.WAIT;
               inst = caller;
               break;
               }
-            case SC_Instruction_State.WAIT:{
+            case SC_IState.WAIT:{
               caller = inst.caller;
               inst.oc = SC_Opcodes.CONTROL_REGISTERED_CHECK;
-              st = SC_Instruction_State.WAIT;
+              st = SC_IState.WAIT;
               inst = caller;
               break;
               }
-            case SC_Instruction_State.HALT:{
+            case SC_IState.HALT:{
               caller = inst.caller;
               inst.oc = SC_Opcodes.CONTROL_REGISTERED_HALT;
-              st = SC_Instruction_State.WAIT;
+              st = SC_IState.WAIT;
               inst = caller;
               break;
               }
-            case SC_Instruction_State.TERM:{
+            case SC_IState.TERM:{
               caller = inst.caller;
               inst.c.unregister(inst);
               inst.oc = SC_Opcodes.CONTROL;
@@ -6903,7 +6953,7 @@ ACT:  switch(inst.oc){
           if(!control_body){
             inst.oc = SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT_HALTED;
             this.addPermanentActionOnOnly(inst);
-            st = SC_Instruction_State.HALT;
+            st = SC_IState.HALT;
             inst = caller;
             break;
             }
@@ -6914,23 +6964,23 @@ ACT:  switch(inst.oc){
           if(inst.evtFun.config.isPresent(this)){
             this.addEvtFun(inst.evtFun);
             inst.oc = SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT_STOP;
-            st = SC_Instruction_State.STOP;
+            st = SC_IState.STOP;
             inst = caller;
             break;
             }
-          st = SC_Instruction_State.WAIT;
+          st = SC_IState.WAIT;
           inst = caller;
           break;
           }
         case SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT_STOP:{
           if(inst.evtFun.config.isPresent(this)){
             this.addEvtFun(inst.evtFun);
-            st = SC_Instruction_State.STOP;
+            st = SC_IState.STOP;
             inst = caller;
             break;
             }
           inst.oc = SC_Opcodes.ACTION_ON_EVENT_FOREVER_NO_DEFAULT_REGISTERED;
-          st = SC_Instruction_State.WAIT;
+          st = SC_IState.WAIT;
           inst = caller;
           break;
           }
@@ -6938,7 +6988,7 @@ ACT:  switch(inst.oc){
           if(!control_body){
             this.addPermanentActionOn(inst);
             inst.oc = SC_Opcodes.ACTION_ON_EVENT_FOREVER_HALTED;
-            st = SC_Instruction_State.HALT;
+            st = SC_IState.HALT;
             inst = caller;
             break;
             }
@@ -6949,23 +6999,23 @@ ACT:  switch(inst.oc){
           if(inst.evtFun.config.isPresent(this)){
             this.addEvtFun(inst.evtFun);
             inst.oc = SC_Opcodes.ACTION_ON_EVENT_FOREVER_STOP;
-            st = SC_Instruction_State.STOP;
+            st = SC_IState.STOP;
             inst = caller;
             break;
             }
-          st = SC_Instruction_State.WEOI;
+          st = SC_IState.WEOI;
           inst = caller;
           break;
           }
         case SC_Opcodes.ACTION_ON_EVENT_FOREVER_STOP:{
           if(inst.evtFun.config.isPresent(this)){
             this.addEvtFun(inst.evtFun);
-            st = SC_Instruction_State.STOP;
+            st = SC_IState.STOP;
             inst = caller;
             break;
             }
           inst.oc = SC_Opcodes.ACTION_ON_EVENT_FOREVER_REGISTERED;
-          st = SC_Instruction_State.WEOI;
+          st = SC_IState.WEOI;
           inst = caller;
           break;
           }
@@ -6978,7 +7028,7 @@ ACT:  switch(inst.oc){
           if(0 == inst.count){
             inst.evtFun.config.unregister(inst);
             inst.oc = SC_Opcodes.ACTION_ON_EVENT;
-            st = SC_Instruction_State.TERM;
+            st = SC_IState.TERM;
             inst = caller;
             break;
             }
@@ -6990,16 +7040,16 @@ ACT:  switch(inst.oc){
             if(0 == inst.count){
               inst.evtFun.config.unregister(inst);
               inst.oc = SC_Opcodes.ACTION_ON_EVENT;
-              st = SC_Instruction_State.TERM;
+              st = SC_IState.TERM;
               inst = caller;
               break;
               }
             inst.oc = SC_Opcodes.ACTION_ON_EVENT_STOP;
-            st = SC_Instruction_State.STOP;
+            st = SC_IState.STOP;
             inst = caller;
             break;
             }
-          st = SC_Instruction_State.WEOI;
+          st = SC_IState.WEOI;
           inst = caller;
           break;
           }
@@ -7007,7 +7057,7 @@ ACT:  switch(inst.oc){
           if(0 == inst.count){
             inst.evtFun.config.unregister(inst);
             inst.oc = SC_Opcodes.ACTION_ON_EVENT;
-            st = SC_Instruction_State.TERM;
+            st = SC_IState.TERM;
             inst = caller;
             break;
             }
@@ -7019,16 +7069,16 @@ ACT:  switch(inst.oc){
             if(0 == inst.count){
               inst.evtFun.config.unregister(inst);
               inst.oc = SC_Opcodes.ACTION_ON_EVENT;
-              st = SC_Instruction_State.TERM;
+              st = SC_IState.TERM;
               inst = caller;
               break;
               }
-            st = SC_Instruction_State.STOP;
+            st = SC_IState.STOP;
             inst = caller;
             break;
             }
           inst.oc = SC_Opcodes.ACTION_ON_EVENT_REGISTERED;
-          st = SC_Instruction_State.WEOI;
+          st = SC_IState.WEOI;
           inst = caller;
           break;
           }
@@ -7041,7 +7091,7 @@ ACT:  switch(inst.oc){
           if(0 == inst.count){
             inst.evtFun.config.unregister(inst);
             inst.oc = SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT;
-            st = SC_Instruction_State.TERM;
+            st = SC_IState.TERM;
             inst = caller;
             break;
             }
@@ -7053,16 +7103,16 @@ ACT:  switch(inst.oc){
             if(0 == inst.count){
               inst.evtFun.config.unregister(inst);
               inst.oc = SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT;
-              st = SC_Instruction_State.TERM;
+              st = SC_IState.TERM;
               inst = caller;
               break;
               }
             inst.oc = SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT_STOP;
-            st = SC_Instruction_State.STOP;
+            st = SC_IState.STOP;
             inst = caller;
             break;
             }
-          st = SC_Instruction_State.WEOI;
+          st = SC_IState.WEOI;
           inst = caller;
           break;
           }
@@ -7070,7 +7120,7 @@ ACT:  switch(inst.oc){
           if(0 == inst.count){
             inst.evtFun.config.unregister(inst);
             inst.oc = SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT;
-            st = SC_Instruction_State.TERM;
+            st = SC_IState.TERM;
             inst = caller;
             break;
             }
@@ -7082,23 +7132,23 @@ ACT:  switch(inst.oc){
             if(0 == inst.count){
               inst.evtFun.config.unregister(inst);
               inst.oc = SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT;
-              st = SC_Instruction_State.TERM;
+              st = SC_IState.TERM;
               inst = caller;
               break;
               }
-            st = SC_Instruction_State.STOP;
+            st = SC_IState.STOP;
             inst = caller;
             break;
             }
           inst.oc = SC_Opcodes.ACTION_ON_EVENT_NO_DEFAULT_REGISTERED;
-          st = SC_Instruction_State.WEOI;
+          st = SC_IState.WEOI;
           inst = caller;
           break;
           }
         case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT:{
           if(inst.evtFun.config.isPresent(this)){
             this.addEvtFun(inst.evtFun);
-            st = SC_Instruction_State.TERM;
+            st = SC_IState.TERM;
             inst = caller;
             break;
             }
@@ -7110,18 +7160,18 @@ ACT:  switch(inst.oc){
             this.addEvtFun(inst.evtFun);
             inst.evtFun.config.unregister(inst);
             inst.oc = SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT;
-            st = SC_Instruction_State.TERM;
+            st = SC_IState.TERM;
             inst = caller;
             break;
             }
-          st = SC_Instruction_State.WEOI;
+          st = SC_IState.WEOI;
           inst = caller;
           break;
           }
         case SC_Opcodes.SIMPLE_ACTION_ON_EVENT:{
           if(inst.evtFun.config.isPresent(this)){
             this.addEvtFun(inst.evtFun);
-            st = SC_Instruction_State.TERM;
+            st = SC_IState.TERM;
             inst = caller;
             break;
             }
@@ -7133,25 +7183,25 @@ ACT:  switch(inst.oc){
             this.addEvtFun(inst.evtFun);
             inst.evtFun.config.unregister(inst);
             inst.oc = SC_Opcodes.SIMPLE_ACTION_ON_EVENT;
-            st = SC_Instruction_State.TERM;
+            st = SC_IState.TERM;
             inst = caller;
             break;
             }
-            st = SC_Instruction_State.WEOI;
+            st = SC_IState.WEOI;
             inst = caller;
             break;
           }
         case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT_ENDED:{
           inst.evtFun.config.unregister(inst);
           inst.oc = SC_Opcodes.SIMPLE_ACTION_ON_EVENT_NO_DEFAULT;
-          st = SC_Instruction_State.TERM;
+          st = SC_IState.TERM;
           inst = caller;
           break;
           }
         case SC_Opcodes.SIMPLE_ACTION_ON_EVENT_ENDED:{
           inst.evtFun.config.unregister(inst);
           inst.oc = SC_Opcodes.SIMPLE_ACTION_ON_EVENT;
-          st = SC_Instruction_State.TERM;
+          st = SC_IState.TERM;
           inst = caller;
           break;
           }
@@ -7166,7 +7216,7 @@ ACT:  switch(inst.oc){
           this.registerForEndOfBurst(inst);
           }
         case SC_Opcodes.GENERATE_BURST_FOREVER_LATE_EVT_NO_VAL_STOPPED:{
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -7178,14 +7228,14 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.GENERATE_FOREVER_LATE_EVT_NO_VAL_RESOLVED:{
           inst.evt.generate(this);
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
         case SC_Opcodes.GENERATE_FOREVER_LATE_VAL:{
           inst.itsParent.registerForProduction(inst);
           inst.evt.generate(this, true);
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -7202,7 +7252,7 @@ ACT:  switch(inst.oc){
               inst.evt.generate(this, true);
               }
             }
-          st = SC_Instruction_State.WAIT;
+          st = SC_IState.WAIT;
           inst = caller;
           break;
           }
@@ -7218,7 +7268,7 @@ ACT:  switch(inst.oc){
               inst.noSens_evt.generate(this);
               }
             }
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -7234,7 +7284,7 @@ ACT:  switch(inst.oc){
           else{
             inst.noSens_evt.generate(this);
             }
-          st = SC_Instruction_State.TERM;
+          st = SC_IState.TERM;
           inst = caller;
           break;
           }
@@ -7247,7 +7297,7 @@ ACT:  switch(inst.oc){
               inst.evt.generate(this, true);
               }
             }
-          st = SC_Instruction_State.TERM;
+          st = SC_IState.TERM;
           inst = caller;
           break;
           }
@@ -7263,7 +7313,7 @@ ACT:  switch(inst.oc){
           else{
             inst.noSens_evt.generate(this);
             }
-          st = SC_Instruction_State.TERM;
+          st = SC_IState.TERM;
           inst = caller;
           break;
           }
@@ -7283,35 +7333,35 @@ ACT:  switch(inst.oc){
           inst.count--;
           if(0 == inst.count){
             inst.oc = SC_Opcodes.FILTER_NO_ABS_INIT;
-            st = SC_Instruction_State.TERM;
+            st = SC_IState.TERM;
             inst = caller;
             break;
             }
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
         case SC_Opcodes.SEND:{
           if(inst.count-- > 0){
             this.generateEvent(inst.evt, inst.value);
-            st = SC_Instruction_State.STOP;
+            st = SC_IState.STOP;
             inst = caller;
             break;
             }
           inst.count = inst.times;
-          st = SC_Instruction_State.TERM;
+          st = SC_IState.TERM;
           inst = caller;
           break;
           }
         case SC_Opcodes.SEND_ONE:{
           this.generateEvent(inst.evt, inst.value);
-          st = SC_Instruction_State.TERM;
+          st = SC_IState.TERM;
           inst = caller;
           break;
           }
         case SC_Opcodes.SEND_FOREVER:{
           this.generateEvent(inst.evt, inst.value);
-          st = SC_Instruction_State.STOP;
+          st = SC_IState.STOP;
           inst = caller;
           break;
           }
@@ -7336,51 +7386,51 @@ ACT:  switch(inst.oc){
           caller = inst.caller;
           inst.oc = SC_Opcodes.PAR_DYN;
           if((inst.waittingEOI.start != null) || (inst.stopped.start != null)){
-            st = SC_Instruction_State.WEOI;
+            st = SC_IState.WEOI;
             inst = caller;
             break;
             }
           if((inst.waitting.start != null) || (inst.halted.start != null)){
             st = inst.channel.isPresent(this)
-                             ?SC_Instruction_State.WEOI
-                             :SC_Instruction_State.WAIT
+                             ?SC_IState.WEOI
+                             :SC_IState.WAIT
                              ;
             inst = caller;
             break;
             }
           this.reset(inst);
-          st = SC_Instruction_State.TERM;
+          st = SC_IState.TERM;
           inst = inst.caller;
           break;
           }
         case SC_Opcodes.PAR_DYN_BACK:{
           switch(inst.toActivate.flag = st){
-            case SC_Instruction_State.SUSP:{
+            case SC_IState.SUSP:{
                  inst = inst.toActivate.prg
                  break;
                  }
-            case SC_Instruction_State.OEOI:
-            case SC_Instruction_State.WEOI:{
+            case SC_IState.OEOI:
+            case SC_IState.WEOI:{
                  inst.oc = SC_Opcodes.PAR_DYN_FIRE;
                  inst.waittingEOI.append(inst.toActivate);
                  break;
                  }
-            case SC_Instruction_State.STOP:{
+            case SC_IState.STOP:{
                  inst.oc = SC_Opcodes.PAR_DYN_FIRE;
                  inst.stopped.append(inst.toActivate);
                  break;
                  }
-            case SC_Instruction_State.WAIT:{
+            case SC_IState.WAIT:{
                  inst.oc = SC_Opcodes.PAR_DYN_FIRE;
                  inst.waitting.append(inst.toActivate);
                  break;
                  }
-            case SC_Instruction_State.HALT:{
+            case SC_IState.HALT:{
                  inst.oc = SC_Opcodes.PAR_DYN_FIRE;
                  inst.halted.append(inst.toActivate);
                  break;
                  }
-            case SC_Instruction_State.TERM:{
+            case SC_IState.TERM:{
                  inst.oc = SC_Opcodes.PAR_DYN_FIRE;
                  if(inst.toActivate.purgeable){
                    inst.removeBranch(inst.toActivate);
@@ -7395,7 +7445,7 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.PAR_DYN_FORCE: {
           this.reset(inst);
-          st = SC_Instruction_State.TERM;
+          st = SC_IState.TERM;
           inst = caller;
           break;
           }
@@ -7417,7 +7467,7 @@ ACT:  switch(inst.oc){
           caller = inst.caller;
           inst.oc = SC_Opcodes.PAR;
           if(inst.waittingEOI.start != null){
-            st = SC_Instruction_State.WEOI;
+            st = SC_IState.WEOI;
             caller = inst = inst.caller;
             break;
             }
@@ -7426,58 +7476,58 @@ ACT:  switch(inst.oc){
               var t = inst.suspended;
               inst.suspended = inst.stopped;
               inst.stopped = t;
-              inst.suspended.setFlags(SC_Instruction_State.SUSP);
-              st = SC_Instruction_State.STOP;
+              inst.suspended.setFlags(SC_IState.SUSP);
+              st = SC_IState.STOP;
               caller = inst = inst.caller;
               break;
               }
-            st = SC_Instruction_State.WEOI;
+            st = SC_IState.WEOI;
             caller = inst = inst.caller;
             break;
             }
           if(inst.waitting.start != null){
-            st = SC_Instruction_State.WAIT;
+            st = SC_IState.WAIT;
             caller = inst = inst.caller;
             break;
             }
           if(inst.halted.start != null){
-            st = SC_Instruction_State.HALT;
+            st = SC_IState.HALT;
             caller = inst = inst.caller;
             break;
             }
           this.reset(inst);
-          st = SC_Instruction_State.TERM;
+          st = SC_IState.TERM;
           caller = inst = inst.caller;
           break;
           }
         case SC_Opcodes.PAR_BACK:{
           switch(inst.toActivate.flag = st){
-            case SC_Instruction_State.SUSP:{
+            case SC_IState.SUSP:{
               inst = inst.toActivate.prg;
               break;
               }
-            case SC_Instruction_State.OEOI:
-            case SC_Instruction_State.WEOI:{
+            case SC_IState.OEOI:
+            case SC_IState.WEOI:{
               inst.oc = SC_Opcodes.PAR_FIRE;
               inst.waittingEOI.append(inst.toActivate);
               break;
               }
-            case SC_Instruction_State.STOP:{
+            case SC_IState.STOP:{
               inst.oc = SC_Opcodes.PAR_FIRE;
               inst.stopped.append(inst.toActivate);
               break;
               }
-            case SC_Instruction_State.WAIT:{
+            case SC_IState.WAIT:{
               inst.oc = SC_Opcodes.PAR_FIRE;
               inst.waitting.append(inst.toActivate);
               break;
               }
-            case SC_Instruction_State.HALT:{
+            case SC_IState.HALT:{
               inst.oc = SC_Opcodes.PAR_FIRE;
               inst.halted.append(inst.toActivate);
               break;
               }
-            case SC_Instruction_State.TERM:{
+            case SC_IState.TERM:{
               inst.oc = SC_Opcodes.PAR_FIRE;
               if(inst.toActivate.purgeable){
                 inst.removeBranch(inst.toActivate);
@@ -7493,18 +7543,18 @@ ACT:  switch(inst.oc){
         case SC_Opcodes.PAUSE_RT_INIT:{
           inst.startTime= performance.now();
           inst.oc= SC_Opcodes.PAUSE_RT;
-          st= SC_Instruction_State.STOP;
+          st= SC_IState.STOP;
           inst= caller;
           break;
           }
         case SC_Opcodes.PAUSE_RT:{
           if(performance.now()-inst.startTime > inst.duration){
             inst.oc= SC_Opcodes.PAUSE_RT_INIT;
-            st=  SC_Instruction_State.TERM;
+            st=  SC_IState.TERM;
             inst= caller;
             break;
             }
-          st= SC_Instruction_State.STOP;
+          st= SC_IState.STOP;
           inst= caller;
           break;
           }
@@ -7526,7 +7576,7 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.MATCH_BACK:{
           inst.oc= SC_Opcodes.MATCH_CHOOSEN;
-          if(SC_Instruction_State.TERM==st){
+          if(SC_IState.TERM==st){
             this.reset(inst.choice);
             inst.choice=null;
             inst.oc= SC_Opcodes.MATCH;
@@ -7539,9 +7589,6 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.CUBE_INIT:{
           inst.init.call(inst.o, this.reactInterface);
-          if(inst.o.sc_init){
-            inst.o.sc_init();
-            }
           inst.killEvt.registerInst(this, inst);
           inst.swap(this);
           }
@@ -7553,39 +7600,39 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.CUBE_BACK:{
           switch(st){
-            case SC_Instruction_State.TERM:{
-              this.lastWills.push(inst.lastWill);
+            case SC_IState.TERM:{
+              this.lastWills.push(inst.lastWill.bind(inst.o));
               this.reset(inst.p);
               inst.killEvt.unregister(inst);
               inst.oc = SC_Opcodes.CUBE_INIT;
               break;
               }
-            case SC_Instruction_State.WAIT:{
+            case SC_IState.WAIT:{
               if(inst.killEvt.isPresent(this)){
                 inst.oc = SC_Opcodes.CUBE_STOP;
-                st = SC_Instruction_State.WEOI;
+                st = SC_IState.WEOI;
                 }
               else{
                 inst.oc = SC_Opcodes.CUBE_WAIT;
                 }
               break;
               }
-            case SC_Instruction_State.HALT:{
+            case SC_IState.HALT:{
               if(inst.killEvt.isPresent(this)){
                 inst.oc = SC_Opcodes.CUBE_STOP;
-                st = SC_Instruction_State.OEOI;
+                st = SC_IState.OEOI;
                 }
               else{
                 inst.oc = SC_Opcodes.CUBE_WAIT;
                 }
               break;
               }
-            case SC_Instruction_State.OEOI:
-            case SC_Instruction_State.STOP:{
-              st = SC_Instruction_State.OEOI;
+            case SC_IState.OEOI:
+            case SC_IState.STOP:{
+              st = SC_IState.OEOI;
               }
-            case SC_Instruction_State.WEOI:
-            case SC_Instruction_State.SUSP:{
+            case SC_IState.WEOI:
+            case SC_IState.SUSP:{
               inst.oc = SC_Opcodes.CUBE;
               break;
               }
@@ -7598,7 +7645,7 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.CUBE_TERM:{
           inst.oc = SC_Opcodes.CUBE_INIT;
-          st = SC_Instruction_State.TERM;
+          st = SC_IState.TERM;
           caller = inst = inst.caller;
           break;
           }
@@ -7610,7 +7657,7 @@ ACT:  switch(inst.oc){
             inst.TODO=this.getInstantNumber();
             this.addCellFun(inst);
           }
-          st=SC_Instruction_State.TERM;
+          st=SC_IState.TERM;
           inst=caller;
           break;
           }
@@ -7628,7 +7675,7 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.CUBE_CELL_BACK:{
           inst.oc=SC_Opcodes.CUBE_CELL;
-          if(SC_Instruction_State.TERM==st){
+          if(SC_IState.TERM==st){
             inst.oc=SC_Opcodes.CUBE_CELL;
             }
           caller=inst=inst.caller;
@@ -7652,7 +7699,7 @@ ACT:  switch(inst.oc){
           }
         case SC_Opcodes.LOG:{
           this.stdOut(inst.msg);
-          st = SC_Instruction_State.TERM;
+          st = SC_IState.TERM;
           inst = caller;
           break;
           }
@@ -7821,14 +7868,14 @@ EOI:  switch(inst.oc){
             }
           inst.tmp= inst.waittingEOI.pop();
           if(null!=inst.tmp){
-            inst.tmp.flag= SC_Instruction_State.SUSP;
+            inst.tmp.flag= SC_IState.SUSP;
             caller= inst;
             inst= inst.tmp.prg;
             break;
             }
           var tmp= inst.stopped.pop();
           while(null!=tmp){
-            tmp.flag= SC_Instruction_State.SUSP;
+            tmp.flag= SC_IState.SUSP;
             inst.suspended.append(tmp);
             tmp= inst.stopped.pop();
             }
@@ -7851,14 +7898,14 @@ EOI:  switch(inst.oc){
             }
           inst.tmp= inst.waittingEOI.pop();
           if(null!=inst.tmp){
-            inst.tmp.flag= SC_Instruction_State.SUSP;
+            inst.tmp.flag= SC_IState.SUSP;
             caller= inst;
             inst= inst.tmp.prg;
             break;
             }
           var tmp= inst.stopped.pop();
           while(null!=tmp){
-            tmp.flag= SC_Instruction_State.SUSP;
+            tmp.flag= SC_IState.SUSP;
             inst.suspended.append(tmp);
             tmp= inst.stopped.pop();
             }
@@ -7887,7 +7934,7 @@ EOI:  switch(inst.oc){
         case SC_Opcodes.CUBE_STOP:
         case SC_Opcodes.CUBE_BACK:{
           if(inst.killEvt.isPresent(this)){
-            this.lastWills.push(inst.lastWill);            
+            this.lastWills.push(inst.lastWill.bind(inst.o));            
             this.reset(inst.p);
             inst.oc= SC_Opcodes.CUBE_TERM;
             inst.killEvt.unregister(inst);
@@ -7927,13 +7974,20 @@ RST:  switch(inst.oc){
           return;
           }
         case SC_Opcodes.REL_JUMP:
+        case SC_Opcodes.REPEAT_BURST_FOREVER:
         case SC_Opcodes.REPEAT_FOREVER:{
-          inst=caller;
+          inst= caller;
+          break;
+          }
+        case SC_Opcodes.REPEAT_BURST_FOREVER_NEXT:
+        case SC_Opcodes.REPEAT_BURST_FOREVER_STOP:{
+          inst.oc= SC_Opcodes.REPEAT_BURST_FOREVER;
+          inst= caller;
           break;
           }
         case SC_Opcodes.REPEAT_FOREVER_TO_STOP:{
-          inst.oc=SC_Opcodes.REPEAT_FOREVER;
-          inst=caller;
+          inst.oc= SC_Opcodes.REPEAT_FOREVER;
+          inst= caller;
           break;
           }
         case SC_Opcodes.REPEAT_LATE_N_TIMES_INIT:
@@ -8024,31 +8078,39 @@ RST:  switch(inst.oc){
         case SC_Opcodes.TEST:
         case SC_Opcodes.CUBE_ACTION_FOREVER_CONTROLED:
         case SC_Opcodes.CUBE_ACTION_FOREVER:{
-          inst=caller;
+          inst= caller;
           break;
           }
         case SC_Opcodes.SEQ:{
           inst.oc=SC_Opcodes.SEQ;
           const len=inst.seqElements.length;
-          for(var i=0; i<len; i++){
+          for(var i= 0; i<len; i++){
             this.reset(inst.seqElements[i]);
             }
-          inst.idx=0;
-          inst=caller;
+          inst.idx= 0;
+          inst= caller;
+          break;
+          }
+        case SC_Opcodes.PAUSE_BURST_STOPPED:
+        case SC_Opcodes.PAUSE_BURST_DONE:{
+          inst.oc= SC_Opcodes.PAUSE_BURST;
+          }
+        case SC_Opcodes.PAUSE_BURST:{
+          inst= caller;
           break;
           }
         case SC_Opcodes.PAUSE_UNTIL_DONE:{
-          inst.oc = SC_Opcodes.PAUSE_UNTIL;
+          inst.oc= SC_Opcodes.PAUSE_UNTIL;
           }
         case SC_Opcodes.SEQ_ENDED:
         case SC_Opcodes.HALT:
         case SC_Opcodes.PAUSE_UNTIL:{
-          inst=caller;
+          inst= caller;
           break;
           }
         case SC_Opcodes.PAUSE_INLINE:
         case SC_Opcodes.PAUSE:{
-          inst = caller;
+          inst= caller;
           break;
           }
         case SC_Opcodes.PAUSE_DONE:{
@@ -8446,7 +8508,7 @@ RST:  switch(inst.oc){
         case SC_Opcodes.PAR_DYN_FIRE:{
           inst.tmp = inst.originalBranches[inst.tmp_idx++];
           if(null != inst.tmp){
-            inst.tmp.flag = SC_Instruction_State.SUSP;
+            inst.tmp.flag = SC_IState.SUSP;
             inst = inst.tmp.prg;
             break;
             }
@@ -8473,31 +8535,31 @@ RST:  switch(inst.oc){
             }
           inst.tmp = inst.waittingEOI.pop();
           if(null != inst.tmp){
-            inst.tmp.flag = SC_Instruction_State.SUSP;
+            inst.tmp.flag = SC_IState.SUSP;
             inst = inst.tmp.prg;
             break;
             }
           inst.tmp = inst.stopped.pop();
           if(null != inst.tmp){
-            inst.tmp.flag = SC_Instruction_State.SUSP;
+            inst.tmp.flag = SC_IState.SUSP;
             inst = inst.tmp.prg;
             break;
             }
           inst.tmp = inst.waitting.pop();
           if(null != inst.tmp){
-            inst.tmp.flag = SC_Instruction_State.SUSP;
+            inst.tmp.flag = SC_IState.SUSP;
             inst = inst.tmp.prg;
             break;
             }
           inst.tmp = inst.halted.pop();
           if(null != inst.tmp){
-            inst.tmp.flag = SC_Instruction_State.SUSP;
+            inst.tmp.flag = SC_IState.SUSP;
             inst = inst.tmp.prg;
             break;
             }
           var tmp = inst.terminated.pop();
           while(null != tmp){
-            tmp.flag = SC_Instruction_State.SUSP;
+            tmp.flag = SC_IState.SUSP;
             tmp = inst.terminated.pop();
             }
           for(var i = 0; i < inst.branches.length; i++){
@@ -8537,7 +8599,7 @@ RST:  switch(inst.oc){
           inst.resetCaller = caller;
           caller= inst;
           inst.oc= SC_Opcodes.CUBE_BACK;
-          this.lastWills.push(inst.lastWill);
+          this.lastWills.push(inst.lastWill.bind(inst.o));
           inst= inst.p;
           break;
           }
@@ -8592,15 +8654,17 @@ RST:  switch(inst.oc){
       }
     }
 , generateValues: function(){
-    var inst = this.prg;
-    var seq = null;
-    var caller = act_exit;
-    var stack = [];
+    var inst= this.prg;
+    var caller= act_exit;
     while(true){
 GRV:  switch(inst.oc){
         case SC_Opcodes._EXIT:{
           return;
           }
+        case SC_Opcodes.GENERATE_BURST_INIT:
+        case SC_Opcodes.GENERATE_BURST_TO_STOP:
+        case SC_Opcodes.GENERATE_BURST_INLINE__TO_STOP:
+        case SC_Opcodes.GENERATE_BURST_INLINE_INIT:
         case SC_Opcodes.GENERATE_INIT:
         case SC_Opcodes.GENERATE:
         case SC_Opcodes.GENERATE_BUT_FOREVER_HALTED:
@@ -8614,10 +8678,10 @@ GRV:  switch(inst.oc){
         case SC_Opcodes.GENERATE_FOREVER_INIT:
         case SC_Opcodes.GENERATE_FOREVER_HALTED:
         case SC_Opcodes.GENERATE_FOREVER_CONTROLED:{
-          inst.evt.generateValues(m, inst.val);
-          inst = caller;
-          break;
-          }
+            inst.evt.generateValues(this, inst.val);
+            inst= caller;
+            break;
+            }
         case SC_Opcodes.GENERATE_CELL_INIT:
         case SC_Opcodes.GENERATE_CELL:
         case SC_Opcodes.GENERATE_CELL_BUT_FOREVER_HALTED:
@@ -8628,10 +8692,11 @@ GRV:  switch(inst.oc){
         case SC_Opcodes.GENERATE_CELL_INLINE_BUT_FOREVER_CONTROLED:
         case SC_Opcodes.GENERATE_ONE_CELL_INLINE:
         case SC_Opcodes.GENERATE_ONE_CELL:
+        case SC_Opcodes.GENERATE_FOREVER_CELL_INIT:
         case SC_Opcodes.GENERATE_FOREVER_CELL_HALTED:
         case SC_Opcodes.GENERATE_FOREVER_CELL_CONTROLED:{
-          inst.evt.generateValues(m, inst.val.val());
-          inst = caller;
+          inst.evt.generateValues(this, inst.val.val());
+          inst= caller;
           break;
           }
         case SC_Opcodes.GENERATE_FUN_INIT:
@@ -8644,10 +8709,11 @@ GRV:  switch(inst.oc){
         case SC_Opcodes.GENERATE_FUN_INLINE_BUT_FOREVER_CONTROLED:
         case SC_Opcodes.GENERATE_ONE_FUN_INLINE:
         case SC_Opcodes.GENERATE_ONE_FUN:
+        case SC_Opcodes.GENERATE_FOREVER_FUN_INIT:
         case SC_Opcodes.GENERATE_FOREVER_FUN_HALTED:
         case SC_Opcodes.GENERATE_FOREVER_FUN_CONTROLED:{
-          inst.evt.generateValues(m, inst.val(m));
-          inst = caller;
+          inst.evt.generateValues(this, inst.val(this));
+          inst= caller;
           break;
           }
         case SC_Opcodes.GENERATE_EXPOSE_INIT:
@@ -8660,86 +8726,85 @@ GRV:  switch(inst.oc){
         case SC_Opcodes.GENERATE_EXPOSE_INLINE_BUT_FOREVER_CONTROLED:
         case SC_Opcodes.GENERATE_ONE_EXPOSE_INLINE:
         case SC_Opcodes.GENERATE_ONE_EXPOSE:
+        case SC_Opcodes.GENERATE_FOREVER_EXPOSE_INIT:
         case SC_Opcodes.GENERATE_FOREVER_EXPOSE_HALTED:
         case SC_Opcodes.GENERATE_FOREVER_EXPOSE_CONTROLED:{
-          inst.evt.generateValues(m, inst.val.exposedState(m));
-          inst = caller;
+          inst.evt.generateValues(this, inst.val.getExposeReader(this));
+          inst= caller;
           break;
           }
         case SC_Opcodes.GENERATE_FOREVER_LATE_VAL:{
-          if(inst.val instanceof SC_LateBinding){
-            var res = inst.val.resolve();
-            }
           if(inst.val instanceof SC_Instruction
               && inst.val.oc == SC_Opcodes.CELL){
-            inst.evt.generateValues(m, inst.val.val());
+            inst.evt.generateValues(this, inst.val.val());
             }
-          else if("function" == typeof(inst.val)){
-            inst.evt.generateValues(m, inst.val(m));
+          else if("function"==typeof(inst.val)){
+            inst.evt.generateValues(this, inst.val(this));
             }
           else if(inst.val instanceof SC_CubeExposedState){
-            inst.evt.generateValues(m, inst.val.exposedState(m));
+            inst.evt.generateValues(this, inst.val.exposedState(this));
             }
           else{
-            inst.evt.generateValues(m, inst.val);
+            inst.evt.generateValues(this, inst.val);
             }
-          inst = caller;
+          inst= caller;
           break;
           }
         case SC_Opcodes.FILTER_FOREVER_NO_ABS:
         case SC_Opcodes.FILTER_FOREVER_NO_ABS_REGISTERED:
         case SC_Opcodes.FILTER_FOREVER:
         case SC_Opcodes.FILTER_NO_ABS:
+        case SC_Opcodes.FILTER_NO_ABS_INIT:
         case SC_Opcodes.FILTER:
         case SC_Opcodes.FILTER_ONE:
         case SC_Opcodes.FILTER_ONE_NO_ABS:{
-          if(inst.val instanceof SC_LateBinding){
-            var res = inst.val.resolve();
-            }
           if(inst.val instanceof SC_Instruction
-              && inst.val.oc == SC_Opcodes.CELL){
-            inst.evt.generateValues(m, inst.val.val());
+              && inst.val.oc==SC_Opcodes.CELL){
+            inst.evt.generateValues(this, inst.val.val());
             }
-          else if("function" == typeof(inst.val)){
-            inst.evt.generateValues(m, inst.val(m));
+          else if("function"==typeof(inst.val)){
+            inst.evt.generateValues(this, inst.val(this));
+            }
+          else if(inst.val instanceof SC_CubeExposedState){
+            inst.evt.generateValues(this, inst.val.exposedState(this));
             }
           else{
-            inst.evt.generateValues(m, inst.val);
+            inst.evt.generateValues(this, inst.val);
             }
-          inst.val = null;
-          inst = caller;
+          inst.val= null;
+          inst= caller;
           break;
           }
         case SC_Opcodes.PAR_DYN_FORCE:
+        case SC_Opcodes.PAR_FORCE:
         case SC_Opcodes.PAR_DYN_TO_REGISTER:
-        case SC_Opcodes.PAR_DYN:{
-          const pbl = inst.prodBranches.length;
-          for(var nb = 0; nb < pbl; nb++){
-            const pb = inst.prodBranches[nb];
-            const el = pb.emitters.length;
-            if(0 == el){
-              const pel = pb.permanentEmitters.length;
-              for(var i = 0; i < pel; i++){
-                pb.permanentEmitters[i].generateValues(m);
-                }
-              }
-            else{
-              for(var i = 0; i < el; i++){
-                pb.emitters[i].generateValues(m);
-                }
-              pb.emitters = [];
-              }
-            }
-          break;
-          }
+        case SC_Opcodes.PAR_DYN:
         case SC_Opcodes.PAR:{
-          const pbl = inst.prodBranches.length;
-          for(var nb = 0; nb < pbl; nb++){
-            inst.prodBranches[nb].generateValues(m);
+          inst.gen_caller= caller;
+          inst.gen_type= inst.oc;
+          inst.oc= SC_Opcodes.GEN_VAL;
+          inst.prodIdx= 0;
+          }
+        case SC_Opcodes.GEN_VAL:{
+          if(inst.prodIdx<inst.prodBranches.length){
+            const pb= inst.prodBranches[inst.prodIdx];
+            if(pb.genIdx<pb.emitters.length){
+              const em= pb.emitters[pb.genIdx];
+              caller= inst;
+              inst= em;
+              pb.genIdx++;
+              break;
+              }
+	    pb.emitters= [];
+            pb.genIdx= 0;
+            inst.prodIdx++;
+            break;
             }
+          inst.oc= inst.gen_type;
+          inst= inst.gen_caller;
           break;
           }
-        default:{ throw new Error("generateForever(): undefined opcode "
+        default:{ throw new Error("generateValues(): undefined opcode "
                        +SC_Opcodes.toString(inst.oc)
                        );
           console.trace();
@@ -8748,7 +8813,7 @@ GRV:  switch(inst.oc){
       }
     }
   };
-var nextID=0;
+var nextID= 0;
 const SC= {
     nop: function(){
       return this.nothing();
@@ -8880,7 +8945,6 @@ const SC= {
         }
       return this.match.apply(this, args);
       }
-  , me: SC_CubeExposedState()
   , cubeAction: function(params){
       if(undefined == params){
         throw new Error("no params for cubeAction");
@@ -8925,12 +8989,12 @@ const SC= {
       }
     };
   Object.defineProperty(SC, "sc_build"
-                          , { value: 582
+                          , { value: 780
                             , writable: false
                               }
                           );
   Object.defineProperty(SC, "sc_version"
-                          , { value: "5.0.582.alpha"
+                          , { value: "5.0.780.alpha"
                             , writable: false
                               }
                           );
@@ -8956,7 +9020,12 @@ const SC= {
                             , writable: false
                               }
                           );
-  let animator=null;
+  var animator= null;
+  Object.defineProperty(SC, "me"
+                          , { value: new SC_CubeExposedState()
+                            , writable: false
+                              }
+                          );
   Object.defineProperty(SC, "animSensor"
                           , { value: function(){
                                 if(animator){
@@ -9059,7 +9128,7 @@ const SC= {
                             , writable: false
                               }
                           );
-  var newID=0;
+  var newID= 0;
   Object.defineProperty(SC, "newID"
   , { 
       value: function(){
@@ -9097,7 +9166,8 @@ const SC= {
         res.getInstantNumber=ownMachine.getInstantNumber.bind(ownMachine);
         res.getTopLevelParallelBranchesNumber
            =ownMachine.getTopLevelParallelBranchesNumber.bind(ownMachine);
-        res.setStdOut=ownMachine.setStdOut.bind(ownMachine);
+        res.setStdOut= ownMachine.setStdOut.bind(ownMachine);
+        res.setDumpTraceFun= ownMachine.setDumpTraceFun.bind(ownMachine);
         res.enablePrompt=ownMachine.enablePrompt.bind(ownMachine);
         if("function"==typeof(p.dumpTraceFun)){
           ownMachine.dumpTraceFun=p.dumpTraceFun;
@@ -9197,6 +9267,7 @@ const SC= {
         return SC_PauseForEver;
         }
     , writable: false
+    , enumerable: true
       }
     );
   Object.defineProperty(SC, "nothing"
@@ -9208,8 +9279,11 @@ const SC= {
     );
   Object.defineProperty(SC, "write"
   , { value: function(msg){
-        if("string"!=typeof(msg)){
+        if(undefined===msg){
           throw new Error("Invalid message: "+msg);
+          }
+        if(false==msg._){
+          msg= msg.toString();
           }
         return new SC_GenerateOne(SC_WRITE_ID, msg);
         }
@@ -9875,42 +9949,10 @@ const SC= {
           }
     , writable: false
       });
-  function SC_Parameters(p){
-    if("object"==typeof(p)){
-      if(p instanceof SC_Parameters){
-        return p;
-        }
-      for(var key of Object.keys(p)){
-        this[key]= p[key];
-        }
-      }
-    else{
-      console.error("Invalid parameters definition: "+arguments);
-      return p;
-      }
-    };
-  proto= SC_Parameters.prototype;
-  Object.defineProperty(proto, "_"
-  , { value: function(name, dval){
-          const v= this[name];
-          return (undefined!==v || (null!==v && undefined===dval))?v:dval;
-          }
-    , writable: false
-      });
-  Object.defineProperty(proto, "toString"
-  , { value: function(){
-	  let res= "SC_Parameters:={";
-          for(var key of Object.keys(this)){
-            res+= " "+key+": "+this[key];
-            }
-	  return res+"}";
-          }
-    , writable: false
-      });
   Object.defineProperty(SC, "$"
   , { enumerable: false
-    , value: function(params){
-          return new SC_Parameters(params);
+    , value: function(params, check){
+          return new SC_Parameters(params, check);
           }
     , writable: false
       });
@@ -9989,7 +10031,7 @@ const SC= {
             const bd= p.tools.baseDir?p.tools.baseDir:"./";
             global.glob= global;
             global.p= p;
-	    global.sc_global= global;
+            global.sc_global= global;
             include(bd+"SC_Tools.js");
             if(p.tools.list){
               for(var url of p.tools.list){

@@ -3,8 +3,8 @@
  * Author : Jean-Ferdy Susini (MNF)
  * Created : 20/12/2014 18:46
  * Part of the SugarCubes Project
- * version : 5.0.582.alpha
- * build: 582
+ * version : 5.0.780.alpha
+ * build: 780
  * Copyleft 2014-2025.
  */
 ;
@@ -91,13 +91,13 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
         return s;
         }
     , getUnSymNormsOf: function(complex, p={}){
-        if(0!=complex.length%4){
+        if(0!=(complex.length%2)){
           throw new Error("not valid spec");
           }
-        const N=complex.length/2;
-        const N2=N/2;
+        const N= (complex.length-(complex.length%4))/2;
+        const N2= N/2;
         const mu=(p.mul)?p.mul:1;
-        const norms=p.provided?p.provided:new Float32Array(N);
+        const norms= p.provided?p.provided:new Float32Array(N);
         for(var i=0; i<N; i++){
           const re=complex[2*i];
           const im=complex[2*i+1];
@@ -110,8 +110,38 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
           }
         return norms;
         }
+    , heaviside: function(z){
+          return z>=0?1:0;
+          }
+    , sigmoid: function(z){
+          return 1/(1+Math.exp(-z));
+          }
+    , relu: function(z){
+          return z<0?0:z;
+          }
+    , id: function(z){
+          return z;
+          }
+    , near: function(z){
+          return 2/(1+Math.exp(Math.abs(z/10)))-0.5;
+          }
+    , softmax: function(z){
+          const res=[];
+          var st= 0;
+          if(!Array.isArray(z)){
+            z= [ z ];
+            }
+          const zl= z.lentgh;
+          for(var i= 0; i<zl; i++){
+            st+= Math.exp(z[i]);
+            }
+          for(var i=0; i<zl; i++){
+            res.push(z[i]/st);
+            }
+          return res;
+          }
     , getRealParts: function(complex,  p={}){
-        if(0!=complex.length%2){
+        if(0!=(complex.length%2)){
           throw new Error("not valid spec");
           }
         const N=complex.length/2;
@@ -123,7 +153,7 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
         return norms;
         }
     , getNormsOf: function(complex,  p={}){
-        if(0!=complex.length%2){
+        if(0!=(complex.length%2)){
           throw new Error("not valid spec");
           }
         const N=complex.length/2;
@@ -136,15 +166,29 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
           }
         return norms;
         }
+    , applyFilter: function(complex, filter,  p={}){
+        if(0!=(complex.length%2)){
+          throw new Error("not valid spec");
+          }
+        const N= complex.length;
+        const res= p.provided?p.provided:new Float32Array(N);
+        for(var i= 0; i<N; i++){
+          const i2= 2*i;
+          const filtered= filter(i, complex[i2], complex[i2+1]);
+          res[i2]= filtered[0];
+          res[i2+1]= filtered[1];
+          }
+        return res;
+        }
     , applyAttenuation: function(complex, filter,  p={}){
-        if(0!=complex.length%2){
+        if(0!=(complex.length%2)){
           throw new Error("not valid spec");
           }
         const N=complex.length;
         const norms=p.provided?p.provided:new Float32Array(N);
         for(var i=0; i<N; i++){
-          norms[2*i]=complex[2*i]*att(i);
-          norms[2*i+1]=complex[2*i+1]*att(i);
+          norms[2*i]=complex[2*i]*filter(i);
+          norms[2*i+1]=complex[2*i+1]*filter(i);
           }
         return norms;
         }
@@ -162,22 +206,33 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
     , dice: function(face=6){
         return parseInt(Math.random()*face)+1;
         }
-    , gauss: function(min, max, skew){
-        let u=0.0, v=0.0;
+    , gauss: function gaussianRandom(mean=0, stdev=1) {
+          var u= 0.0, v= 0.0;
+          while(0===u){
+            u= 1-Math.random();
+            }
+          while(0===v){
+            v= Math.random();
+            }
+          const num=Math.sqrt(-2.0*Math.log(u))*Math.cos(2.0*Math.PI*v);
+          return num*stdev+mean;
+          }
+    , gaussmm: function(min, max, skew){
+        let u= 0.0, v= 0.0;
         while(0===u){
-          u=Math.random();
+          u= 1-Math.random();
           }
         while(0===v){
-          v=Math.random();
+          v= Math.random();
           }
-        let num=Math.sqrt(-2.0*Math.log(u))*Math.cos(2.0*Math.PI*v);
-        num=num/10.0+0.5;
+        var num= Math.sqrt(-2.0*Math.log(u))*Math.cos(2.0*Math.PI*v);
+        num= num/10.0+0.5;
         if(num>1 || num<0){ 
-          num=this.gauss(min, max, skew);
+          num= this.gauss(min, max, skew);
           }
-        num=Math.pow(num, skew);
-        num*=max-min;
-        num+=min;
+        num= Math.pow(num, skew);
+        num*= max-min;
+        num+= min;
         return num;
         }
     , gaussi: function(min=0, max=1, skew=0.5){
@@ -229,9 +284,9 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
       return;
       }
     if(undefined==main || !main.isSCClock){
-      var cfg={};
+      var cfg= {};
       if(params.tools.mainConfig){
-        cfg=params.tools.mainConfig;
+        cfg= params.tools.mainConfig;
         }
       main= SC.clock(cfg);
       if(cfg && "function"==typeof(cfg.stdout)){
