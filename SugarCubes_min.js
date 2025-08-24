@@ -3,8 +3,8 @@
  * Authors : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.780.alpha
- * build: 780
+ * version : 5.0.787.alpha
+ * build: 787
  * Copyleft 2014-2025.
  */
 ;
@@ -26,7 +26,8 @@ const SC_IState= {
       return SC_Instruction_state_str[state]+":"+state;
       }
     };
-for(var st in SC_Instruction_state_str){
+const stlen= SC_Instruction_state_str.length;
+for(var st= 0; st< stlen; st++){
   SC_IState[SC_Instruction_state_str[st]]= parseInt(st);
   }
 Object.freeze(SC_IState);
@@ -72,7 +73,7 @@ function PurgeableCollection(){
       const ks= Object.keys(this.collection);
       const kl= ks.length;
       for(var i= 0; i<kl; i++){
-        const k=ks[i];
+        const k= ks[i];
         if(undefined===this.get(k)){
           delete(this.collection[k]);
           }
@@ -4066,7 +4067,8 @@ SC_Par.prototype={
     }
 , toString: function(){
     var res ="[";
-    for(var i in this.branches){
+    const blen= this.branches.length;
+    for(var i= 0; i<blen; i++){
       res += this.branches[i].prg.toString();
       res += (i<this.branches.length-1)?"||":"";
       }
@@ -4088,11 +4090,12 @@ SC_Par.prototype={
     }
   };
 function SC_ParDyn(channel, args){
-  if(undefined === channel){
+  if(undefined===channel){
     throw "Illegal dynamic Parrellel instruction use !";
     }
-  this.branches = [];
-  for(var i in args){
+  this.branches= [];
+  const alen= args.length;
+  for(var i= 0; i<alen; i++){
     this.branches.push(new SC_SeqBranchOfPar(null, this, args[i]));
     }
   this.channel = channel;
@@ -4185,13 +4188,14 @@ function SC_And(configsArray){
   if(2 == configsArray.length){
     return new SC_AndBin(configsArray[0], configsArray[1])
     }
-  this.c = configsArray;
+  this.c= configsArray;
   };
 SC_And.prototype = {
   constructor: SC_And
 , isAnSCProgram: true
 , isPresent: function(m){
-    for(var i in this.c){
+    const clen= this.c.length;
+    for(var i= 0; i<clen; i++){
       if(this.c[i].isPresent(m)){
         continue;
         }
@@ -4200,35 +4204,40 @@ SC_And.prototype = {
     return true;
     }
 , getAllValues: function(m,vals){
-    for(var i in this.c){
+    const clen= this.c.length;
+    for(var i= 0; i<clen; i++){
       this.c[i].getAllValues(m,vals);
       }
     }
 , bindTo: function(engine, parbranch, seq, path, cube){
-    var binder = _SC._b(cube);
-    var tmp_configs = [];
-    for(var i in this.c){
+    const binder= _SC._b(cube);
+    const tmp_configs= [];
+    const clen= this.c.length;
+    for(var i= 0; i<clen; i++){
       tmp_configs.push(binder(this.c[i]).bindTo(engine, parbranch
                                                      , seq, path, cube, cinst));
       }
-    var copy = new SC_And(tmp_configs);
+    var copy= new SC_And(tmp_configs);
     return copy;
     }
 , toString: function(){
     var res ="("+this.c[0].toString();
-    for(var i in this.c){
+    const clen= this.c.length;
+    for(var i= 0; i<clen; i++){
       res += " /\\ "+this.c[i].toString()
       }
     return res+") ";
     }
 , unregister: function(i){
-    for(var j in this.c){
+    const clen= this.c.length;
+    for(var j= 0; j<clen; j++){
       this.c[j].unregister(i);
       }
     }
-, registerInst: function(m,i){
-    for(var j in this.c){
-      this.c[j].registerInst(m,i);
+, registerInst: function(m, i){
+    const clen= this.c.length;
+    for(var j= 0; j<clen; j++){
+      this.c[j].registerInst(m, i);
       }
     }
   };
@@ -4275,7 +4284,8 @@ function SC_Or(configsArray){
 SC_Or.prototype = {
   constructor: SC_Or
 , isPresent: function(m){
-    for(var i in this.c){
+    const clen= this.c.length;
+    for(var i= 0; i<clen; i++){
       if(this.c[i].isPresent(m)){
         return true
         }
@@ -4286,7 +4296,8 @@ SC_Or.prototype = {
 , bindTo: function(engine, parbranch, seq, path, cube, cinst){
     const binder = _SC._b(cube);
     const tmp_configs = [];
-    for(var i in this.c){
+    const clen= this.c.length;
+    for(var i= 0; i<clen; i++){
       tmp_configs.push(binder(this.c[i]).bindTo(engine, parbranch
                                                      , seq, path, cube, cinst));
       }
@@ -4295,7 +4306,8 @@ SC_Or.prototype = {
     }
 , toString: function(){
     var res ="("+this.c[0].toString();
-    for(var i in this.c){
+    const clen= this.c.length;
+    for(var i= 0; i<clen; i++){
       res += " \\/ "+this.c[i].toString()
       }
     return res+") ";
@@ -4471,29 +4483,33 @@ function SC_Match(val, cases){
   this.v= val;
   this.cases= cases;
   };
-proto= SC_Match.prototype;
+(function(){
+const proto= SC_Match.prototype;
 _SC.markProgram(proto);
 proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
     const binder= _SC._b(cube);
     const copy= new SC_Instruction(SC_Opcodes.MATCH_INIT);
     binder(this.v);
     copy.v= this.v;
-    copy.cases = new Array(this.cases.length);
-    for(var n in this.cases){
-      copy.cases[n] = this.cases[n]
+    const clen= this.cases.length;
+    copy.cases= new Array(clen);
+    for(var n= 0; n<clen; n++){
+      copy.cases[n]= this.cases[n]
                        .bindTo(engine, parbranch, null, copy, cube, cinst);
-    }
+      }
     copy.path= path;
     return copy;
     };
 proto.toString= function(){
     var choices = "";
-    for(var v in this.cases){
+    const clen= this.cases.legnth;
+    for(var v= 0; v<clen; v++){
         choices += "{ "+v+" : "+this.cases[v]+"}"
       }
     return "match "+this.v+" selsect "+choices
             +" end match ";
     };
+})();
 function SC_Cube(o, p, extension){
   this.o= o;
   this.p= p;
@@ -5049,17 +5065,20 @@ SC_Machine.prototype = {
       }
     this.generated_values= Object.assign({}, this.setSensors);
     var tmp= this.pending;
+    const plen= tmp.length;
     this.pending= [];
-    for(var n in tmp){
+    for(var n= 0; n<plen; n++){
       tmp[n].e.generateInput(this, tmp[n].v);
       }
-    for(var n in this.permanentGenerate){
+    const pglen= this.permanentGenerate.length;
+    for(var n=0; n<pglen; n++){
       const evt= this.permanentGenerate[n];
-      evt.generate(this, evt.permanentValuatedGenerator > 0);
+      evt.generate(this, evt.permanentValuatedGenerator>0);
       }
     tmp= this.pendingPrograms;
     this.pendingPrograms= [];
-    for(var i in tmp){
+    const pplen= tmp.length;
+    for(var i= 0; i<pplen; i++){
       this.prg.addBranch(tmp[i], null, this);
       }
     this.actions= [];
@@ -5092,7 +5111,8 @@ SC_Machine.prototype = {
         }
       }.bind(this);
     this.generateValues();
-    for(var cell in this.cells){
+    const cellsLen= this.cells.length;
+    for(var cell=0; cell<cellsLen; cell++){
       this.cells[cell].prepare(this);
       }
     for(var i=0; i<this.actionsOnEvents.length; i++){
@@ -5222,7 +5242,7 @@ SC_Machine.prototype = {
         act(this.reactInterface);
         }
       }
-    for(var cell in this.cells){
+    for(var cell= 0; cell<cellsLen; cell++){
       this.cells[cell].swap();
       }
     for(var i=0; i<this.parActions.length; i++){
@@ -8989,12 +9009,12 @@ const SC= {
       }
     };
   Object.defineProperty(SC, "sc_build"
-                          , { value: 780
+                          , { value: 787
                             , writable: false
                               }
                           );
   Object.defineProperty(SC, "sc_version"
-                          , { value: "5.0.780.alpha"
+                          , { value: "5.0.787.alpha"
                             , writable: false
                               }
                           );
