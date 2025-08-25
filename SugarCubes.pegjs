@@ -3,8 +3,8 @@
  * Authors : Jean-Ferdy Susini (MNF)
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.787.alpha
- * build: 787
+ * version : 5.0.796.alpha
+ * build: 796
  * Copyleft 2014-2025.
  */
 start= cmt:blank def:define? cmt2:blank prg:script cmt3:blank{

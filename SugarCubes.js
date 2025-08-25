@@ -3,8 +3,8 @@
  * Author : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.787.alpha
- * build: 787
+ * version : 5.0.796.alpha
+ * build: 796
  * Copyleft 2014-2025.
  */
 ;
@@ -248,7 +248,7 @@ d'ordre sémantique... On va à nouveau dissocier machine et sensor.
   3. la valeur du représentant d'un sensor est unique et a une seule valeur à
      chaque réaction.
 */
-const SC_Global_Manager= {
+const SC_Runtime= {
     clocks: []
   , attachments: new PurgeableCollection()
 /*
@@ -296,7 +296,7 @@ l'échantillonnage par les machines réactives...
           }
         }
     };
-Object.freeze(SC_Global_Manager);
+Object.freeze(SC_Runtime);
 /*
  * le binding présente différents cas de figure :
  * - la constante à la construction (cas le plus simple)
@@ -1224,7 +1224,7 @@ Il contient
             }
           }
       };
-  SC_Global_Manager.registerBinder(binder);
+  SC_Runtime.registerBinder(binder);
   if(params.isPower){
     if((!isNaN(params.n) || !isNaN(params.delay))){
       this.n=params.n;
@@ -1233,7 +1233,7 @@ Il contient
       if(!isNaN(params.delay)){
         if(params.delay>0){
           const handle=setInterval(function(bc){
-            SC_Global_Manager.updateSensor(this);
+            SC_Runtime.updateSensor(this);
             for(var c of bc){ c(); }
             }.bind(this, boundClocks), params.delay);
           Object.defineProperty(this, "stop"
@@ -1250,7 +1250,7 @@ Il contient
                , { value: function(bc){
                        for(var i= 0; i<this.n; i++){
                          this.async();
-                         SC_Global_Manager.updateSensor(this);
+                         SC_Runtime.updateSensor(this);
                          for(var c of bc){ c(); }
                          }
                        }.bind(this, boundClocks), writable: false } );
@@ -1263,7 +1263,7 @@ Il contient
           };
       const animDetector= function(b, bc, ts){
         b.posted= false;
-        SC_Global_Manager.updateSensor(this, ts);
+        SC_Runtime.updateSensor(this, ts);
         for(var c of bc){ c(); }
         }.bind(this, b, boundClocks);
       b.ad= animDetector;
@@ -1288,7 +1288,7 @@ Il contient
     const times= params.times?parseInt(params.times):-1;
     const timer= { count: isNaN(times)?-1:times };
     const basic_handler= function(bc, evt){
-        SC_Global_Manager.updateSensor(this, evt);
+        SC_Runtime.updateSensor(this, evt);
         for(var c of bc){ c(); }
         }.bind(this, boundClocks);
     const timed_handler= function(timer, evt){
@@ -1382,7 +1382,7 @@ SC_SampledId.prototype={
   };
 Object.defineProperty(SC_SampledId.prototype, "newValue"
   , { value: function(value){
-        SC_Global_Manager.updateSensor(this, value);
+        SC_Runtime.updateSensor(this, value);
         }
      , writable: false
        });
@@ -5253,10 +5253,10 @@ proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
     return copy;
     };
 proto.toString= function(){
-    var choices = "";
+    var choices= "";
     const clen= this.cases.legnth;
     for(var v= 0; v<clen; v++){
-        choices += "{ "+v+" : "+this.cases[v]+"}"
+        choices+= "{ "+v+" : "+this.cases[v]+"}"
       }
     return "match "+this.v+" selsect "+choices
             +" end match ";
@@ -5615,6 +5615,8 @@ function SC_Machine(params){
     }
   this.ips= 0;
   this.reactMeasuring= 0;
+  this.sinceBegining= 0;
+  this.prevInstantNumber= 0;
   this.environment= new PurgeableCollection();//{};
   //this.environment=new Map();
   this.reactInterface= new SC_ReactiveInterface();
@@ -5672,7 +5674,7 @@ function SC_Machine(params){
                       }.bind(this)
              }
            );
-  SC_Global_Manager.addToRegisteredMachines(this);
+  SC_Runtime.addToRegisteredMachines(this);
   };
 SC_Machine.prototype = {
   constructor: SC_Machine
@@ -6105,21 +6107,26 @@ On parcours la liste des sensors...
         }
       }
     this.instantNumber++;
-    if(0 == this.instantNumber%256){
-      if(0 != this.reactMeasuring){
-        const now = performance.now();
-        this.ips = Math.floor(256*10000.0
-                          /(now-this.reactMeasuring))/10.0;
-        this.reactMeasuring = now;
-      }
-      else{
-        this.reactMeasuring = performance.now();
+    if(0!=this.reactMeasuring){
+      if(0==this.toContinue){
+        const now= performance.now();
+        const delta= now-this.reactMeasuring;
+        if(delta>1000){
+          const i= this.instantNumber-this.prevInstantNumber;
+          this.ips= Math.floor(i*1000.0
+                            /(delta));
+          this.reactMeasuring= now;
+          this.prevInstantNumber= this.instantNumber;
+          }
         }
+      }
+    else{
+      this.sinceBegining= this.reactMeasuring= performance.now();
       }
     this.ended=(res==SC_IState.TERM);
     if(this.ended){
       this.collapse();
-      SC_Global_Manager.removeFromRegisteredMachines(this);
+      SC_Runtime.removeFromRegisteredMachines(this);
       }
     this.reactInterface.getValuesOf= undefined;
     this.reactInterface.presenceOf= undefined;
@@ -9893,12 +9900,12 @@ pas garanti. C'est pourquoi il est déclaré dans la partie de l'API dite
  *** New API
  */
   Object.defineProperty(SC, "sc_build"
-                          , { value: 787
+                          , { value: 796
                             , writable: false
                               }
                           );
   Object.defineProperty(SC, "sc_version"
-                          , { value: "5.0.787.alpha"
+                          , { value: "5.0.796.alpha"
                             , writable: false
                               }
                           );
@@ -10090,7 +10097,7 @@ Changing many things :
           }
         const ownMachine=new SC_Machine(p);
         var res={};
-        res.getIPS=ownMachine.getIPS.bind(ownMachine);
+        res.getIPS= ownMachine.getIPS.bind(ownMachine);
         res.getInstantNumber=ownMachine.getInstantNumber.bind(ownMachine);
         res.getTopLevelParallelBranchesNumber
            =ownMachine.getTopLevelParallelBranchesNumber.bind(ownMachine);
@@ -10140,7 +10147,7 @@ Ici j'introduit l'équivalent de ton react multiple.
               return;
               }
             registrations[sensor.iids]= sensor;
-            SC_Global_Manager.connect(sensor, ream);
+            SC_Runtime.connect(sensor, ream);
             }
           else{
             throw new Error("invalid sensor to be bound with");
@@ -10151,7 +10158,7 @@ Ici j'introduit l'équivalent de ton react multiple.
             return;
             }
           delete(registrations[sensor.iids]);
-          SC_Global_Manager.disconnect(sensor, ream);
+          SC_Runtime.disconnect(sensor, ream);
           }.bind(res, reaction, registrations);
         Object.defineProperty(res, "isSCClock"
                                 , { value: true
@@ -10874,7 +10881,8 @@ Pas sur que ça reste c'est trop de niche...
   Object.defineProperty(SC, "and"
   , { value: function(){
           const tmp= [];
-          for(var i in arguments){
+	  const alen= arguments.length;
+          for(var i= 0; i<alen; i++){
             const c= arguments[i];
             if(_SC.isConfig(c))
             tmp.push(_SC.b_(c));
@@ -10887,7 +10895,8 @@ Pas sur que ça reste c'est trop de niche...
   Object.defineProperty(SC, "or"
   , { value: function(){
           const tmp= [];
-          for(var i in arguments){
+	  const alen= arguments.length;
+          for(var i= 0; i<alen; i++){
             const c= arguments[i];
             if(_SC.isConfig(c)){
               tmp.push(_SC.b_(c))
@@ -10923,7 +10932,8 @@ Pas sur que ça reste c'est trop de niche...
   , { enumerable: false
     , value: function(){
           const prgs= [];
-          for(var i in arguments){
+	  const alen= arguments.length;
+          for(var i= 0; i<alen; i++){
             const c= arguments[i];
             if(c.isAnSCProgram){
               prgs.push(c);
