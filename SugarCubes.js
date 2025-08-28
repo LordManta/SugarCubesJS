@@ -3,8 +3,8 @@
  * Author : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.929.alpha
- * build: 929
+ * version : 5.0.931.alpha
+ * build: 931
  * Copyleft 2014-2025.
  */
 ;
@@ -5140,9 +5140,9 @@ proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
       copy.exposedState= { exposeInstant: -1 };
       const cells= copy.swapList;
       if(cells){
-	const clen= cells.length;
+        const clen= cells.length;
         for(var n= 0; n<clen; n++){
-	  const i= cells[n];
+          const i= cells[n];
           const idn= i.id;
           Object.defineProperty(copy.exposeReader
           , idn
@@ -5172,9 +5172,9 @@ proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
       copy.path=path;
       var swap_text="(function(state, m){ this.exposeInstant=m.instantNumber; ";
       if(cells){
-	const clen= cells.length;
+        const clen= cells.length;
         for(var n= 0;n<clen; n++){
-	  const k= cells[n];
+          const k= cells[n];
           switch(k.type){
             case 'fun':{
               copy.exposedState[k.id] = copy.o[k.id].bind(copy.exposedState);
@@ -5401,11 +5401,6 @@ function SC_Machine(params){
             }
         };
     }
-/*  Object.defineProperty(this, "sensorId"
-           , { value: params.sensorId
-             , writable: false
-             }
-           );*/
   Object.defineProperty(this, "id"
            , { value: "@_"+nextMachineID++
              , writable: false
@@ -5417,7 +5412,6 @@ function SC_Machine(params){
   this.toContinue= 0;
   this.startReaction= 0;
   this.burstMode= false;
-  //this.eventID= 0;
   this.permanentActions= [];
   this.permanentGenerate= [];
   this.permanentActionsOn= [];
@@ -5503,46 +5497,45 @@ function SC_Machine(params){
            );
   SC_Runtime.addToRegisteredMachines(this);
   };
-SC_Machine.prototype = {
-  constructor: SC_Machine
+(function(proto){
 /*
- * extern API
+ * External API
  */
-, toString: function(){
+proto.toString= function(){
     return this.id;
-    }
-, enablePrompt: function(flag){
+    };
+proto.enablePrompt= function(flag){
     this.promptEnabled= flag;
-    }
-, setStdOut: function(stdout){
+    };
+proto.setStdOut= function(stdout){
     this.stdOut= ("function"==typeof(stdout))?stdout:NO_FUN;
-    }
-, setDumpTraceFun: function(stdout){
+    };
+proto.setDumpTraceFun= function(stdout){
     this.dumpTraceFun= ("function"==typeof(stdout))?stdout:NO_FUN;
-    }
-, setStdErr: function(stderr){
+    };
+proto.setStdErr= function(stderr){
     this.stdErr= ("function" == typeof(stderr))?stderr:NO_FUN;
-    }
-, addEntry: function(evtId, val){
+    };
+proto.addEntry= function(evtId, val){
     const evt= this.getEvent(evtId);
     this.pending.push({ e: evt, v: val });
-    }
-, addProgram: function(p){
+    };
+proto.addProgram= function(p){
     this.pendingPrograms.push(p);
-    }
-, getInstantNumber: function(){
+    };
+proto.getInstantNumber= function(){
     return this.instantNumber;
-    }
-, getTopLevelParallelBranchesNumber: function(){
+    };
+proto.getTopLevelParallelBranchesNumber= function(){
     return this.prg.branches.length;
-    }
-, getIPS: function(){
+    };
+proto.getIPS= function(){
     return this.ips;
-    }
+    };
 /*
- * intern API
+ * Internal API
  */
-, collapse: function(){
+proto.collapse= function(){
     this.prg= null;
     this.promptEnabled= false;
     this.whenGettingThread= null;
@@ -5565,27 +5558,21 @@ SC_Machine.prototype = {
     this.writeEvt= null;
     this.forEOB= null;
     this.environment= null;
-    if(0!=this.timer){
-      clearInterval(this.timer);
-      this.timer= 0;
-      }
     this.addProgram= NO_FUN;
     this.addEntry= NO_FUN;
     this.getTopLevelParallelBranchesNumber= function(){ return 0; };
-    }
-, getEvent: function(id){
+    };
+proto.getEvent= function(id){
     var res= this.environment.get(id.iids);
-    //var res=this.environment.get(id);
     if(undefined==res){
       this.environment.set(id.iids, res= new SC_Event(id, this));
-      //this.environment.set(id, res=new SC_Event(id, this));
       }
     else if(!(res instanceof SC_Event)){
       throw new Error("invalid event type");
       }
     return res;
-    }
-, getSensor: function(id){
+    };
+proto.getSensor= function(id){
     var res= this.environment.get(id.iids);
     if(undefined==res){
       this.environment.set(id.iids, res= new SC_Sensor(id));
@@ -5594,8 +5581,8 @@ SC_Machine.prototype = {
       throw new Error("invalid sensor type");
       }
     return res;
-    }
-, sampleSensor: function(sensId, val){
+    };
+proto.sampleSensor= function(sensId, val){
 /*
 Modifier la gestion des pending sensors. La gestion des Sensors doit-être
 séparée de la gestion des événements classiques.
@@ -5606,14 +5593,14 @@ séparée de la gestion des événements classiques.
       sensor.sampled= true;
       this.pendingSensors.push(sensor);
       }
-    }
-, addCellFun: function(aCell){
+    };
+proto.addCellFun= function(aCell){
     this.cells.push(aCell);
-    }
-, addEvtFun: function(f){
+    };
+proto.addEvtFun= function(f){
     this.actionsOnEvents.push(f);
-    }
-, addPermanentGenerate: function(inst, genVal){
+    };
+proto.addPermanentGenerate= function(inst, genVal){
     const evt= inst.evt;
     evt.permanentGenerators.push(inst);
     evt.permanentValuatedGenerator+= genVal;
@@ -5621,8 +5608,8 @@ séparée de la gestion des événements classiques.
     if(0>t){
       this.permanentGenerate.push(evt);
       }
-    }
-, removeFromPermanentGenerate: function(inst, genVal){
+    };
+proto.removeFromPermanentGenerate= function(inst, genVal){
     const evt= inst.evt;
     const t= evt.permanentGenerators.indexOf(inst);
     if(t>-1){
@@ -5633,61 +5620,61 @@ séparée de la gestion des événements classiques.
       const te= this.permanentGenerate.indexOf(evt);
       this.permanentGenerate.splice(te, 1);
       }
-    }
-, addPermanentFun: function(fun){
+    };
+proto.addPermanentFun= function(fun){
     this.permanentActions.push(fun);
-    }
-, removeFromPermanent: function(fun){
+    };
+proto.removeFromPermanent= function(fun){
     const t= this.permanentActions.indexOf(fun);
     if(t>-1){
       this.permanentActions.splice(t, 1);
       }
-    }
-, addPermanentActionOnOnly: function(inst){
+    };
+proto.addPermanentActionOnOnly= function(inst){
     this.permanentActionsOnOnly.push(inst);
-    }
-, removeFromPermanentActionsOnOnly: function(inst){
+    };
+proto.removeFromPermanentActionsOnOnly= function(inst){
     const t= this.permanentActionsOnOnly.indexOf(inst);
     if(t>-1){
       this.permanentActionsOnOnly.splice(t, 1);
       }
-    }
-, addPermanentActionOn: function(inst){
+    };
+proto.addPermanentActionOn= function(inst){
     this.permanentActionsOn.push(inst);
-    }
-, removeFromPermanentActionsOn: function(inst){
+    };
+proto.removeFromPermanentActionsOn= function(inst){
     var t= this.permanentActionsOn.indexOf(inst);
     if(t>-1){
       this.permanentActionsOn.splice(t, 1);
       }
-    }
-, addCubeFun: function(inst){
+    };
+proto.addCubeFun= function(inst){
     this.cubeActions.push(inst);
-    }
-, addPermanentCubeFun: function(inst){
+    };
+proto.addPermanentCubeFun= function(inst){
     this.permanentCubeActions.push(inst);
-    }
-, removeFromPermanentCube: function(inst){
+    };
+proto.removeFromPermanentCube= function(inst){
     var t= this.permanentCubeActions.indexOf(inst);
     if(t>-1){
       this.permanentCubeActions.splice(t, 1);
       }
-    }
-, addFun: function(fun){
+    };
+proto.addFun= function(fun){
     this.actions.push(fun);
-    }
-, addDynPar: function(p){
+    };
+proto.addDynPar= function(p){
     this.parActions.push(p);
-    }
-, registerForEndOfBurst: function(inst){
-      this.forEOB.push(inst);
-      }
-, react: function(){
+    };
+proto.registerForEndOfBurst= function(inst){
+    this.forEOB.push(inst);
+    };
+proto.react= function(){
    if(this.ended){ return !this.ended; }
 /*
  * Claude : le fameux boolean...
  */
-    var res = SC_IState.STOP;
+    var res= SC_IState.STOP;
 /*
 Si on est en burst mode on ne fait pas d'échantillonnage...
 */
@@ -5712,7 +5699,7 @@ On parcours la liste des sensors...
         sens.systemGen(sens.sampleVal, this, true);
         sens.sampled= false;
         }
-      this.pendingSensors = [];
+      this.pendingSensors= [];
       }
     this.generated_values= Object.assign({}, this.setSensors);
     var tmp= this.pending;
@@ -5742,11 +5729,11 @@ On parcours la liste des sensors...
       this.stdOut("\n"+this.instantNumber+" -: ");
       }
     // Phase 1 : pure reactive execution
-    while(SC_IState.SUSP == (res = this.activate())){
+    while(SC_IState.SUSP == (res= this.activate())){
       }
-    if((SC_IState.OEOI == res)||(SC_IState.WEOI == res)){
+    if((SC_IState.OEOI==res)||(SC_IState.WEOI==res)){
       this.eoi();
-      res = SC_IState.STOP;
+      res= SC_IState.STOP;
       }
     this.reactInterface.getValuesOf= function(evtID){
       if(evtID instanceof SC_EventId){
@@ -5754,7 +5741,7 @@ On parcours la liste des sensors...
         }
       throw new Error("ask for values of non event ID");
       }.bind(this);
-    this.reactInterface.presenceOf=function(id){
+    this.reactInterface.presenceOf= function(id){
       if(id instanceof SC_EventId){
         return this.getEvent(id).isPresent(this);
         }
@@ -5769,11 +5756,12 @@ On parcours la liste des sensors...
     for(var cell=0; cell<cellsLen; cell++){
       this.cells[cell].prepare(this);
       }
-    for(var i=0; i<this.actionsOnEvents.length; i++){
-      const act=this.actionsOnEvents[i];
-      var a=this.actionsOnEvents[i].action;
+    const aoelen= this.actionsOnEvents.length;
+    for(var i= 0; i<aoelen; i++){
+      const act= this.actionsOnEvents[i];
+      const a= act.action;
       if(a.f){
-        const t=a.t;
+        const t= a.t;
         if(null==t){
           continue;
           }
@@ -5788,13 +5776,14 @@ On parcours la liste des sensors...
         a(this.reactInterface);
         }
       }
-    for(var i=0; i<this.permanentActionsOnOnly.length; i++){
-      const inst=this.permanentActionsOnOnly[i];
-      const pres=inst.evtFun.config.isPresent(this);
+    const paoolen= this.permanentActionsOnOnly.length;
+    for(var i=0; i<paoolen; i++){
+      const inst= this.permanentActionsOnOnly[i];
+      const pres= inst.evtFun.config.isPresent(this);
       if(pres){
-        const a=inst.evtFun.action;
+        const a= inst.evtFun.action;
         if(a.f){
-          var t=a.t;
+          const t= a.t;
           if(null==t){
             continue;
             }
@@ -5810,13 +5799,14 @@ On parcours la liste des sensors...
           }
         }
       }
-    for(var i=0; i<this.permanentActionsOn.length; i++){
-      const inst=this.permanentActionsOn[i];
-      const pres=inst.evtFun.config.isPresent(this);
+    const paolen= this.permanentActionsOn.length;
+    for(var i=0; i<paolen; i++){
+      const inst= this.permanentActionsOn[i];
+      const pres= inst.evtFun.config.isPresent(this);
       if(pres){
-        const a=inst.evtFun.action;
+        const a= inst.evtFun.action;
         if(a.f){
-          const t=a.t;
+          const t= a.t;
           if(null==t){
             continue;
             }
@@ -5831,10 +5821,10 @@ On parcours la liste des sensors...
           a(this.reactInterface);
           }
         }
-      else if(SC_Opcodes.ACTION_ON_EVENT_FOREVER_HALTED == inst.oc){
-        const act=inst.defaultAct;
+      else if(SC_Opcodes.ACTION_ON_EVENT_FOREVER_HALTED==inst.oc){
+        const act= inst.defaultAct;
         if(act.f){
-          const t=act.t;
+          const t= act.t;
           if(null==t){
             continue;
             }
@@ -5850,20 +5840,21 @@ On parcours la liste des sensors...
           }
         }
       }
-    const cal=this.cubeActions.length;
+    const cal= this.cubeActions.length;
     for(var i= 0; i<cal; i++){
       const inst= this.cubeActions[i];
       inst.closure(this.reactInterface);
       }
-    const pcal=this.permanentCubeActions.length;
+    const pcal= this.permanentCubeActions.length;
     for(var i= 0; i<pcal; i++){
       const inst= this.permanentCubeActions[i];
       inst.closure(this.reactInterface);
       }
-    for(var i=0; i<this.actions.length; i++){
-      var act=this.actions[i];
+    const aclen= this.actions.length;
+    for(var i= 0; i<aclen; i++){
+      const act= this.actions[i];
       if(act.f){
-        var t=act.t;
+        const t= act.t;
         if(null==t){
           continue;
           }
@@ -5878,10 +5869,11 @@ On parcours la liste des sensors...
         act(this.reactInterface);
         }
       }
-    for(var i=0; i<this.permanentActions.length; i++){
-      var act=this.permanentActions[i];
+    const paclen= this.permanentActions.length;
+    for(var i= 0; i<paclen; i++){
+      const act= this.permanentActions[i];
       if(act.f){
-        var t=act.t;
+        const t=act.t;
         if(null==t){
           continue;
           }
@@ -5900,7 +5892,8 @@ On parcours la liste des sensors...
     for(var cell= 0; cell<cellsLen; cell++){
       this.cells[cell].swap();
       }
-    for(var i=0; i<this.parActions.length; i++){
+    const paralen= this.parActions.length;
+    for(var i= 0; i<paralen; i++){
       this.parActions[i].computeAndAdd(this);
       }
     // Phase 5
@@ -5911,7 +5904,10 @@ On parcours la liste des sensors...
       will(this.reactInterface);
       }
     if(this.writeEvt.isPresent(this)){
-      for(var msg of this.writeEvt.getValues(this)){
+      const wevtvals= this.writeEvt.getValues(this);
+      const wevtvalslen= wevtvals.length;
+      for(var n= 0; n<wevtvalslen; n++){
+	const msg= wevtvals[n];
         if(msg._){ msg= "["+this.instantNumber+": "+msg.t+"]"; }
         this.stdOut(msg);
         }
@@ -5928,7 +5924,7 @@ On parcours la liste des sensors...
     const eobs= this.forEOB.length;
     if(0==this.toContinue && eobs>0){
       this.startReaction=0;
-      for(var i=0; i<eobs; i++){
+      for(var i= 0; i<eobs; i++){
         const eobi= this.forEOB.pop();
         eobi.updateAtEndOfBurst(this);
         }
@@ -5959,21 +5955,22 @@ On parcours la liste des sensors...
     this.reactInterface.presenceOf= undefined;
     this.burstMode= false;
     return !this.ended;
-    }
-, trace(){
-    const args=[];
+    };
+proto.trace= function(){
+    const args= [];
     args.push(`machine(${this.instantNumber}): `);
-    for(var i of arguments){
-      args.push(i);
+    const alen= arguments.length;
+    for(var n= 0; n< alen; n++){
+      args.push(arguments[n]);
       }
     console.log.apply(console, args);
-    }
-, activate: function(){
-    var st = SC_IState.SUSP;
-    var inst = this.prg;
-    var seq = null;
-    var control_body = false;
-    var caller = act_exit;
+    };
+proto.activate= function(){
+    var st= SC_IState.SUSP;
+    var inst= this.prg;
+    var seq= null;
+    var control_body= false;
+    var caller= act_exit;
     while(true){
 ACT:  switch(inst.oc){
         case SC_Opcodes._EXIT:{
@@ -8426,11 +8423,11 @@ ACT:  switch(inst.oc){
           }
         }
       }
-    }
-, eoi: function(){
-    var inst=this.prg;
-    var seq=null;
-    var caller=act_exit;
+    };
+proto.eoi= function(){
+    var inst= this.prg;
+    var seq= null;
+    var caller= act_exit;
     while(true){
 EOI:  switch(inst.oc){
         case SC_Opcodes._EXIT:{
@@ -8683,9 +8680,9 @@ EOI:  switch(inst.oc){
           }
         }
       }
-    }
-, reset: function(inst){
-    var caller=act_exit;
+    };
+proto.reset= function(inst){
+    var caller= act_exit;
     while(true){
 RST:  switch(inst.oc){
         case SC_Opcodes._EXIT:{
@@ -9370,8 +9367,8 @@ RST:  switch(inst.oc){
           }
         }
       }
-    }
-, generateValues: function(){
+    };
+proto.generateValues= function(){
     var inst= this.prg;
     var caller= act_exit;
     while(true){
@@ -9529,8 +9526,9 @@ GRV:  switch(inst.oc){
           }
         }
       }
-    }
-  };
+    };
+Object.freeze(proto);
+})(SC_Machine.prototype);
 var nextID= 0;
 /*
 Public API
@@ -9727,12 +9725,12 @@ pas garanti. C'est pourquoi il est déclaré dans la partie de l'API dite
  *** New API
  */
   Object.defineProperty(SC, "sc_build"
-                          , { value: 929
+                          , { value: 931
                             , writable: false
                               }
                           );
   Object.defineProperty(SC, "sc_version"
-                          , { value: "5.0.929.alpha"
+                          , { value: "5.0.931.alpha"
                             , writable: false
                               }
                           );
