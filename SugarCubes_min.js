@@ -3,8 +3,8 @@
  * Authors : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.931.alpha
- * build: 931
+ * version : 5.0.953.alpha
+ * build: 953
  * Copyleft 2014-2025.
  */
 ;
@@ -131,6 +131,11 @@ function isFun(fun){
           || ("object"==typeof(fun) && "object"==typeof(fun.t)
                  && testNES(fun.f))
           || (fun instanceof SC_LateBinding);
+    };
+function checkFun(f){
+    if(!isFun(f)){
+      throw new Error(f+" is an invalid fun");
+      }
     };
 const SC_Instruction_state_str= [
     "UNDF" 
@@ -861,7 +866,7 @@ function SC_SensorId(params){
                           && t.target.addEventListener
                           && t.evt && testNES(t.evt)){
                          t.target.addEventListener(t.evt, this.handler);
-                         this.timer.dt.push(t);
+                         this.timer.dt.push({ target: t.target, evt: t.evt });
                          }
                        }
                      }
@@ -871,7 +876,7 @@ function SC_SensorId(params){
                         && t.target.addEventListener
                         && t.evt && testNES(t.evt)){
                        t.target.addEventListener(t.evt, this.handler);
-                       this.timer.dt.push(t);
+                       this.timer.dt.push({ target: t.target, evt: t.evt });
                        }
                      }
                    }.bind(binder), writable: false } );
@@ -5322,7 +5327,7 @@ proto.react= function(){
       const wevtvals= this.writeEvt.getValues(this);
       const wevtvalslen= wevtvals.length;
       for(var n= 0; n<wevtvalslen; n++){
-	const msg= wevtvals[n];
+        const msg= wevtvals[n];
         if(msg._){ msg= "["+this.instantNumber+": "+msg.t+"]"; }
         this.stdOut(msg);
         }
@@ -8910,33 +8915,59 @@ Object.freeze(proto);
 var nextID= 0;
 const SC= {
     nop: function(){
-      return this.nothing();
+        return this.nothing();
+        }
+  , purge: function(prg){
+        return (prg && prg.isAnSCProgram)?prg:this.nothing();
+        }
+  , repeatForever: function(n){
+        Array.prototype.unshift.call(arguments, this.forever);
+        return this.repeat.apply(this, arguments);
+        }
+  , matches: function(){
+        const args= [];
+        args.push(arguments[0]);
+        for(var b of arguments[1]){
+          args.push(b);
+          }
+        return this.match.apply(this, args);
+        }
+  , cubeAction: function(params){
+      if(undefined==params){
+        throw new Error("no params for cubeAction");
+        }
+      if(undefined==params.fun){
+        throw new Error("no fun for cubeAction: "+params.fun
+                      +" fun type "+typeof(params.fun));
+        }
+      params.fun= b_(params.fun, { vf: true });
+      return new SC_CubeAction(params);
+      }
+  , cubeCell: function(c){
+      return new SC_CubeCell(testNES(c));
       }
   , pauseBurst: function(n){
-      return new SC_PauseBurst(checkNum(n));
-      }
+        return new SC_PauseBurst(checkNum(n));
+        }
   , pauseBurstUntil: function(cond){
-          if(undefined==cond){
-            throw new Error('pauseBurstUntil(): invalid condition: '+cond);
-            }
-          if(false===cond){
-            console.error("pauseBurstUntil(): pauseForever for a false const.");
-            return this.pauseForever();
-            }
-          if(true===cond){
-            console.error("pauseBurstUntil(): single pause for a true const.");
-            return this.pauseBurst();
-            }
-          if("function"!=typeof(cond) && !(cond instanceof SC_LateBinding)){
-            throw new Error(
-                         'pauseBurstUntil(): invalid condition implementation: '
-                        +cond);
-            }
-          return new SC_PauseBurstUntil(cond);
+        if(undefined==cond){
+          throw new Error('pauseBurstUntil(): invalid condition: '+cond);
           }
-  , purge: function(prg){
-      return (prg && prg.isAnSCProgram)?prg:this.nothing();
-      }
+        if(false===cond){
+          console.error("pauseBurstUntil(): pauseForever for a false const.");
+          return this.pauseForever();
+          }
+        if(true===cond){
+          console.error("pauseBurstUntil(): single pause for a true const.");
+          return this.pauseBurst();
+          }
+        if("function"!=typeof(cond) && !(cond instanceof SC_LateBinding)){
+          throw new Error(
+                       'pauseBurstUntil(): invalid condition implementation: '
+                      +cond);
+          }
+        return new SC_PauseBurstUntil(cond);
+        }
   , repeatBurstForever: function(){
         Array.prototype.unshift.call(arguments, this.forever);
         return this.repeatBurst.apply(this, arguments);
@@ -9027,177 +9058,204 @@ const SC= {
           }
         return new SC_GenerateBurst(params);
         }
-  , repeatForever: function(n){
-      Array.prototype.unshift.call(arguments, this.forever);
-      return this.repeat.apply(this, arguments);
-      }
-  , matches: function(){
-      const args=[] 
-      args.push(arguments[0]);
-      for(var b of arguments[1]){
-        args.push(b);
-        }
-      return this.match.apply(this, args);
-      }
-  , cubeAction: function(params){
-      if(undefined == params){
-        throw new Error("no params for cubeAction");
-        }
-      if(undefined==params.fun){
-        throw new Error("no fun for cubeAction: "+params.fun
-                      +" fun type "+typeof(params.fun));
-        }
-      params.fun= b_(params.fun, { vf: true })
-      return new SC_CubeAction(params);
-      }
-  , cubeCell: function(c){
-      return new SC_CubeCell(testNES(c));
-      }
   , log: function(msg){
-      return new SC_Log(msg);
-      }
+        return new SC_Log(msg);
+        }
   , _: function(tgt, fun){
-      return (tgt[fun]).bind(tgt);
-      }
+        return (tgt[fun]).bind(tgt);
+        }
   , _my: function(name, tp){
-      if(name && ("string"==typeof(name)) && (""!=name)){
-        if(tp && "string"==typeof(tp) && ""!=tp){
-          return this.__(name, { tp: tp });
-          }
-        return this.__(name);
-        }
-      throw new Error("invalid object property name "+arguments);
-      }
-  , my: function(name){
-      const p= [];
-      for(var i= 1; i<arguments.length; i++){
-        p.push(arguments[i]);
-        }
-      if(undefined!=name && "string"==typeof(name) && ""!=name){
-        if(0==p.length){
+        if(name && ("string"==typeof(name)) && (""!=name)){
+          if(tp && "string"==typeof(tp) && ""!=tp){
+            return this.__(name, { tp: tp });
+            }
           return this.__(name);
           }
-        return this.__(name, { p: p });
+        throw new Error("invalid object property name "+arguments);
         }
-      throw new Error("invalid object property name "+arguments);
-      }
+  , my: function(name){
+        const p= [];
+        for(var i= 1; i<arguments.length; i++){
+          p.push(arguments[i]);
+          }
+        if(undefined!=name && "string"==typeof(name) && ""!=name){
+          if(0==p.length){
+            return this.__(name);
+            }
+          return this.__(name, { p: p });
+          }
+        throw new Error("invalid object property name "+arguments);
+        }
     };
-  Object.defineProperty(SC, "sc_build"
-                          , { value: 931
-                            , writable: false
-                              }
-                          );
-  Object.defineProperty(SC, "sc_version"
-                          , { value: "5.0.931.alpha"
-                            , writable: false
-                              }
-                          );
-  Object.defineProperty(SC, "writeInConsole"
-                          , { value: console.log.bind(console)
-                            , writable: false
-                              }
-                          );
- Object.defineProperty(SC, "externalEvent"
-                          , { value: function(pElt_target, ps_DomEvt, times) {
-                                if(undefined===times || isNaN(times)){
-                                  times=-1;
-                                  }
-                                const pSensor= SC.sensor({
-                                        name: Elt_target+'.'+ps_DomEvt
-                                      , dom_targets: [ { target: pElt_target
-                                          , evt: ps_DomEvt } ]
-                                      , times: parseInt(times)
-                                      , owned: true
-                                        });
-                                return pSensor
+Object.defineProperty(SC, "sc_build"
+                        , { value: 953
+                          , writable: false
+                            }
+                        );
+Object.defineProperty(SC, "sc_version"
+                        , { value: "5.0.953.alpha"
+                          , writable: false
+                            }
+                        );
+Object.defineProperty(SC, "writeInConsole"
+                        , { value: console.log.bind(console)
+                          , writable: false
+                            }
+                        );
+Object.defineProperty(SC, "externalEvent"
+                         , { value: function(pElt_target, ps_DomEvt, times){
+                               if(undefined===times || isNaN(times)){
+                                 times= -1;
+                                 }
+                               const pSensor= SC.sensor({
+                                       name: Elt_target+'.'+ps_DomEvt
+                                     , dom_targets: [ { target: pElt_target
+                                         , evt: ps_DomEvt } ]
+                                     , times: parseInt(times)
+                                     , owned: true
+                                       });
+                               return pSensor;
+                               }
+                           , writable: false
+                             }
+                         );
+Object.defineProperty(SC, "me"
+                        , { value: new SC_CubeExposedState()
+                          , writable: false
+                            }
+                        );
+var animator= null;
+Object.defineProperty(SC, "animSensor"
+                        , { value: function(){
+                              if(animator){
+                                return animator;
                                 }
-                            , writable: false
+                              const params= { name: "animator"
+                                , isPower: true };
+                              return animator= new SC_SensorId(params);
                               }
-                          );
-  var animator= null;
-  Object.defineProperty(SC, "me"
-                          , { value: new SC_CubeExposedState()
-                            , writable: false
-                              }
-                          );
-  Object.defineProperty(SC, "animSensor"
-                          , { value: function(){
-                                if(animator){
-                                  return animator;
-                                  }
-                                const params={ name: "animator"
-                                  , isPower: true };
-                                return animator=new SC_SensorId(params);
+                          , writable: false
+                            }
+                        );
+const NO_NAME_EVT= "no_name";
+Object.defineProperty(SC, "evt"
+                        , { value: function(name, params){
+                              const p= {};
+                              if(undefined==name){
+                                throw new Error("Invalid parameters: "
+                                                                  +arguments);
                                 }
-                            , writable: false
-                              }
-                          );
-  Object.defineProperty(SC, "evt"
-                          , { value: function(name, params){
-                                if("string"!=typeof(name)){
-                                  name="no_name";
-                                  }
-                                if(undefined!=params){
-                                  params.name=name;
-                                  }
-                                else{
-                                  params={ name: name };
-                                  }
-                                return new SC_EventId(params);
+                              else if(testNES(name)){
+                                p.name= name;
                                 }
-                            , writable: false
-                              }
-                          );
-  Object.defineProperty(SC, "sampled"
-                          , { value: function(name, params){
-                                if(undefined!=params){
-                                  params.name=name;
-                                  }
-                                else{
-                                  params={ name: name };
-                                  }
-                                return new SC_SampledId(params);
+                              else if(testNES(name.name)){
+                                p.name= name.name;
                                 }
-                            , writable: false
+                              else{
+                                p.name= NO_NAME_EVT;
+                                }
+                              if('object'==typeof(params)){
+                                params.name= name;
+                                }
+                              else if('object'==typeof(name)){
+                                params= name;
+                                }
+                              if('object'==typeof(params)){
+                                if('function'==typeof(params.makeNew)){
+                                  p.makeNew= params.makeNew;
+                                  }
+                                if('function'==typeof(params.distribute)){
+                                  p.distribute= params.distribute;
+                                  }
+                                }
+                              return new SC_EventId(p);
                               }
-                          );
-  Object.defineProperty(SC, "sensor"
-                          , { value: function(name, params){
-                                const p= {};
-                                if(undefined==name){
-                                  throw new Error("Invalid parameters: "
-                                                                    +arguments);
-                                  }
-                                else if("string"==typeof(name)){
-                                  p.name= name;
-                                  }
-                                else if(name.name){
-                                  params= name;
-                                  }
-                                if(params){
-                                  p.isPower= params.isPower;
+                          , writable: false
+                            }
+                        );
+Object.defineProperty(SC, "sampled"
+                        , { value: function(name){
+                              const p= {};
+                              if(undefined==name){
+                                throw new Error("Invalid parameters: "
+                                                                  +arguments);
+                                }
+                              else if(testNES(name)){
+                                p.name= name;
+                                }
+                              else if(testNES(name.name)){
+                                p.name= name.name;
+                                }
+                              else{
+                                p.name= NO_NAME_EVT;
+                                }
+                              return new SC_SampledId(p);
+                              }
+                          , writable: false
+                            }
+                        );
+Object.defineProperty(SC, "sensor"
+                        , { value: function(name, params){
+                              const p= {};
+                              if(undefined==name){
+                                throw new Error("Invalid parameters: "
+                                                                  +arguments);
+                                }
+                              else if("string"==typeof(name)){
+                                p.name= name;
+                                }
+                              else if(name.name){
+                                params= name;
+                                }
+                              if(params){
+                                p.isPower= undefined!=params.isPower;
+                                if(undefined!==params.n
+                                   && !isNaN(params.n)){
                                   p.n= params.n;
+                                  }
+                                if(undefined!==params.delay
+                                   && !isNaN(params.delay)){
                                   p.delay= params.delay;
+                                  }
+                                if(undefined!==params.async
+                                  && 'function'==typeof(params.async)){
                                   p.async= params.async;
-                                  p.dom_targets= params.dom_targets;
+                                  }
+                                if(Array.isArray(params.dom_targets)){
+                                  p.dom_targets= [];
+                                  const dt= params.dom_targets;
+                                  const dtlen= dt.length;
+                                  for(var i= 0; i<dtlen; i++){
+                                    const t= dt[i];
+                                    if(t.target && "object"==typeof(t.target)
+                                      && t.target.addEventListener
+                                      && t.evt && testNES(t.evt)){
+                                      p.dom_targets.push({ target: t.target, evt: t.evt });
+                                      }
+                                    }
+                                  }
+                                if(undefined!==params.times
+                                   && !isNaN(params.times)){
                                   p.times= params.times;
                                   }
-                                return new SC_SensorId(p);
                                 }
-                            , writable: false
+                              return new SC_SensorId(p);
                               }
-                          );
+                          , writable: false
+                            }
+                        );
   Object.defineProperty(SC, "processor"
                           , { enumerable: false
-                            , value: function(p){
-                                if(undefined==p || "object"!=typeof(p)){
-                                  p={};
+                            , value: function(params){
+                                const p= { isPower: true, name: "processor" };
+                                if(params && !isNaN(params.n) && 0<params.n){
+                                  p.n= params.n;
                                   }
-                                p.name="processor";
-                                p.isPower=true;
-                                delete(p.delay);
-                                if(undefined==p.n || 0>p.n){
-                                  p.n=1;
+                                else{
+                                  p.n= 1;
+                                  }
+                                if(params && 'function'==typeof(params.async)){
+                                  p.async= params.async;
                                   }
                                 return new SC_SensorId(p);
                                 }
@@ -9206,53 +9264,64 @@ const SC= {
                           );
   Object.defineProperty(SC, "periodic"
                           , { enumerable: false
-                            , value: function(p){
-                                if(undefined==p || "object"!=typeof(p)){
+                            , value: function(params){
+                                const p= { isPower: true, name: "periodic" };
+                                if(undefined==params || "object"!=typeof(params)){
                                   throw new Error(
-                                             "SC.periodic(): invalid param "+p);
+                                             "SC.periodic(): invalid param "+params);
                                   }
-                                if(isNaN(p.delay) || p.delay<=0){
+                                if(isNaN(params.delay) || params.delay<=0){
                                   throw new Error(
-                                       "SC.periodic(): invalid delay "+p.delay);
+                                       "SC.periodic(): invalid delay "+params.delay);
                                   }
-                                p.name="periodic";
-                                p.isPower=true;
+                                p.delay= params.delay;
                                 return new SC_SensorId(p);
                                 }
                             , writable: false
                               }
                           );
-  var newID= 0;
-  Object.defineProperty(SC, "newID"
-  , { 
-      value: function(){
-        return newID++;
-        }
-      }
-    );
   Object.defineProperty(SC, "clock"
   , { 
-      value: function(p){
-        if(undefined==p){
-          p={};
-          }
-        if(undefined==p.name){
+      value: function(params= {}){
+        const p= {};
+        if(undefined==params.name){
           p.name=(nextID++)+"_unanmed_machine"
           }
-        else if("string"!=typeof(p.name)){
+        else if("string"!=typeof(params.name)){
           throw new Error("invalid name : "+p.name);
           }
- if(p.init && !p.init.isAnSCProgram){
-          throw new Error("invalid initial program : "+p.init);
+        else{
+          p.name= params.name;
           }
-        if(p.fun_stdout && "function"!=typeof(p.fun_stdout)){
-          throw new Error("invalid stdout function : "+p.fun_stdout);
+        if(params.init && !params.init.isAnSCProgram){
+          throw new Error("invalid initial program : "+params.init);
           }
-        if(p.fun_stderr && "function"!=typeof(p.fun_stderr)){
-          throw new Error("invalid stderr function : "+p.fun_stderr);
+        if(params.init){
+          p.init= params.init;
           }
-        if(p.fun_prompt && "function"!=typeof(p.fun_prompt)){
-          throw new Error("invalid prompt function : "+p.fun_prompt);
+        if(params.fun_stdout && "function"!=typeof(params.fun_stdout)){
+          throw new Error("invalid stdout function : "+params.fun_stdout);
+          }
+        if(params.fun_stdout){
+          p.fun_stdout= params.fun_stdout;
+          }
+        if(params.fun_stderr && "function"!=typeof(params.fun_stderr)){
+          throw new Error("invalid stderr function : "+params.fun_stderr);
+          }
+        if(params.fun_stderr){
+          p.fun_stderr= params.fun_stderr;
+          }
+        if(params.fun_prompt && "function"!=typeof(params.fun_prompt)){
+          throw new Error("invalid prompt function : "+params.fun_prompt);
+          }
+        if(params.fun_prompt){
+          p.fun_prompt= params.fun_prompt;
+          }
+        if(params.dumpTraceFun && "function"!=typeof(params.dumpTraceFun)){
+          throw new Error("invalid prompt function : "+params.dumpTraceFun);
+          }
+        if(params.dumpTraceFun){
+          p.dumpTraceFun= params.dumpTraceFun;
           }
         const ownMachine=new SC_Machine(p);
         var res={};
@@ -9327,27 +9396,28 @@ const SC= {
         if(undefined==c){
           throw new Error("invalid parameters : "+arguments);
           }
-        const prm={};
+        const prm= {};
         if(1==arguments.length && "object"==typeof(c)){
-          if(undefined==c.config){
-            throw new Error("invalid parameters : "+c);
+          checkConfig(c.config);
+          checkFun(c.fun);
+          if(c.deffun){
+            checkFun(c.deffun);
             }
           prm.c= c.config;
-          if(undefined==c.fun && undefined== c.deffun){
-            throw new Error("invalid parameters : "+c);
-            }
           prm.fun= c.fun;
           prm.deffun= c.deffun;
-          prm.times= c.times;
+          prm.times= checkNum(c.times);
           }
         else{
-          if(undefined==fun && undefined== deffun){
-            throw new Error("invalid parameters : fun="+fun+" deffun="+deffun);
-            }
+          checkConfig(c);
           prm.c= c;
+          checkFun(fun);
+          if(deffun){
+            checkFun(deffun);
+            }
           prm.fun= fun;
           prm.deffun= deffun;
-          prm.times= times;
+          prm.times= checkNum(times);
           }
         return new SC_ActionOnEvent(b_(prm.c), b_(prm.fun, { vf: true })
                                   , b_(prm.deffun, { vf: true })

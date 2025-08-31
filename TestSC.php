@@ -157,7 +157,7 @@ m.addProgram(test_prg);
 if("function"==typeof(testBehavior.async)){
   testBehavior.async=testBehavior.async.bind(testBehavior);
   }
-const power=SC.processor({ n: maxInstants, async: testBehavior.async });
+const power= SC.processor({ n: maxInstants, async: testBehavior.async });
 m.bindTo(power);
 power.run();
 
