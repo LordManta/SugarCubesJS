@@ -3,8 +3,8 @@
  * Author : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.1072.alpha
- * build: 1072
+ * version : 5.0.1073.alpha
+ * build: 1073
  * Copyleft 2014-2025.
  */
 ;
@@ -9840,12 +9840,12 @@ pas garanti. C'est pourquoi il est déclaré dans la partie de l'API dite
 Strong API
  */
 Object.defineProperty(SC, "sc_build"
-                        , { value: 1072
+                        , { value: 1073
                           , writable: false
                             }
                         );
 Object.defineProperty(SC, "sc_version"
-                        , { value: "5.0.1072.alpha"
+                        , { value: "5.0.1073.alpha"
                           , writable: false
                             }
                         );

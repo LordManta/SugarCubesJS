@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Meteor</title>
+  <script type="text/javascript" src="SugarCubes_min.js"></script>
+  <style>
+  #workspace{
+    border:1px solid #000000;
+    float:left;
+    }
+/*ul {
+    list-style: outside disc;
+    margin-left: 2em;
+}*/
+ul li {
+    position: relative;
+    left: 2em;
+    padding-right: 1em;    
+}
+table, tr, th, td{
+  border:1px solid black;
+  border-collapse: collapse;
+  }
+footer {
+  display: flex;
+  justify-content: center;
+  padding: 2px;
+  background-color: lightgrey;
+  }
+</style>
+</head>
+<body>
+  <canvas id="workspace" height="700px" width="700px" onclick="for(var i= 0; i<10; i++){launch();}"></canvas>
+  <section>
+  <h3>Simulation d'un système planétaire en utilisant SugarCubes JS.</h3>
+  La simulation commence par créer 3 corps stellaires :
+  <ul style="padding-left:1em;">
+  <li> Le soleil au centre (jaune)
+  <li> La terre (bleu)
+  <li> la lune (rouge)
+  </ul>
+Les distances initiales sont la terre à <span id="distSoleilTerre"></span> Km du soleil, la lune à <span id="distTerreLune"></span> Km de la terre.<br>
+La vitesse linéaire initiale de la terre dans son orbite autour du soleil : <span id="vitesseTerre"></span> m/s avec une masse de <span id="masseTerre"></span> kg.<br>
+Pour la lune on considère la vitesse de rotation linéaire de <span id="vitesseLune"></span> m/s ajouté à la vitesse de rotation de la terre autour du soleil et une masse de <span id="masseLune"></span> Kg.<br>
+La masse du soleil est de <span id="masseSoleil"></span> kg.<br>
+La constante de gravitation universelle retenue est de <span id="constanteG"></span> m<sup>3</sup>/kg/s<sup>2</sup>.<br>
+  <p>
+La simulation utilise un algo d'intégration d'Euler explicite dont chaque pas correspond à un instant de la machine réactive. L'horloge de la machine réactive est non périodique et exécute <span id="blockDInstants"></span> instants consécutifs déclenchés toutes les <span id="delayReact"></span> millisecondes environ. Le pas de temps d'intégration est de <span id="DTVal">50</span> secondes de temps physique. On peut ajuster sa valeur avec le slider suivant :<br>
+  <input id="DTslider" type="range" min="0.01" max="1000" value="1" onchange="changeDTValue(this.value)" style="width:400px;"></input>
+  <input id="DTnum" value="1" type="number" onchange="changeDTValue(this.value)"/>
+  </p>
+  Pour pouvoir voir les astres à l'écran, les diamètres ne sont pas réalistes et les distances sont mise à l'échelle...
+  <p>Chaque clic dans la fenêtre ajoute 10 météore (gris) de 1kg supplémentaires avec une vitesse et une position tirée au hasard. </p>
+  <p>La simulation contient : <span id="counter">0</span> corps
+  </p>
+  On peut régler l'échelle de l'affichage de la simulation ici :
+  1 pixel=<span id="zoomVal">500000000</span> mètres<br>
+  <input id="slider" type="range" min="10" max="100" value="20" onchange="changeZoomValue(this.value)" style="width:500px;clear: both;"></input>
+  <table>
+  <tr>
+  <th></th>
+  <th>instants</th>
+  <th>temps physique</th>
+  <th>temps réel</th>
+  </tr>
+  <tr>
+  <th>par secondes<br>de simulation</th>
+  <td id="IPSVal"></td>
+  <td id="timeVal"></td>
+  <td id="rtimeVal"></td>
+  </tr>
+  <tr>
+  <th>depuis le début</th>
+  <td id="instants"></td>
+  <td id="tempsSimVal"></td>
+  <td id="rtimeSimVal"></td>
+  </tr>
+  </table>
+  <p>La terre a fait <span id="angle">0</span> tours dans sa révolution autour du soleil (mesuré: <span id="terre_rev_duree"></span>).</p>
+  <p>La lune a fait <span id="angleTerre">0</span> tours dans sa révolution autour de la Terre.</p>
+  </section>
+  <button onclick="ajouteMesure()">Ajoute des instruments de mesure</button>
+  <div id="mesureDynamique">
+  </div>
+  <br>
+  <script type="text/javascript">
+  if(undefined == window.performance){
+    window.performance={now:function(){
+                 return new Date().getTime();
+                 }
+               };
+    }
+  //const workspace=document.getElementById("workspace");
+  //const counter=document.getElementById("counter");
+  //const zoomVal=document.getElementById("zoomVal");
+  //const DTVal=document.getElementById("DT");
+  //const IPSVal=document.getElementById("ips");
+  //const timeVal=document.getElementById("time");
+  //const instants=document.getElementById("instants");
+  //const tempsSimVal=document.getElementById("tempsSim");
+  //const angle=document.getElementById("angle");
+  //const angleTerre=document.getElementById("angleTerre");
+  //const rtimeVal=document.getElementById("rtime");
+  //const rtimeSimVal=document.getElementById("rtimeSim");
+  const requestDisplay= SC.evt("requestDisplay");
+  const influence= SC.evt("influence");
+  const terre= SC.evt("terre");
+  const rtimeEvt= SC.evt("rtime");
+  const displayTime= SC.evt("displayTime");
+/*
+Grandeurs physiques
+*/
+const secInMn= 60;
+const secInHr= 60*secInMn;
+const secInDay= 24*secInHr;
+const UA= 149597870700; // [m]
+const SA= 1.016718*UA; // [m]
+const G= 6.67430E-11; // [N.m2/kg2] soit [m3/kg/s2]
+/*
+Soleil
+*/
+const Soleil_masse= 1.989E30; // [kg]
+/*
+
+Diamètre moyen[3]	1 392 684 km
+Rayon équatorial[3]	696 342 km
+Circonférence équatoriale[4]	4,379 × 106 km
+Aplatissement aux pôles	9 × 10-6
+Surface[4]	6,087 7 × 1012 km2
+Volume[4]	1,412 × 1018 km3
+Masse (M☉)[5]	1,988 5 × 1030 kg
+Masse volumique	
+- moyenne[4]	1 408 kg/m3
+- au centre	150 000 kg/m3
+Gravité à la surface	273,95 m/s2
+Vitesse de libération[6]	617,54 km/s
+Température	
+- au centre	15,1 MK
+- à la surface	5 772 K (température effective ; entre 3 500 °C (taches solaires) et 5 900 °C localement[7])
+- couronne[7],[8]	1 000 000 K
+Flux énergétique	3,826 × 1026 W
+Type spectral[5]	G2 V
+Métallicité[9]	Z = 0.0122
+Âge	4,57 Ga
+Rotation
+Inclinaison de l’axe	
+/ plan de l’écliptique	7,25°
+/ plan galactique
+(Voie lactée)	67,23°
+Ascension droite du pôle nord	286,13°
+Déclinaison du pôle nord	63,87°
+Vitesse, latitude 0°	7,008 17 km/h
+Période de rotation	
+- latitude 0°	24 j
+- latitude 30°	28 j
+- latitude 60°	30,5 j
+- latitude 75°	31,5 j
+- moyenne	27,28 j
+Composition photosphérique (en masse)
+Hydrogène	73,46 %
+Hélium	24,85 %
+Oxygène	0,77 %
+Carbone	0,29 %
+Fer	0,16 %
+Néon	0,12 %
+Azote	0,09 %
+Silicium	0,07 %
+Magnésium	0,05 %
+Soufre	0,04 %
+Nickel	Inconnu
+*/
+/*
+Terre
+*/
+const Terre_masse= 5.9722E24; // [kg]
+const Terre_revolPer= 365.256363051*secInDay; // en s
+const Terre_demiGrandAxe= 149597887.5*1000; // [m]
+const Terre_aphelie= 152097701; // [km]
+const Terre_perihelie= 147098074; // [km]
+const Terre_circonferenceOrbitale=939885629.3; // [km]
+const Terre_exentricite= 0.01671022; // []
+/*
+Excentricité	0,016 710 22
+Période de révolution	365,256 363 d
+Vitesse orbitale moyenne	29,783 km/s
+Vitesse orbitale maximale	30,287 km/s
+Vitesse orbitale minimale	29,291 km/s
+Inclinaison sur l’écliptique	(par définition) 0°
+Nœud ascendant	174,873°
+Argument du périhélie	288,064°
+Rayon équatorial	6 378,137 km
+Rayon polaire	6 356,752 km
+Rayon moyen
+volumétrique	6 371,008 km
+Aplatissement	0,003 353 ≈ 1⁄300 (1⁄(298,25±1))
+Périmètre équatorial	40 075,017 km
+Périmètre méridional	40 007,864 km
+Superficie	510 067 420 km2
+Volume	1,083 21 × 1012 km3
+Masse	5,973 6 × 1024 kg
+Masse volumique globale	5,515 × 103 kg/m3
+Gravité de surface	9,806 65 m/s2
+(1 g)
+Vitesse de libération	11,186 km/s
+Période de rotation
+(jour sidéral)	0,997 269 49 d
+(23 h 56 min 4,084 s)
+Vitesse de rotation
+(à l’équateur)	1 674,364 km/h
+Inclinaison de l’axe	23,436 690 775 2°
+Déclinaison du pôle nord	90°
+Albédo géométrique visuel	0,367
+Albédo de Bond	0,306
+Irradiance solaire	1 367,6 W/m2
+(1 Terre)
+Température d’équilibre
+du corps noir	254,3 K (−18,7 °C)
+Température de surface	
+• Maximum	56,7 °C
+• Moyenne	15 °C
+• Minimum	−93,2 °C
+(voir Records de température sur Terre)
+Caractéristiques de l’atmosphère
+Pression atmosphérique	101 325 Pa
+Masse volumique au sol	1,217 kg/m3
+Masse totale	5,148 × 1018 kg
+Hauteur d'échelle	8,5 km
+Masse molaire moyenne	28,97 g/mol
+Azote N2	78,084 % volume sec
+Oxygène O2	20,946 % volume sec
+Argon Ar	0,9340 % volume sec
+Dioxyde de carbone CO2	413 ppm volume sec
+Néon Ne	18,18 ppm volume sec
+Hélium He	5,24 ppm volume sec
+Méthane CH4	1,79 ppm volume sec
+Krypton Kr	1,14 ppm volume sec
+Hydrogène H2	550 ppb volume sec
+Protoxyde d'azote N2O	300 ppb volume sec
+Monoxyde de carbone CO	100 ppb volume sec
+Xénon Xe	90 ppb volume sec
+Ozone O3	0 à 70 ppb volume sec
+Dioxyde d'azote NO2	20 ppb volume sec
+Iode I	10 ppb volume sec
+Vapeur d'eau H2O	~ 0,4 % volume global
+~ de 1 à 4 % en surface (valeurs typiques)
+*/
+/*
+Lune
+*/
+const Lune_masse= 7.349E22; // [kg]
+
+/*
+Mercure
+*/
+const Mercure_revolPer= 87.969256*secInDay; // en s
+/*
+Venus
+*/
+const Venus_revolPer= 224.6997056*secInDay; // en s
+/*
+Mars
+*/
+const Mars_revolPer= 686.979852*secInDay; // en s
+/*
+Jupiter
+*/
+const Jupiter_revolPer= 4332.589*secInDay; // en s
+/*
+Saturne
+*/
+const Saturne_revolPer= 10759.23*secInDay; // en s
+/*
+Uranus
+*/
+const Uranus_revolPer= 30685.4*secInDay; // en s
+/*
+Neptune
+*/
+const Neptune_revolPer= 60266*secInDay; // en s
+const elipseAxisMoon= 384748E3 // [m]
+const elipseExcentricityMoon= 0.0549006 // []
+const moonSP= elipseAxisMoon*(1-elipseExcentricityMoon);
+const dTerre= Math.sqrt(G*Soleil_masse*(2/(Terre_demiGrandAxe*(1-Terre_exentricite))-1/Terre_demiGrandAxe));
+const dLune= Math.sqrt(G*Terre_masse*(2/(elipseAxisMoon*(1-elipseExcentricityMoon))-1/elipseAxisMoon));
+  const SP= (Terre_demiGrandAxe*(1-Terre_exentricite)); // [m]
+  document.getElementById("distSoleilTerre").textContent= Math.round(SP/1000);
+  document.getElementById("distTerreLune").textContent= Math.round(moonSP/1000);
+  document.getElementById("vitesseTerre").textContent= Math.round(dTerre);
+  document.getElementById("vitesseLune").textContent= Math.round(dLune);
+  document.getElementById("masseLune").textContent= Lune_masse;
+  document.getElementById("masseSoleil").textContent= Soleil_masse;
+  document.getElementById("masseTerre").textContent= Terre_masse;
+  document.getElementById("constanteG").textContent= G;
+  const yearInSec= 365.25*24*3600;
+  const msInYear= 864E5*365;
+  function format(tms){
+    const ms="000"+Math.floor(tms%1000);
+    const s="00"+Math.floor(((tms/1e3))%60);
+    const mn="00"+Math.floor(((tms/6E4))%60);
+    const h="00"+Math.floor(((tms/36E5))%24);
+    const d="000"+Math.floor(((tms/864E5))%365);
+    const y="000"+Math.floor(((tms/(msInYear))));
+    return ""
+           +y.substring(y.length-3)+"a "
+           +d.substring(d.length-3)+"j "
+           +h.substring(h.length-2)+"h "
+           +mn.substring(mn.length-2)+"mn "
+           +s.substring(s.length-2)
+           +"."+ms.substring(ms.length-3);
+           +"s"
+           ;
+    }
+terre_rev_duree.textContent= format(Terre_revolPer*1000.0);
+  rtimeSimVal.oldTime= 0;
+  rtimeSimVal.initTimer= function(re){
+    const time= re.getValuesOf(rtimeEvt)[0];
+    this.oldTime= time;
+    }
+  rtimeSimVal.compute= function(re){
+    const time= re.getValuesOf(rtimeEvt)[0];
+    this.textContent= format(time-this.oldTime);
+    }
+  rtimeVal.oldTime= 0;
+  rtimeVal.compute= function(re){
+    const time= re.getValuesOf(rtimeEvt)[0];
+    if((0!=this.oldTime)&&(time-this.oldTime<950)){
+      return;
+      }
+    if(0!==this.oldTime){
+      //console.log(time-this.oldTime);
+      this.textContent= format(time-this.oldTime);
+      }
+    else{
+      this.textContent="---";
+      }
+    this.oldTime=time ;
+    }
+  var zeZoom= 2e-9;
+  var DT= 0.1;
+  DTVal.innerHTML= DT;
+  const tempo= 5999;
+  document.getElementById("blockDInstants").textContent=(tempo+1);
+  workspace.dropFrame=false;
+  workspace.frameNumber=0;
+  workspace.fpsMeasuring=0;
+  workspace.refresh=function(toDraw){
+    this.frameNumber++;
+    var ctx=this.getContext("2d");
+    //ctx.clearRect(0, 0, this.width, this.height);
+    ctx.fillRect(0, 0, this.width, this.height);
+    if(toDraw.length != 3){
+      //console.log("buh");
+      }
+    for(var i in toDraw){
+      var obj=toDraw[i];
+      obj.draw(ctx);
+    }
+    if(0 == this.frameNumber%256){
+      if(0 != this.fpsMeasuring){
+        this.fps=Math.floor(this.frameNumber*10000
+             /(window.performance.now()-this.fpsMeasuring))/10;
+        }
+      else{
+        this.fpsMeasuring=window.performance.now();
+        }
+      }
+    this.dropFrame=false;
+    }
+  var main= SC.clock();
+  var periodic= SC.periodic({ delay: 30 });
+  main.bindTo(periodic);
+  main.addProgram(SC.repeat(SC.forever
+      , SC.generate(rtimeEvt
+          , function(){
+              return window.performance.now();
+              }
+          )
+      , SC.pause(48000)
+      )
+    );
+  main.addProgram(
+        SC.repeatForever(SC.generate(displayTime)
+        , SC.next(function(){ return tempo; })
+        , SC.pause(function(){ return tempo; })
+          )
+     );
+/*
+ * Paquet de réactions exécuté à pleine vitesse entre deux période d'une
+ * horloge TR gérant l'UI...
+ */
+/*  function massReact(){
+    const times=tempo+1
+    main.addEntry(displayTime);
+    for(var i=0; i < times; i++){
+      main.newValue();
+      }
+    }*/
+  main.addProgram(
+    SC.repeat(SC.forever
+      , SC.action(function(engine){
+             const ips= engine.getIPS();
+             IPSVal.innerHTML=ips;
+             var tms=(ips*DT)*1e3;
+             timeVal.innerHTML=format(tms);
+             instants.innerHTML=engine.getInstantNumber();
+             tempsSimVal.innerHTML=format(engine.getInstantNumber()*DT*1e3);
+          })
+      , SC.pause(tempo)
+      )
+    );
+  //main.delay=30;
+  document.getElementById("delayReact").innerHTML=30;//main.delay;
+  //main.timer=window.setInterval(main.newValue, main.delay)
+  function changeZoomValue(v){
+    zeZoom=v*1e-10;
+    zoomVal.innerHTML=1/zeZoom;
+    }
+  function changeDTValue(v){
+    DT=v;
+    DTVal.innerHTML=v;
+    }
+main.addProgram(
+  SC.actionOn(requestDisplay
+    , function(re){
+        const data=re.getValuesOf(requestDisplay);
+        counter.innerHTML=data.length;
+        if(workspace.dropFrame){
+          return;
+        }
+        workspace.dropFrame=true;
+        //console.log(all[requestDisplay].length);
+        window.requestAnimationFrame(workspace.refresh.bind(workspace, data));
+        }, undefined, SC.forever)
+  );
+function JFS_meteor(params){
+  function _(name, def){
+    if(undefined !== params[name]){
+      return params[name];
+      }
+    return def;
+    }
+  this.name=_("name","Meteor");
+/*
+ * Grandeurs physiques de l'objet
+ */
+  this.x=_("x",0);
+  this.y=_("y",0);
+  this.z=_("z",0);
+  this.dx=_("dx",0);
+  this.dy=_("dy",0);
+  this.dz=_("dz",0);
+  this.m=_("m", 1000);
+  this.d2x= 0;
+  this.d2y= 0;
+  this.d2z= 0;
+  this.alpha= 0;
+/*
+ * affichage
+ */
+  this.zoom=1;
+  this.r=_("r", 10);
+  this.tour=0;
+  this.startLap=1;
+  this.zoneVisible=true;
+  this.bgcolor=_("bgColor", "yellow");
+/*
+ * On peut se poser la question de généraliser les grandeurs.
+ * position, vitesse, accelaration et masse.
+ */
+  this.me={};
+  Object.defineProperty(this.me, "x",{get : function(){return this.x}.bind(this)});
+  Object.defineProperty(this.me, "y",{get : function(){return this.y}.bind(this)});
+  Object.defineProperty(this.me, "z",{get : function(){return this.z}.bind(this)});
+  Object.defineProperty(this.me, "m",{get : function(){return this.m}.bind(this)});
+  this.me.draw=function(ctx){ this.draw(ctx)}.bind(this);
+    
+  }
+/*
+ * pas utilisé ici (rebond sur les bords).
+ */
+JFS_meteor.prototype.boxing=function(){
+  if((this.x-this.r < 0) || (this.x+this.r > 800)){
+    this.dx=-this.dx;
+    }
+  if((this.y-this.r < 0) || (this.y+this.r > 600)){
+    this.dy=-this.dy;
+    }
+  }
+/*
+ * pas utilisé.
+ */
+JFS_meteor.prototype.inertie=function(){
+  this.x=this.x+this.dx;
+  this.dx=this.dx+this.d2x;
+  this.y=this.y+this.dy;
+  this.dy=this.dy+this.d2y;
+  }
+/*
+ * pas utilisé pour du débug ça dump les variables d'état physique
+ */
+JFS_meteor.prototype.dump=function(){
+  console.log(this.name
+          , this.x*zeZoom, this.y*zeZoom, this.z*zeZoom
+          , this.dx*zeZoom, this.dy*zeZoom, this.dz*zeZoom
+          , this.d2x*zeZoom, this.d2y*zeZoom, this.d2z*zeZoom
+          );
+  }
+/*
+ * Simulation avec un schéma Euler explicite
+ */
+JFS_meteor.prototype.rfd=function(re){
+  var influences=re.getValuesOf(influence);
+  this.d2x=0;
+  this.d2y=0;
+  this.d2z=0;
+  for(var v in influences){
+    var other=influences[v]
+        , rx=this.x-other.x
+        , ry=this.y-other.y
+        , rz=this.z-other.z
+        , r2=rx*rx+ry*ry+rz*rz+1000 // Évite la division par 0.
+        , r=Math.sqrt(r2)
+        , gena=G*other.m/r/r2
+        ;
+        this.d2x -= gena*rx;
+        this.d2y -= gena*ry;
+        this.d2z -= gena*rz;
+        /*console.log(this.name+" accell"
+                    , rx
+                    , ry
+                    , rz
+                    , r
+                    , r2
+                    , gena
+                    , this.m
+                    , other.m
+                    , G
+                    , this.m*other.m
+                    , G*other.m
+                    , G*other.m/r2
+                    , G*other.m/r2/r
+                    );*/
+    }
+  /*console.log(this.name+" d2 :", this.d2x, this.d2y, this.d2z);
+  console.log(this.name+" d :", this.dx, this.dy, this.dz);
+  console.log(this.name+" p :", this.x, this.y, this.z);*/
+  this.dx=this.dx+DT*this.d2x;
+  this.x=this.x+DT*this.dx;
+  this.dy=this.dy+DT*this.d2y;
+  this.y=this.y+DT*this.dy;
+  this.dz=this.dz+DT*this.d2z;
+  this.z=this.z+DT*this.dz;
+  /*console.log(this.name+" d2 :", this.d2x, this.d2y, this.d2z);
+  console.log(this.name+" d :", this.dx, this.dy, this.dz);
+  console.log(this.name+" p :", this.x, this.y, this.z);*/
+
+  }
+const ze2PI= 2*Math.PI;
+JFS_meteor.prototype.angle=function(engine){
+  const rx= this.x
+      , ry= this.y
+      , rz= this.z
+      , r2= rx*rx+ry*ry+rz*rz
+      , r= Math.sqrt(r2)
+      , cos= rx/r
+      , sin= ry/r
+      , alpha= (Math.asin(sin)<0)?ze2PI-Math.acos(cos):Math.acos(cos)
+      ;
+  if(this.alpha>alpha){
+    console.log("tour angle", this.alpha, alpha);
+    angle.textContent= (++this.tour)+" (durée du dernier : "+format((engine.getInstantNumber()-this.startLap)*DT*1e3)+")";
+    this.startLap= engine.getInstantNumber();
+    }
+  this.alpha=alpha;
+  }
+JFS_meteor.prototype.angleTerre= function(engine){
+  const data= engine.getValuesOf(terre)
+      , terra= data[0]
+      , rx= this.x-terra.x
+      , ry= this.y-terra.y
+      , rz= this.z-terra.z
+      , r2= rx*rx+ry*ry+rz*rz
+      , r= Math.sqrt(r2)
+      , cos= rx/r
+      , sin= ry/r
+      , alpha= (Math.asin(sin)<0)?ze2PI-Math.acos(cos):Math.acos(cos)
+      //, rtx= terra.x
+      //, rty= terra.y
+      //, rtz= terra.z
+      //, rt2= rtx*rtx+rty*rty+rtz*rtz
+      //, rt= Math.sqrt(rt2)
+      //, tcos= rtx/rt
+      //, tsin= rty/rt
+      //, talpha= (Math.asin(tsin)<0)?ze2PI-Math.acos(tcos):Math.acos(tcos)
+      ;
+  if(Math.abs(this.alpha-alpha)>6){
+    console.log("angle", this.alpha, alpha);
+    angleTerre.textContent=(++this.tour)+" (durée du dernier : "+format((engine.getInstantNumber()-this.startLap)*DT*1e3)+")";
+    this.startLap= engine.getInstantNumber();
+    }
+  this.alpha= alpha;
+  }
+JFS_meteor.prototype.draw=function(ctx){
+      var zoom=zeZoom;
+      if(this.hidden){
+        return;
+        }
+      var theCtx=ctx.save();
+      ctx.translate((this.x)*zoom+350, (-this.y)*zoom+350);
+      if(this.zoneVisible){
+        //ctx.strokeStyle=(this.touched)?"red":"black";
+        //ctx.translate(this.x, this.y);
+        ctx.fillStyle=this.bgcolor;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.r, 0, 2*Math.PI, false);
+        ctx.fill();    
+        //console.log(this.bgcolor);
+        //ctx.arc(this.x,this.y,this.r, 0,2*Math.PI, false);
+        //ctx.stroke();    
+        ctx.closePath();
+        }
+      if(undefined != this.img){
+        var iw=this.img.width;
+        var ih=this.img.height;
+        var dir=2*this.img_zoom*this.r;
+        var zw=dir/iw ;
+        var zh=dir/ih;
+        var z=Math.min(zw,zh);
+        iw *= z;
+        ih *= z;
+        if(this.flip){
+          ctx.scale(-1, 1);
+          }
+        if(0 != this.rotateImg){
+          ctx.rotate(this.rotateImg);
+          ctx.drawImage(this.img, -iw/2, -ih/2
+                                 , iw, ih);
+          }
+        else{
+          ctx.drawImage(this.img, -iw/2
+                                , -ih/2
+                                , iw, ih);
+          }
+        }
+      ctx.restore(theCtx);
+      }
+function launch(){
+  main.addProgram(
+    SC.cube(new JFS_meteor({
+      x : (Math.random()*200-100)*1e9
+      , y : (Math.random()*200-100)*1e9
+      , z : 0
+      , dx : Math.random()*50000-25000
+      , dy : Math.random()*50000-25000
+      , dz : 0
+      , m : 1
+      , r:2
+      , bgColor:"grey"
+      })
+      , SC.par(
+        SC.repeat(SC.forever
+        , SC.await(displayTime)
+        , SC.generate(requestDisplay, SC.my("me"))
+        )
+        , SC.generate(influence, SC.my("me"), SC.forever)
+        , SC.actionOn(influence, "rfd", undefined, SC.forever)
+        //, SC.repeat(SC.forever, SC.action("boxing"))
+        )
+      )
+    );
+  }
+main.addProgram(
+  SC.cube(new JFS_meteor({
+    name: "Soleil"
+    , x : 0
+    , y : 0
+    , z : 0
+    , dx : 0
+    , dy : 0
+    , dz : 0
+    , m : Soleil_masse  // [kg]
+    })
+    , SC.par(
+      SC.repeat(SC.forever
+        , SC.await(displayTime)
+        , SC.generate(requestDisplay, SC.my("me"))
+        )
+      , SC.generate(influence, SC.my("me"), SC.forever)
+      , SC.actionOn(influence, "rfd", undefined, SC.forever)
+      //, SC.repeat(SC.forever, SC.action("boxing"))
+      )
+    )
+  );
+const cubeTerre=new JFS_meteor({
+    name: "Terre"
+    , x : SP // [m]
+    , y : 0
+    , z : 0
+    , dx : 0
+    , dy : dTerre // [m.s-1]
+    , dz : 0
+    , m : Terre_masse //[kg]
+    , bgColor:"blue"
+    , r:2
+    });
+main.addProgram(SC.cube(cubeTerre
+    , SC.par(
+      SC.repeat(SC.forever
+        , SC.await(displayTime)
+        , SC.generate(requestDisplay, SC.my("me"))
+        )
+      , SC.generate(influence, SC.my("me"), SC.forever)
+      , SC.generate(terre, SC.my("me"), SC.forever)
+      , SC.actionOn(influence, "rfd", undefined, SC.forever)
+      //, SC.repeat(SC.forever, SC.action("boxing"))
+      //, SC.repeat(10, SC.action("dump"))
+      , SC.repeat(SC.forever
+        , SC.action("angle")
+        )
+      )
+    )
+  );
+ const cubeLune=new JFS_meteor({
+    name: "Lune"
+    , x : SP+moonSP //+(3.844e8) // [m] périgée : 363 300 km Apogée : 406 300
+    , y : 0
+    , z : 0
+    , dx : 0
+    , dy : dTerre + dLune // [m/s] max : 1.076 [km/s] min : 0.964 [km/s]
+    , dz : 0
+    , m : Lune_masse//[kg]
+    , bgColor:"red"
+    , r:1
+    });
+main.addProgram(
+  SC.cube(cubeLune
+  , SC.par(
+      SC.repeat(SC.forever
+        , SC.await(displayTime)
+        , SC.generate(requestDisplay, SC.my("me"))
+        )
+    , SC.generate(influence, SC.my("me"), SC.forever)
+    , SC.actionOn(influence, "rfd", undefined, SC.forever)
+    //, SC.repeat(SC.forever, SC.action("boxing"))
+    //, SC.repeat(10, SC.action("dump"))
+    , SC.actionOn(terre, "angleTerre", undefined, SC.forever)
+      )
+    )
+  );
+main.addProgram(
+  SC.cube(rtimeVal
+    , SC.repeatBurst(SC.forever
+        , SC.await(rtimeEvt)
+        , SC.actionOn(rtimeEvt, "compute")
+        )
+    )
+  );
+main.addProgram(
+  SC.cube(rtimeSimVal
+    , SC.seq( SC.actionOn(rtimeEvt, "initTimer")
+        , SC.repeat(SC.forever
+            , SC.await(rtimeEvt)
+            , SC.actionOn(rtimeEvt, "compute")
+            , SC.pause(Math.round(tempo*(1000/main.delay)))
+            )
+        )
+    )
+  );
+
+var stepMesure=0;
+const environmentDyn={};
+
+function ajouteMesure(){
+  switch(stepMesure++){
+    case 0:{
+      const mesureArea=document.getElementById("mesureDynamique");
+      const rayon=document.createElement("p");
+      const text=document.createTextNode("distance courante du soleil à la terre : ");
+      const rayonTerreVal=document.createElement("span");
+      rayonTerreVal.minR=150000000;
+      rayonTerreVal.maxR=0;
+      const rayonTerreEvt=SC.evt("rayonTerre");
+      rayon.append(text);
+      rayon.append(rayonTerreVal);
+      mesureArea.appendChild(rayon);
+      rayonTerreVal.displayVal=function(re){
+        const terre=re.getValuesOf(rayonTerreEvt)[0]
+            , r=Math.round(Math.sqrt(terre.x*terre.x+terre.y*terre.y+terre.z*terre.z)/1000)
+              ;
+        if(this.minR>r){
+          this.minR=r;
+          }
+        if(this.maxR<r){
+          this.maxR=r;
+          }
+        this.innerHTML=r+" km (min : "+this.minR+" max : "+this.maxR+")";
+        }
+      main.addProgram(
+        SC.cube(rayonTerreVal
+          , SC.seq(
+              SC.generate(cubeTerre.SC_cubeAddBehaviorEvt
+                , SC.repeat(SC.forever
+                    , SC.generate(rayonTerreEvt, SC.my("me"))
+                    )
+                )
+              , SC.repeat(SC.forever
+                  //, SC.log('test')
+                  , SC.await(rayonTerreEvt)
+                  , SC.actionOn(rayonTerreEvt, "displayVal")
+                  , SC.pause(tempo)
+                  )
+              )
+          )
+        );
+      environmentDyn["rayonTerre"]=rayonTerreEvt;
+      break;
+      }
+    case 1:{
+      const mesureArea=document.getElementById("mesureDynamique");
+      const rayon=document.createElement("p");
+      const text=document.createTextNode("distance courante de la lune à la terre : ");
+      const rayonLuneVal=document.createElement("span");
+      const rayonLuneEvt=SC.evt("rayonLuneEvt");
+      const rayonTerreEvt=environmentDyn["rayonTerre"];
+      rayonLuneVal.minR=400000;
+      rayonLuneVal.maxR=0;
+      rayon.append(text);
+      rayon.append(rayonLuneVal);
+      mesureArea.appendChild(rayon);
+      rayonLuneVal.displayVal=function(re){
+        const terre=re.getValuesOf(rayonTerreEvt)[0]
+            , lune=re.getValuesOf(rayonLuneEvt)[0]
+            , rx=terre.x-lune.x
+            , ry=terre.y-lune.y
+            , rz=terre.z-lune.z
+            , r=Math.round(Math.sqrt(rx*rx+ry*ry+rz*rz)/1000)
+              ;
+        if(this.minR>r){
+          this.minR=r;
+          }
+        if(this.maxR<r){
+          this.maxR=r;
+          }
+        this.innerHTML=r+" km (min : "+this.minR+" max : "+this.maxR+")";
+
+        }
+      main.addProgram(
+        SC.cube(rayonLuneVal
+          , SC.seq(
+              SC.generate(cubeLune.SC_cubeAddBehaviorEvt
+                , SC.repeat(SC.forever
+                    , SC.generate(rayonLuneEvt, SC.my("me"))
+                    )
+                )
+              , SC.repeat(SC.forever
+                  //, SC.log('test')
+                  , SC.await(SC.and(rayonTerreEvt, rayonLuneEvt))
+                  , SC.actionOn(SC.and(rayonTerreEvt, rayonLuneEvt), "displayVal")
+                  , SC.pause(tempo)
+                  )
+              )
+          )
+        );
+      environmentDyn["rayonLune"]=rayonLuneEvt;
+      break;
+      }
+    case 2:{
+      const mesureArea=document.getElementById("mesureDynamique");
+      const zoomView=document.createElement("svg");
+      zoomView.setAttribute("width","200px");
+      zoomView.setAttribute("height","200px");
+      const text=document.createTextNode("autour de la terre");
+      mesureArea.appendChild(zoomView);
+      mesureArea.appendChild(text);
+      zoomView.addingView=function(re){
+        const zeViews=re.getValuesOf(addViewToSVG);
+        for(var i=0; i<zeViews.length; i++){
+          this.appendChild(zeViews[i]);
+          }
+        }
+      const addViewToSVG=SC.evt("addViewToSVG");
+      cubeTerre.registerInSVG=function(re){
+        this.svgView=document.createElement("circle");
+        this.svgView.setAttribute("cx","100");
+        this.svgView.setAttribute("cy","100");
+        this.svgView.setAttribute("r","10");
+        this.svgView.setAttribute("style","fill:blue;");
+        re.addEntry(addViewToSVG, this.svgView);
+        };
+      cubeTerre.refreshVisualPositions=function(){
+        this.svgX=this.x;
+        this.svgY=this.y;
+        };
+      main.addProgram(
+        SC.cube(zoomView
+          , SC.seq(
+              SC.generate(cubeTerre.SC_cubeAddBehaviorEvt
+                , SC.seq(
+                    SC.action(SC.my("registerInSVG"))
+                    , SC.repeat(SC.forever
+                        , SC.action(SC.my("refreshVisualPositions"))
+                        , SC.pause(tempo)
+                        )
+                    )
+                )
+              , SC.actionOn(addViewToSVG
+                  , SC.my("addingView")
+                  , undefined
+                  , SC.forever)
+              )
+          )
+        );
+      break;
+      }
+    default: break;
+    }
+  }
+</script>
+<footer>
+Données provenant de <a href="https://fr.wikipedia.org" target="sctab_wikipedia">Wikipedia</a>
+</footer>
+</body>
+</html>
