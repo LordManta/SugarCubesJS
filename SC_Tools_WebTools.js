@@ -822,6 +822,13 @@ Zone de control
           //  SC.tools.initPanel();
           //  }
           }
+	if(params.pwa){
+	  const pwa= params.pwa;
+	  const manifest_link= document.createElement("link");
+	  manifest_link.setAttribute("rel", "manifest");
+	  manifest_link.setAttribute("href", (pwa.mnf)?pwa.mnf:"manifest.json");
+          document.head.appendChild(manifest_link);
+	  }
         if("complete"!=document.readyState){
           SC.tools.addProgram=function(p){
             this.main.addProgram((SC.globals.Evt_Start)
@@ -1030,18 +1037,19 @@ Define globals and WebTools
                             }
                           }
                         }
-                      if(("" == tag.getAttribute("useapi"))
-                               ||("true"  == tag.getAttribute("useapi"))){
-                        tag.innerHTML='';
-                        WebTools.listings.qp.parse(base, txt, langAtt);
-                        }
-                      else {
+                      //if(("" == tag.getAttribute("useapi"))
+                      //         ||("true"  == tag.getAttribute("useapi"))){
+                      //  tag.innerHTML='';
+		      //  txt= SC.tools.LST.qp.parse
+                      //  //SC.tools.LST.qp.parse(base, txt, langAtt);
+                      //  }
+                      //else {
                         base.parsed=SC.tools.LST.parseDoc({
                              src: txt
                            , lang: langAtt.toUpperCase()
                            , no_final_br: true
                              });
-                        }
+                      //  }
                       tag.innerHTML='';
                       if(collapsable||numbering||selectable||hideComments||tag.getAttribute("filename")){
                         base.innerText=txt;
@@ -1283,9 +1291,9 @@ Liste des paramètres :
           const tts=document.createElement("div");
           tts.innerHTML=params.get("speech","");
           this.speechAlternative(tts);
-          const speakable=new SpeechSynthesisUtterance(tts.textContent);
-          speakable.lang=params.get("lang", "fr-FR");
-          //console.log(speakable);
+          const speakable= new SpeechSynthesisUtterance(tts.textContent);
+          speakable.lang= params.get("lang", "fr-FR");
+          console.log(speakable);
           speakable.Evt_startSpeak=params.get("start_evt"
                                              , SC.evt("Evt_startSpeak"));
           speakable.Evt_cancel=params.get("cancel", SC.evt("Evt_cancel"));
@@ -1608,15 +1616,16 @@ Bubble view utility funs
           const bubble_view= quickElt({ tag: 'div'
             , cls: "SC_bubble_text_0"
               });
-          bubble_view.Evt_show=SC.evt("show");
-          bubble_view.Evt_bubbleFinish=SC.evt("Evt_bubbleFinish");
-          bubble_view.Evt_showBar=SC.evt("showBar");
-          bubble_view.Evt_display=SC.evt("display");
-          const Evt_nextMessage=SC.evt("nextMessage");
-          bubble_view._sc_bar=mkBubbleMenuBar();
-          bubble_view.appendChild(bubble_view._sc_bar);          
-          bubble_view._sc_showBar=function(re){
-            const data=re.getValuesOf(this.Evt_showBar);
+          bubble_view.Evt_show= SC.evt("show");
+          bubble_view.Evt_bubbleFinish= SC.evt("Evt_bubbleFinish");
+          bubble_view.Evt_showBar= SC.evt("showBar");
+          bubble_view.Evt_display= SC.evt("display");
+          const Evt_nextMessage= SC.evt("nextMessage");
+          bubble_view._sc_bar= mkBubbleMenuBar();
+          bubble_view.appendChild(bubble_view._sc_bar);
+	  // Evt_showBar avec true ou false
+          bubble_view._sc_showBar= function(re){
+            const data= re.getValuesOf(this.Evt_showBar);
             if(data){
               const s=data[0];
               this._sc_bar.style.display=s?'block':'none';
@@ -1624,7 +1633,7 @@ Bubble view utility funs
             }
           bubble_view._sc_content= quickElt({ tag: 'div' });
           bubble_view.appendChild(bubble_view._sc_content);          
-          bubble_view._sc_updateAppearance=bubble_view_setNewText;
+          bubble_view._sc_updateAppearance= bubble_view_setNewText;
           bubble_view._sc_ok= quickElt({ tag: "div"
               , style: `text-align: right;
                         margin: 0;
@@ -1632,34 +1641,34 @@ Bubble view utility funs
               , innerHTML: "<em style='font-size:10px;cursor:pointer'>OK</em>"
                 });
           const Sns_talkOK=SC.sensor("Sns_talkOK"
-               , { dom_targets: [{ target: bubble_view._sc_ok.children[0]
-                                 , evt: "click" }] });
+               , { dom_targets: [ { target: bubble_view._sc_ok.children[0]
+                                  , evt: "click" } ] });
           bubble_view._sc_displayNextBtn=function(re){
             this._sc_content.appendChild(this._sc_ok);
             };
-          const SC_parDisplay=SC.par(SC.seq(
+          const SC_parDisplay= SC.par(SC.seq(
               SC.await(bubble_view.Evt_display)
             , SC.action("_sc_display")
             , SC.pause()
               )
             );
-          bubble_view.Evt_talkEnded=SC.evt("talkEnded");
+          bubble_view.Evt_talkEnded= SC.evt("talkEnded");
           if(params.typer){
             bubble_view._sc_shadow= quickElt({ tag: "div" });
-            bubble_view._sc_pauseAfterEnd=0;
-            bubble_view._sc_toWriteTxt=bubble_view._sc_text="";
-            bubble_view._sc_toWriteTxtIdx=0;
-            bubble_view._sc_textRemains=true;
-            const Evt_shadowReady=SC.evt("Evt_shadowReady");
-            bubble_view._sc_setText=function(msg){
-              this._sc_toWriteTxtIdx=0;
-              this._sc_content.innerHTML="";              
-              this.style.color=(msg.clr)?msg.clr:"black";
-              this.style.background=(msg.bgclr)?msg.bgclr:"yellow";
-              this.hidden=false;
-              this._sc_textRemains=true;
-              this._sc_ntAMode=msg.nTA
-              this._sc_shadow.innerHTML=this._sc_shadow._sc_rawMsg=msg.text;
+            bubble_view._sc_pauseAfterEnd= 0;
+            bubble_view._sc_toWriteTxt= bubble_view._sc_text= "";
+            bubble_view._sc_toWriteTxtIdx= 0;
+            bubble_view._sc_textRemains= true;
+            const Evt_shadowReady= SC.evt("Evt_shadowReady");
+            bubble_view._sc_setText= function(msg){
+              this._sc_toWriteTxtIdx= 0;
+              this._sc_content.innerHTML= "";              
+              this.style.color= (msg.clr)?msg.clr:"black";
+              this.style.background= (msg.bgclr)?msg.bgclr:"yellow";
+              this.hidden= false;
+              this._sc_textRemains= true;
+              this._sc_ntAMode= msg.nTA
+              this._sc_shadow.innerHTML= this._sc_shadow._sc_rawMsg= msg.text;
               setTimeout(function(Evt_shadowReady){
                   WebTools.postTreatmentOfDOM(this._sc_shadow
                     , function(){
@@ -1676,7 +1685,7 @@ Bubble view utility funs
               this._sc_updateAppearance(msg);
               };
             bubble_view._sc_postTyped=function(m){
-              this._sc_content.innerHTML=this._sc_shadow._sc_rawMsg;
+              this._sc_content.innerHTML= this._sc_shadow._sc_rawMsg;
               setTimeout(function(Evt_shadowReady){
                 WebTools.postTreatmentOfDOM(this
                   , function(){
@@ -1684,9 +1693,9 @@ Bubble view utility funs
                       }.bind(this))
                 }.bind(this, Evt_shadowReady));
               }
-            bubble_view._sc_progressiveText=function(){
-              var idx=this._sc_toWriteTxtIdx;
-              const max=this._sc_toWriteTxt.length;
+            bubble_view._sc_progressiveText= function(){
+              var idx= this._sc_toWriteTxtIdx;
+              const max= this._sc_toWriteTxt.length;
               if(idx>max){
                 return;
                 }
@@ -1703,10 +1712,10 @@ Bubble view utility funs
                   }
                 }
               idx++;
-              this._sc_content.innerHTML=this._sc_toWriteTxt.substring(0, idx);
-              this._sc_toWriteTxtIdx=idx;
+              this._sc_content.innerHTML= this._sc_toWriteTxt.substring(0, idx);
+              this._sc_toWriteTxtIdx= idx;
               this._sc_textRemains
-                  =this._sc_toWriteTxtIdx<this._sc_toWriteTxt.length;
+                  = this._sc_toWriteTxtIdx<this._sc_toWriteTxt.length;
               };
             SC_parDisplay.add(SC.seq(
                 SC.par(
@@ -1744,33 +1753,33 @@ Bubble view utility funs
               );
             }
           else{
-            bubble_view._sc_setText=function(msg){
-              this._sc_toWriteTxtIdx=0;
-              this._sc_content.innerHTML="";              
-              this.style.color=(msg.clr)?msg.clr:"black";
-              this.style.background=(msg.bgclr)?msg.bgclr:"yellow";
-              this.hidden=false;
-              this._sc_content.innerHTML=msg.text;
+            bubble_view._sc_setText= function(msg){
+              this._sc_toWriteTxtIdx= 0;
+              this._sc_content.innerHTML= "";              
+              this.style.color= (msg.clr)?msg.clr:"black";
+              this.style.background= (msg.bgclr)?msg.bgclr:"yellow";
+              this.hidden= false;
+              this._sc_content.innerHTML= msg.text;
               SC.tools.Web.postTreatmentOfDOM(this._sc_content);
-              this._sc_wc=(msg.waitClick)?true:false;
-              this._sc_pauseAfterEnd=(msg.pauseAfterEnd)?msg.pauseAfterEnd:0;
+              this._sc_wc= (msg.waitClick)?true:false;
+              this._sc_pauseAfterEnd= (msg.pauseAfterEnd)?msg.pauseAfterEnd:0;
               this._sc_updateAppearance(msg);
               };
             }
-          bubble_view._sc_display=function(re){
-            const entry=re.getValuesOf(this.Evt_display);
+          bubble_view._sc_display= function(re){
+            const entry= re.getValuesOf(this.Evt_display);
             if(entry){
-              const data=entry[0];
+              const data= entry[0];
               //console.log("bubble display", data);
               if("function"==typeof(data.ficn)){
-                data.icn=data.ficn();
+                data.icn= data.ficn();
                 }
-              data.pre=(data.icn)?(SC.seq(SC.action(function(icn){
+              data.pre= (data.icn)?(SC.seq(SC.action(function(icn){
                                          this._sc_frame.appendChild(icn);
                                          }.bind(this, data.icn))
                                    , SC.purge(data.pre)))
                                  :data.pre;
-              data.post=(data.icn)?(SC.seq(SC.action(function(icn){
+              data.post= (data.icn)?(SC.seq(SC.action(function(icn){
                                           if(/*this._sc_frame.children.includes(icn)
                                             && */icn.parentElement==this._sc_frame){
                                             this._sc_frame.removeChild(icn);
@@ -1798,30 +1807,36 @@ Bubble view utility funs
                   );
                 }
               else{
-                this._sc_noSpeech=true;
-                ((this._sc_clock)?this._sc_clock:SC.tools).generateEvent(this.SC_cubeAddBehaviorEvt
-                , SC.kill(this.Evt_display
-                  , SC.seq(
-                      SC.purge(data.pre)
-                    , SC.action(this._sc_setText.bind(this, data))
-                    , SC.await(this.Evt_bubbleFinish)
-                    , SC.purge(data.post)
-                      )
-                    )
-                  );
+                this._sc_noSpeech= true;
+		const zc= ((this._sc_clock)?this._sc_clock:SC.tools);
+		console.log("on va ajouter le comportement sur le texte...");
+                zc.generateEvent(
+		          this.SC_cubeAddBehaviorEvt
+                        , SC.kill(this.Evt_display
+                          , SC.seq(
+                              SC.purge(data.pre)
+			    , SC.trace("ça commence")
+                            , SC.action(this._sc_setText.bind(this, data))
+                            , SC.await(this.Evt_bubbleFinish)
+                            , SC.purge(data.post)
+			    , SC.trace("c'est fini 😅")
+                              )
+			  , SC.trace("Auto coupe !")
+                            )
+                          );
                 }
               }
             };
-          bubble_view._sc_frame=bubble_frame;
-          bubble_frame.style.zIndex="18";
-          bubble_view._sc_showBubble=function(re){
-            const data=re.getValuesOf(this.Evt_show);
+          bubble_view._sc_frame= bubble_frame;
+          bubble_frame.style.zIndex= "18";
+          bubble_view._sc_showBubble= function(re){
+            const data= re.getValuesOf(this.Evt_show);
             if(data){
               const s=data[0];
               this._sc_frame.style.display=s?'block':'none';
               }
             }
-          bubble_view._sc_beh=SC.cube(bubble_view
+          bubble_view._sc_beh= SC.cube(bubble_view
             , SC.par(
                 SC.actionOn(bubble_view.Evt_show
                           , '_sc_showBubble', undefined, SC.forever)  
@@ -1836,9 +1851,9 @@ Bubble view utility funs
             params.prt.appendChild(bubble_frame);
             SC.tools.addProgram(bubble_view._sc_beh);
             }
-          bubble_view._sc_bar.style.display=true===params.menu
+          bubble_view._sc_bar.style.display= true===params.menu
                   ?'block':'none';          
-          bubble_view._sc_frame.style.display=true===params.initShow
+          bubble_view._sc_frame.style.display= true===params.initShow
                   ?'block':'none';          
           bubble_frame.appendChild(bubble_view);
           return bubble_view;

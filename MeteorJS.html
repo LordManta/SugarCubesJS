@@ -7,7 +7,6 @@
   <style>
   #workspace{
     border:1px solid #000000;
-    float:left;
     }
 /*ul {
     list-style: outside disc;
@@ -31,62 +30,62 @@ footer {
 </style>
 </head>
 <body>
-  <canvas id="workspace" height="700px" width="700px" onclick="for(var i= 0; i<10; i++){launch();}"></canvas>
-  <section>
-  <h3>Simulation d'un système planétaire en utilisant SugarCubes JS.</h3>
-  La simulation commence par créer 3 corps stellaires :
-  <ul style="padding-left:1em;">
-  <li> Le soleil au centre (jaune)
-  <li> La terre (bleu)
-  <li> la lune (rouge)
-  </ul>
+  <div style="display:flex;">
+    <canvas id="workspace" height="700px" width="700px" onclick="for(var i= 0; i<10; i++){launch();}"></canvas>
+    <section>
+      <h3>Simulation d'un système planétaire en utilisant SugarCubes JS.</h3>
+La simulation commence par créer 3 corps stellaires :
+        <ul style="padding-left:1em;">
+           <li> Le soleil au centre (jaune)
+           <li> La terre (bleu)
+           <li> la lune (rouge)
+           </ul>
 Les distances initiales sont la terre à <span id="distSoleilTerre"></span> Km du soleil, la lune à <span id="distTerreLune"></span> Km de la terre.<br>
 La vitesse linéaire initiale de la terre dans son orbite autour du soleil : <span id="vitesseTerre"></span> m/s avec une masse de <span id="masseTerre"></span> kg.<br>
 Pour la lune on considère la vitesse de rotation linéaire de <span id="vitesseLune"></span> m/s ajouté à la vitesse de rotation de la terre autour du soleil et une masse de <span id="masseLune"></span> Kg.<br>
 La masse du soleil est de <span id="masseSoleil"></span> kg.<br>
 La constante de gravitation universelle retenue est de <span id="constanteG"></span> m<sup>3</sup>/kg/s<sup>2</sup>.<br>
-  <p>
+        <p>
 La simulation utilise un algo d'intégration d'Euler explicite dont chaque pas correspond à un instant de la machine réactive. L'horloge de la machine réactive est non périodique et exécute <span id="blockDInstants"></span> instants consécutifs déclenchés toutes les <span id="delayReact"></span> millisecondes environ. Le pas de temps d'intégration est de <span id="DTVal">50</span> secondes de temps physique. On peut ajuster sa valeur avec le slider suivant :<br>
-  <input id="DTslider" type="range" min="0.01" max="1000" value="1" onchange="changeDTValue(this.value)" style="width:400px;"></input>
-  <input id="DTnum" value="1" type="number" onchange="changeDTValue(this.value)"/>
-  </p>
-  Pour pouvoir voir les astres à l'écran, les diamètres ne sont pas réalistes et les distances sont mise à l'échelle...
-  <p>Chaque clic dans la fenêtre ajoute 10 météore (gris) de 1kg supplémentaires avec une vitesse et une position tirée au hasard. </p>
-  <p>La simulation contient : <span id="counter">0</span> corps
-  </p>
-  On peut régler l'échelle de l'affichage de la simulation ici :
-  1 pixel=<span id="zoomVal">500000000</span> mètres<br>
-  <input id="slider" type="range" min="10" max="100" value="20" onchange="changeZoomValue(this.value)" style="width:500px;clear: both;"></input>
-  <table>
-  <tr>
-  <th></th>
-  <th>instants</th>
-  <th>temps physique</th>
-  <th>temps réel</th>
-  </tr>
-  <tr>
-  <th>par secondes<br>de simulation</th>
-  <td id="IPSVal"></td>
-  <td id="timeVal"></td>
-  <td id="rtimeVal"></td>
-  </tr>
-  <tr>
-  <th>depuis le début</th>
-  <td id="instants"></td>
-  <td id="tempsSimVal"></td>
-  <td id="rtimeSimVal"></td>
-  </tr>
-  </table>
-  <p>La terre a fait <span id="angle">0</span> tours dans sa révolution autour du soleil (mesuré: <span id="terre_rev_duree"></span>).</p>
-  <p>La lune a fait <span id="angleTerre">0</span> tours dans sa révolution autour de la Terre.</p>
-  </section>
-  <button onclick="ajouteMesure()">Ajoute des instruments de mesure</button>
-  <div id="mesureDynamique">
-  </div>
-  <br>
-  <script type="text/javascript">
+          <input id="DTslider" type="range" min="0.01" max="1000" value="1" onchange="changeDTValue(this.value)" style="width:400px;"></input>
+          <input id="DTnum" value="1" type="number" onchange="changeDTValue(this.value)"/>
+        </p>
+Pour pouvoir voir les astres à l'écran, les diamètres ne sont pas réalistes et les distances sont mise à l'échelle...
+        <p>Chaque clic dans la fenêtre ajoute 10 météore (gris) de 1kg supplémentaires avec une vitesse et une position tirée au hasard. </p>
+        <p>La simulation contient : <span id="counter">0</span> corps</p>
+On peut régler l'échelle de l'affichage de la simulation ici : 1 pixel=<span id="zoomVal">500000000</span> mètres<br>
+        <input id="slider" type="range" min="10" max="100" value="20" onchange="changeZoomValue(this.value)" style="width:500px;clear: both;"></input>
+        <table>
+          <tr>
+            <th></th>
+            <th>instants</th>
+            <th>temps physique</th>
+            <th>temps réel</th>
+          </tr>
+          <tr>
+            <th>par secondes<br>de simulation</th>
+            <td id="IPSVal"></td>
+            <td id="timeVal"></td>
+            <td id="rtimeVal"></td>
+          </tr>
+          <tr>
+            <th>depuis le début</th>
+            <td id="instants"></td>
+            <td id="tempsSimVal"></td>
+            <td id="rtimeSimVal"></td>
+          </tr>
+        </table>
+        <p>La terre a fait <span id="angle">0</span> tours dans sa révolution autour du soleil (mesuré: <span id="terre_rev_duree"></span>).</p>
+        <p>La lune a fait <span id="angleTerre">0</span> tours dans sa révolution autour de la Terre.</p>
+      </section>
+    </div>
+    <button onclick="ajouteMesure()">Ajoute des instruments de mesure</button>
+    <div id="mesureDynamique">
+    </div>
+    <br>
+    <script type="text/javascript">
   if(undefined == window.performance){
-    window.performance={now:function(){
+    window.performance={ now: function(){
                  return new Date().getTime();
                  }
                };
@@ -103,11 +102,12 @@ La simulation utilise un algo d'intégration d'Euler explicite dont chaque pas c
   //const angleTerre=document.getElementById("angleTerre");
   //const rtimeVal=document.getElementById("rtime");
   //const rtimeSimVal=document.getElementById("rtimeSim");
-  const requestDisplay= SC.evt("requestDisplay");
-  const influence= SC.evt("influence");
-  const terre= SC.evt("terre");
-  const rtimeEvt= SC.evt("rtime");
-  const displayTime= SC.evt("displayTime");
+  const Evt_requestDisplay= SC.evt("requestDisplay");
+  const Evt_influence= SC.evt("influence");
+  const Evt_terre= SC.evt("terre");
+  const Evt_soleil= SC.evt("soleil");
+  const Evt_rtime= SC.evt("rtime");
+  const Evt_displayTime= SC.evt("displayTime");
 /*
 Grandeurs physiques
 */
@@ -117,10 +117,13 @@ const secInDay= 24*secInHr;
 const UA= 149597870700; // [m]
 const SA= 1.016718*UA; // [m]
 const G= 6.67430E-11; // [N.m2/kg2] soit [m3/kg/s2]
+
+const PERMANENT= true;
+
 /*
 Soleil
 */
-const Soleil_masse= 1.989E30; // [kg]
+const Soleil_masse= 1.9884E30; // [kg]
 /*
 
 Diamètre moyen[3]	1 392 684 km
@@ -280,14 +283,14 @@ Neptune
 const Neptune_revolPer= 60266*secInDay; // en s
 const elipseAxisMoon= 384748E3 // [m]
 const elipseExcentricityMoon= 0.0549006 // []
-const moonSP= elipseAxisMoon*(1-elipseExcentricityMoon);
-const dTerre= Math.sqrt(G*Soleil_masse*(2/(Terre_demiGrandAxe*(1-Terre_exentricite))-1/Terre_demiGrandAxe));
-const dLune= Math.sqrt(G*Terre_masse*(2/(elipseAxisMoon*(1-elipseExcentricityMoon))-1/elipseAxisMoon));
-  const SP= (Terre_demiGrandAxe*(1-Terre_exentricite)); // [m]
-  document.getElementById("distSoleilTerre").textContent= Math.round(SP/1000);
-  document.getElementById("distTerreLune").textContent= Math.round(moonSP/1000);
-  document.getElementById("vitesseTerre").textContent= Math.round(dTerre);
-  document.getElementById("vitesseLune").textContent= Math.round(dLune);
+const Lunes_SP= elipseAxisMoon*(1-elipseExcentricityMoon);
+const Terre_dy= Math.sqrt(G*Soleil_masse*(2/(Terre_demiGrandAxe*(1-Terre_exentricite))-1/Terre_demiGrandAxe));
+const Lune_dy= Math.sqrt(G*Terre_masse*(2/(elipseAxisMoon*(1-elipseExcentricityMoon))-1/elipseAxisMoon));
+const Terre_SP= (Terre_demiGrandAxe*(1-Terre_exentricite)); // [m]
+  document.getElementById("distSoleilTerre").textContent= Math.round(Terre_SP/1000);
+  document.getElementById("distTerreLune").textContent= Math.round(Lunes_SP/1000);
+  document.getElementById("vitesseTerre").textContent= Math.round(Terre_dy);
+  document.getElementById("vitesseLune").textContent= Math.round(Lune_dy);
   document.getElementById("masseLune").textContent= Lune_masse;
   document.getElementById("masseSoleil").textContent= Soleil_masse;
   document.getElementById("masseTerre").textContent= Terre_masse;
@@ -314,16 +317,16 @@ const dLune= Math.sqrt(G*Terre_masse*(2/(elipseAxisMoon*(1-elipseExcentricityMoo
 terre_rev_duree.textContent= format(Terre_revolPer*1000.0);
   rtimeSimVal.oldTime= 0;
   rtimeSimVal.initTimer= function(re){
-    const time= re.getValuesOf(rtimeEvt)[0];
+    const time= re.getValuesOf(Evt_rtime)[0];
     this.oldTime= time;
     }
   rtimeSimVal.compute= function(re){
-    const time= re.getValuesOf(rtimeEvt)[0];
+    const time= re.getValuesOf(Evt_rtime)[0];
     this.textContent= format(time-this.oldTime);
     }
   rtimeVal.oldTime= 0;
   rtimeVal.compute= function(re){
-    const time= re.getValuesOf(rtimeEvt)[0];
+    const time= re.getValuesOf(Evt_rtime)[0];
     if((0!=this.oldTime)&&(time-this.oldTime<950)){
       return;
       }
@@ -338,7 +341,7 @@ terre_rev_duree.textContent= format(Terre_revolPer*1000.0);
     }
   var zeZoom= 2e-9;
   var DT= 0.1;
-  DTVal.innerHTML= DT;
+  DTnum.value= DTslider.value= DTVal.innerHTML= DT;
   const tempo= 5999;
   document.getElementById("blockDInstants").textContent=(tempo+1);
   workspace.dropFrame=false;
@@ -352,46 +355,47 @@ terre_rev_duree.textContent= format(Terre_revolPer*1000.0);
     if(toDraw.length != 3){
       //console.log("buh");
       }
-    for(var i in toDraw){
-      var obj=toDraw[i];
-      obj.draw(ctx);
+    const tdlen= toDraw.length;
+    for(var i= 0; i<tdlen; i++){
+      toDraw[i].draw(ctx);
     }
-    if(0 == this.frameNumber%256){
-      if(0 != this.fpsMeasuring){
-        this.fps=Math.floor(this.frameNumber*10000
+    if(0==this.frameNumber%256){
+      if(0!=this.fpsMeasuring){
+        this.fps= Math.floor(this.frameNumber*10000
              /(window.performance.now()-this.fpsMeasuring))/10;
         }
       else{
-        this.fpsMeasuring=window.performance.now();
+        this.fpsMeasuring= window.performance.now();
         }
       }
-    this.dropFrame=false;
+    this.dropFrame= false;
     }
-  var main= SC.clock();
-  var periodic= SC.periodic({ delay: 30 });
-  main.bindTo(periodic);
-  main.addProgram(SC.repeat(SC.forever
-      , SC.generate(rtimeEvt
-          , function(){
-              return window.performance.now();
-              }
-          )
-      , SC.pause(48000)
-      )
-    );
-  main.addProgram(
-        SC.repeatForever(SC.generate(displayTime)
-        , SC.next(function(){ return tempo; })
-        , SC.pause(function(){ return tempo; })
-          )
-     );
+const main= SC.clock();
+const periodic= SC.periodic({ delay: 30 });
+main.bindTo(periodic);
+main.addProgram(
+  PERMANENT ?SC.generate(Evt_rtime, function(){ return window.performance.now(); }, SC.forever)
+            :SC.repeat(SC.forever
+             , SC.generate(Evt_rtime
+                 , function(){
+                     return window.performance.now();
+                     }
+                 )
+               )
+  );
+main.addProgram(
+      SC.repeatForever(SC.generate(Evt_displayTime)
+      , SC.next(function(){ return tempo; })
+      , SC.pause(function(){ return tempo; })
+        )
+   );
 /*
  * Paquet de réactions exécuté à pleine vitesse entre deux période d'une
  * horloge TR gérant l'UI...
  */
 /*  function massReact(){
     const times=tempo+1
-    main.addEntry(displayTime);
+    main.addEntry(Evt_displayTime);
     for(var i=0; i < times; i++){
       main.newValue();
       }
@@ -421,49 +425,45 @@ terre_rev_duree.textContent= format(Terre_revolPer*1000.0);
     DTVal.innerHTML=v;
     }
 main.addProgram(
-  SC.actionOn(requestDisplay
+  SC.actionOn(Evt_requestDisplay
     , function(re){
-        const data=re.getValuesOf(requestDisplay);
+        const data=re.getValuesOf(Evt_requestDisplay);
         counter.innerHTML=data.length;
         if(workspace.dropFrame){
           return;
         }
         workspace.dropFrame=true;
-        //console.log(all[requestDisplay].length);
+        //console.log(all[Evt_requestDisplay].length);
         window.requestAnimationFrame(workspace.refresh.bind(workspace, data));
         }, undefined, SC.forever)
   );
 function JFS_meteor(params){
-  function _(name, def){
-    if(undefined !== params[name]){
-      return params[name];
-      }
-    return def;
-    }
-  this.name=_("name","Meteor");
+  const p= SC.$(params)
+  this.name= p._("name","Meteor");
 /*
  * Grandeurs physiques de l'objet
  */
-  this.x=_("x",0);
-  this.y=_("y",0);
-  this.z=_("z",0);
-  this.dx=_("dx",0);
-  this.dy=_("dy",0);
-  this.dz=_("dz",0);
-  this.m=_("m", 1000);
+  this.x= p._("x",0);
+  this.y= p._("y",0);
+  this.z= p._("z",0);
+  this.dx= p._("dx",0);
+  this.dy= p._("dy",0);
+  this.dz= p._("dz",0);
+  this.m= p._("m", 1000);
   this.d2x= 0;
   this.d2y= 0;
   this.d2z= 0;
-  this.alpha= 0;
 /*
  * affichage
  */
-  this.zoom=1;
-  this.r=_("r", 10);
-  this.tour=0;
-  this.startLap=1;
-  this.zoneVisible=true;
-  this.bgcolor=_("bgColor", "yellow");
+  this.zoom= 1;
+  this.r= p._("r", 10);
+  this.tour= 0;
+  this.startLap= 1;
+  this.zoneVisible= true;
+  this.bgcolor= p._("bgColor", "yellow");
+  this.Evt_angle= p._("Evt_angle", null);
+  this.alpha= 0;
 /*
  * On peut se poser la question de généraliser les grandeurs.
  * position, vitesse, accelaration et masse.
@@ -473,7 +473,7 @@ function JFS_meteor(params){
   Object.defineProperty(this.me, "y",{get : function(){return this.y}.bind(this)});
   Object.defineProperty(this.me, "z",{get : function(){return this.z}.bind(this)});
   Object.defineProperty(this.me, "m",{get : function(){return this.m}.bind(this)});
-  this.me.draw=function(ctx){ this.draw(ctx)}.bind(this);
+  this.me.draw= function(ctx){ this.draw(ctx)}.bind(this);
     
   }
 /*
@@ -510,18 +510,25 @@ JFS_meteor.prototype.dump=function(){
  * Simulation avec un schéma Euler explicite
  */
 JFS_meteor.prototype.rfd=function(re){
-  var influences=re.getValuesOf(influence);
-  this.d2x=0;
-  this.d2y=0;
-  this.d2z=0;
+  var influences= re.getValuesOf(Evt_influence);
+  this.d2x= 0;
+  this.d2y= 0;
+  this.d2z= 0;
   for(var v in influences){
-    var other=influences[v]
-        , rx=this.x-other.x
-        , ry=this.y-other.y
-        , rz=this.z-other.z
-        , r2=rx*rx+ry*ry+rz*rz+1000 // Évite la division par 0.
-        , r=Math.sqrt(r2)
-        , gena=G*other.m/r/r2
+    const other= influences[v];
+    if(other==this.me){
+      //if(0==(this.counttrace++%6000))console.log("skip self");
+      continue;
+      }
+    //else{
+    //  if(0==(this.counttrace++%6000))console.log("not self");
+    //  }
+    const rx= this.x-other.x
+        , ry= this.y-other.y
+        , rz= this.z-other.z
+        , r2= rx*rx+ry*ry+rz*rz //+1000 // Évite la division par 0.
+        , r= Math.sqrt(r2)
+        , gena= G*other.m/r/r2
         ;
         this.d2x -= gena*rx;
         this.d2y -= gena*ry;
@@ -558,48 +565,23 @@ JFS_meteor.prototype.rfd=function(re){
   }
 const ze2PI= 2*Math.PI;
 JFS_meteor.prototype.angle=function(engine){
-  const rx= this.x
-      , ry= this.y
-      , rz= this.z
-      , r2= rx*rx+ry*ry+rz*rz
-      , r= Math.sqrt(r2)
-      , cos= rx/r
-      , sin= ry/r
-      , alpha= (Math.asin(sin)<0)?ze2PI-Math.acos(cos):Math.acos(cos)
-      ;
-  if(this.alpha>alpha){
-    console.log("tour angle", this.alpha, alpha);
-    angle.textContent= (++this.tour)+" (durée du dernier : "+format((engine.getInstantNumber()-this.startLap)*DT*1e3)+")";
+    const data= engine.getValuesOf(this.Evt_angle)
+        , center= data[0]
+        , rx= this.x-center.x
+        , ry= this.y-center.y
+        , rz= this.z-center.z
+        , r2= rx*rx+ry*ry+rz*rz
+        , r= Math.sqrt(r2)
+        , cos= rx/r
+        , sin= ry/r
+        , alpha= (Math.asin(sin)<0)?ze2PI-Math.acos(cos):Math.acos(cos)
+        ;
+  if(Math.abs(this.alpha-alpha)>6){
+    //console.log("tour angle", this.alpha, alpha);
+    angle.textContent= (++this.tour)+" tours (durée du dernier : "+format((engine.getInstantNumber()-this.startLap)*DT*1e3)+")";
     this.startLap= engine.getInstantNumber();
     }
   this.alpha=alpha;
-  }
-JFS_meteor.prototype.angleTerre= function(engine){
-  const data= engine.getValuesOf(terre)
-      , terra= data[0]
-      , rx= this.x-terra.x
-      , ry= this.y-terra.y
-      , rz= this.z-terra.z
-      , r2= rx*rx+ry*ry+rz*rz
-      , r= Math.sqrt(r2)
-      , cos= rx/r
-      , sin= ry/r
-      , alpha= (Math.asin(sin)<0)?ze2PI-Math.acos(cos):Math.acos(cos)
-      //, rtx= terra.x
-      //, rty= terra.y
-      //, rtz= terra.z
-      //, rt2= rtx*rtx+rty*rty+rtz*rtz
-      //, rt= Math.sqrt(rt2)
-      //, tcos= rtx/rt
-      //, tsin= rty/rt
-      //, talpha= (Math.asin(tsin)<0)?ze2PI-Math.acos(tcos):Math.acos(tcos)
-      ;
-  if(Math.abs(this.alpha-alpha)>6){
-    console.log("angle", this.alpha, alpha);
-    angleTerre.textContent=(++this.tour)+" (durée du dernier : "+format((engine.getInstantNumber()-this.startLap)*DT*1e3)+")";
-    this.startLap= engine.getInstantNumber();
-    }
-  this.alpha= alpha;
   }
 JFS_meteor.prototype.draw=function(ctx){
       var zoom=zeZoom;
@@ -660,11 +642,11 @@ function launch(){
       })
       , SC.par(
         SC.repeat(SC.forever
-        , SC.await(displayTime)
-        , SC.generate(requestDisplay, SC.my("me"))
+        , SC.await(Evt_displayTime)
+        , SC.generate(Evt_requestDisplay, SC.my("me"))
         )
-        , SC.generate(influence, SC.my("me"), SC.forever)
-        , SC.actionOn(influence, "rfd", undefined, SC.forever)
+        , SC.generate(Evt_influence, SC.my("me"), SC.forever)
+        , SC.actionOn(Evt_influence, "rfd", undefined, SC.forever)
         //, SC.repeat(SC.forever, SC.action("boxing"))
         )
       )
@@ -673,95 +655,104 @@ function launch(){
 main.addProgram(
   SC.cube(new JFS_meteor({
     name: "Soleil"
-    , x : 0
-    , y : 0
-    , z : 0
-    , dx : 0
-    , dy : 0
-    , dz : 0
-    , m : Soleil_masse  // [kg]
+    , x: 0
+    , y: 0
+    , z: 0
+    , dx: 0
+    , dy: 0
+    , dz: 0
+    , m: Soleil_masse // [kg]
     })
     , SC.par(
       SC.repeat(SC.forever
-        , SC.await(displayTime)
-        , SC.generate(requestDisplay, SC.my("me"))
+        , SC.await(Evt_displayTime)
+        , SC.generate(Evt_requestDisplay, SC.my("me"))
         )
-      , SC.generate(influence, SC.my("me"), SC.forever)
-      , SC.actionOn(influence, "rfd", undefined, SC.forever)
+      , PERMANENT?SC.generate(Evt_soleil, SC.my("me"), SC.forever)
+                 :SC.repeatForever(SC.generate(Evt_soleil, SC.my("me")))
+      , PERMANENT?SC.generate(Evt_influence, SC.my("me"), SC.forever)
+                 :SC.repeatForever(SC.generate(Evt_influence, SC.my("me")))
+      , SC.actionOn(Evt_influence, "rfd", undefined, SC.forever)
       //, SC.repeat(SC.forever, SC.action("boxing"))
       )
     )
   );
-const cubeTerre=new JFS_meteor({
-    name: "Terre"
-    , x : SP // [m]
-    , y : 0
-    , z : 0
-    , dx : 0
-    , dy : dTerre // [m.s-1]
-    , dz : 0
-    , m : Terre_masse //[kg]
-    , bgColor:"blue"
-    , r:2
+const cubeTerre= new JFS_meteor({
+      name: "Terre"
+    , x: Terre_SP // [m]
+    , y: 0
+    , z: 0
+    , dx: 0
+    , dy: Terre_dy // [m.s-1]
+    , dz: 0
+    , m: Terre_masse //[kg]
+    , bgColor: "blue"
+    , r: 2
+    , Evt_angle: Evt_soleil
     });
 main.addProgram(SC.cube(cubeTerre
     , SC.par(
       SC.repeat(SC.forever
-        , SC.await(displayTime)
-        , SC.generate(requestDisplay, SC.my("me"))
+        , SC.await(Evt_displayTime)
+        , SC.generate(Evt_requestDisplay, SC.my("me"))
         )
-      , SC.generate(influence, SC.my("me"), SC.forever)
-      , SC.generate(terre, SC.my("me"), SC.forever)
-      , SC.actionOn(influence, "rfd", undefined, SC.forever)
+      , PERMANENT?SC.generate(Evt_influence, SC.my("me"), SC.forever)
+                 :SC.repeatForever(SC.generate(Evt_influence, SC.my("me")))
+      , PERMANENT?SC.generate(Evt_terre, SC.my("me"), SC.forever)
+                 :SC.repeatForever(SC.generate(Evt_terre, SC.my("me")))
+      , SC.actionOn(Evt_influence, "rfd", undefined, SC.forever)
       //, SC.repeat(SC.forever, SC.action("boxing"))
       //, SC.repeat(10, SC.action("dump"))
-      , SC.repeat(SC.forever
-        , SC.action("angle")
-        )
+      , SC.actionOn("Evt_angle", "angle", undefined, SC.forever)
+      //, SC.repeat(SC.forever
+      //  , SC.action("angle")
+      //  )
       )
     )
   );
- const cubeLune=new JFS_meteor({
-    name: "Lune"
-    , x : SP+moonSP //+(3.844e8) // [m] périgée : 363 300 km Apogée : 406 300
-    , y : 0
-    , z : 0
-    , dx : 0
-    , dy : dTerre + dLune // [m/s] max : 1.076 [km/s] min : 0.964 [km/s]
-    , dz : 0
-    , m : Lune_masse//[kg]
-    , bgColor:"red"
-    , r:1
-    });
+const cubeLune= new JFS_meteor({
+     name: "Lune"
+   , x: Terre_SP+Lunes_SP //+(3.844e8) // [m] périgée : 363 300 km Apogée : 406 300
+   , y: 0
+   , z: 0
+   , dx: 0
+   , dy: Terre_dy+Lune_dy // [m/s] max : 1.076 [km/s] min : 0.964 [km/s]
+   , dz: 0
+   , m: Lune_masse//[kg]
+   , bgColor: "red"
+   , r: 1
+   , Evt_angle: Evt_terre
+   });
 main.addProgram(
   SC.cube(cubeLune
   , SC.par(
       SC.repeat(SC.forever
-        , SC.await(displayTime)
-        , SC.generate(requestDisplay, SC.my("me"))
+        , SC.await(Evt_displayTime)
+        , SC.generate(Evt_requestDisplay, SC.my("me"))
         )
-    , SC.generate(influence, SC.my("me"), SC.forever)
-    , SC.actionOn(influence, "rfd", undefined, SC.forever)
+    , PERMANENT?SC.generate(Evt_influence, SC.my("me"), SC.forever)
+               :SC.repeatForever(SC.generate(Evt_influence, SC.my("me")))
+    , SC.actionOn(Evt_influence, "rfd", undefined, SC.forever)
     //, SC.repeat(SC.forever, SC.action("boxing"))
     //, SC.repeat(10, SC.action("dump"))
-    , SC.actionOn(terre, "angleTerre", undefined, SC.forever)
+      , SC.actionOn("Evt_angle", "angle", undefined, SC.forever)
       )
     )
   );
 main.addProgram(
   SC.cube(rtimeVal
-    , SC.repeatBurst(SC.forever
-        , SC.await(rtimeEvt)
-        , SC.actionOn(rtimeEvt, "compute")
-        )
+  , SC.repeatBurstForever(
+      SC.await(Evt_rtime)
+    , SC.actionOn(Evt_rtime, "compute")
+      )
     )
   );
 main.addProgram(
   SC.cube(rtimeSimVal
-    , SC.seq( SC.actionOn(rtimeEvt, "initTimer")
+    , SC.seq( SC.actionOn(Evt_rtime, "initTimer")
         , SC.repeat(SC.forever
-            , SC.await(rtimeEvt)
-            , SC.actionOn(rtimeEvt, "compute")
+            , SC.await(Evt_rtime)
+            , SC.actionOn(Evt_rtime, "compute")
             , SC.pause(Math.round(tempo*(1000/main.delay)))
             )
         )
@@ -916,9 +907,9 @@ function ajouteMesure(){
     default: break;
     }
   }
-</script>
-<footer>
+    </script>
+    <footer>
 Données provenant de <a href="https://fr.wikipedia.org" target="sctab_wikipedia">Wikipedia</a>
-</footer>
-</body>
+    </footer>
+  </body>
 </html>

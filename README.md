@@ -2,9 +2,9 @@
 
 **Authors:** Jean-Ferdy Susini, Olivier Pons, Claude Lion\
 **Created:** 2/12/2014 9:23 PM\
-**Version:** 5.0.1074.alpha\
-**Build**: 1074\
-**Copyleft 2014-2024**
+**Version:** 5.0.1110.alpha\
+**Build**: 1110\
+**Copyleft 2014-2025**
 
 _This implementation is still in alpha stage, cause API is still mostly subject
 to big changes..._\
@@ -23,14 +23,14 @@ on smartphones and tablets and especially in a scientific study :
 [DanceDoigt](http://cedric.cnam.fr/~susinij/DanceDoigt/).
 So, the primary environment for *SugarCubesJS* is a Web page.
 
-1. load the library SugarCubes.js by adding :
+1. Load the library SugarCubes.js by adding :
    ```HTML
    <script type="text/javascript" src="SugarCubes.js">
    </script>
    ```
    to the header section of your HTML page. One can use the following url to
    access online version of the library at :
-   `http://jeanferdysusini.free.fr/SugarCubes.js`.
+   <http://jeanferdysusini.free.fr/SugarCubes.js>.
 
 2. In a script node, build a reactive execution environment to execute reactive programs :
    ```javascript

@@ -3,32 +3,32 @@
  * Author : Jean-Ferdy Susini (MNF)
  * Created : 20/12/2014 18:46
  * Part of the SugarCubes Project
- * version : 5.0.1073.alpha
- * build: 1073
+ * version : 5.0.1109.alpha
+ * build: 1109
  * Copyleft 2014-2025.
  */
 ;
 if(SC && SC.sc_build>1 && undefined===SC.tools){
   Object.defineProperty(SC, "tools"
                           , { value: (function(params){
-    var main=params.tools.main;
-    var periodic=null;
-    const SC_ClientTools={
+    var main= params.tools.main;
+    var periodic= null;
+    const SC_ClientTools= {
       crc32_bin: function(bytes){
         const crc=new Uint32Array(3);
         crc[0]=0xFFFFFFFF;
-        const n=input.length;
-        for(var i=0; i<n; i++){
-          crc[1]=(bytes[i]&0xFF);
-          for(var j=0; j<8; j++){
-            crc[2]=((crc[1]>>j)^crc[0])&0x1;      
+        const n= input.length;
+        for(var i= 0; i<n; i++){
+          crc[1]= (bytes[i]&0xFF);
+          for(var j= 0; j<8; j++){
+            crc[2]= ((crc[1]>>j)^crc[0])&0x1;      
             crc[0]>>>= 1;
             if(crc[2]){
-              crc[0]^=0xEDB88320;
+              crc[0]^= 0xEDB88320;
               }
             }
           }
-        crc[0]=~crc[0];
+        crc[0]= ~crc[0];
         return crc[0];
         }
     , convertB2C_64: function(n){
@@ -331,8 +331,8 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
       , writable: false
         }
       );
-    SC_ClientTools.addProgram=main.addProgram.bind(main);
-    SC_ClientTools.generateEvent=main.addEntry.bind(main);
+    SC_ClientTools.addProgram= main.addProgram.bind(main);
+    SC_ClientTools.generateEvent= main.addEntry.bind(main);
     return SC_ClientTools;
     }).call(sc_global, p)
                             , writable: false
