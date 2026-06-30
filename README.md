@@ -127,6 +127,16 @@ main.setStdOut(function(msg){
 </html>
 ```
 
+Other demoes can be found there:
+
+- [http://jeanferdysusini.free.fr/SC_Demo1.html]http://jeanferdysusini.free.fr/SC\_Demo1.html
+- [http://jeanferdysusini.free.fr/SC_Demo2.html]http://jeanferdysusini.free.fr/SC\_Demo2.html
+- [http://jeanferdysusini.free.fr/SC_Demo3.html]http://jeanferdysusini.free.fr/SC\_Demo3.html
+- [http://jeanferdysusini.free.fr/SC_Demo4.html]http://jeanferdysusini.free.fr/SC\_Demo4.html
+- [http://jeanferdysusini.free.fr/SC_Demo5.html]http://jeanferdysusini.free.fr/SC\_Demo5.html
+- [http://jeanferdysusini.free.fr/SC_Demo6.html]http://jeanferdysusini.free.fr/SC\_Demo6.html
+
+
 One word about Reactive Synchronous Programming Model « à la » Boussinot:
 -------------------------------------------------------------------------
 
