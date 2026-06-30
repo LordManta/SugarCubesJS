@@ -1,0 +1,39 @@
+.SC_modal_popup {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(1.1);
+  transition: visibility 0s linear 0.25s, opacity 0.25s 0s, transform 0.25s;
+  }
+.SC_popup_modal_transition {
+  opacity: 1;
+  visibility: visible;
+  transform: scale(1.0);
+  transition: visibility 0s linear 0s, opacity 0.25s 0s, transform 0.25s;
+  }
+.SC_modal_close_box{
+  background: snow;
+  color:black;
+  border-radius: 2px;
+  }
+.SC_modal_title{
+  color: yellow;
+  }
+.SC_modal_dialog {
+  position: absolute;
+  color: white;
+  top: 20%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: black;
+  border: 1px solid;
+  border-radius: 12px;
+  padding: 8px;
+  }

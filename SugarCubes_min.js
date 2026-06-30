@@ -3,9 +3,9 @@
  * Authors : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.1109.alpha
- * build: 1109
- * Copyleft 2014-2025.
+ * version : 5.0.1232.alpha
+ * build: 1232
+ * Copyleft 2014-2026.
  */
 ;
 (function(sc_global){ 
@@ -16,19 +16,25 @@ var nextEventID= 0;
 function testNES(obj){
   return "string"==typeof(obj) && ""!=obj;
   };
+function testInt(n){
+  return !isNaN(parseInt(n)) && parseInt(n)==n;
+  };
+function testTA(o){
+  return ("object"==typeof(o)
+          && "object"==typeof(o.t)
+          && testNES(o.f));
+  };
 function markProgram(proto){
   Object.defineProperty(proto, "isAnSCProgram", { value: true
                                             , writable: false });
   };
 function b_(nm, args){
     if(testNES(nm)
-      || (!isNaN(parseInt(nm)))
+      || testInt(nm)
       || nm===true
       || nm===false
       || "function"==typeof(nm)
-      || ("object"==typeof(nm)
-          && "object"==typeof(nm.t)
-          && testNES(nm.f))
+      || testTA(nm)
       || nm instanceof SC_LateBinding
           ){
       return new SC_LateBinding(nm, args);
@@ -51,8 +57,7 @@ function isEvent(evt){
     return (evt instanceof SC_EventId)||(evt instanceof SC_SensorId)
           || (evt instanceof SC_LateBinding)
           || testNES(evt)
-          || ("object"==typeof(evt) && "object"==typeof(evt.t)
-                 && testNES(evt.f));
+          || testTA(evt);
     };
 function isConfig(cfg){
     if(undefined==cfg){
@@ -60,7 +65,6 @@ function isConfig(cfg){
       }
     return (cfg instanceof SC_Or) || (cfg instanceof SC_OrBin)
            || (cfg instanceof SC_And) || (cfg instanceof SC_AndBin)
-           || (cfg instanceof SC_LateBinding)
            || isEvent(cfg);
     };
 function checkConfig(cfg){
@@ -75,8 +79,7 @@ function isStrictSensor(sens){
     return sens instanceof SC_SensorId
           || testNES(sens)
           || (sens instanceof SC_LateBinding)
-          || ("object"==typeof(sens) && "object"==typeof(sens.t)
-                 && testNES(sens.f));
+          || testTA(sens);
     };
 function isStrictEvent(evt){
     if(undefined==evt){
@@ -84,8 +87,7 @@ function isStrictEvent(evt){
       }
     return (evt instanceof SC_EventId)
           || testNES(evt)
-          || ("object"==typeof(evt) && "object"==typeof(evt.t)
-                 && testNES(evt.f))
+          || testTA(evt)
           || (evt instanceof SC_LateBinding);
     };
 function checkStrictEvent(evt){
@@ -113,8 +115,7 @@ function checkNum(num){
     if("number"==typeof(num)){
       return parseInt(num);
       }
-    if(("object"==typeof(num) && "object"==typeof(num.t)
-                 && testNES(num.f))
+    if(testTA(num)
           || testNES(num)
           || ("function"==typeof(num))
           || (num instanceof SC_LateBinding)){
@@ -128,8 +129,7 @@ function isFun(fun){
       }
     return ("function"==typeof(fun))
           || testNES(fun)
-          || ("object"==typeof(fun) && "object"==typeof(fun.t)
-                 && testNES(fun.f))
+          || testTA(fun)
           || (fun instanceof SC_LateBinding);
     };
 function checkFun(f){
@@ -154,7 +154,7 @@ const SC_IState= {
       }
     };
 const stlen= SC_Instruction_state_str.length;
-for(var st= 0; st< stlen; st++){
+for(var st= 0; st<stlen; st++){
   SC_IState[SC_Instruction_state_str[st]]= parseInt(st);
   }
 Object.freeze(SC_IState);
@@ -261,6 +261,9 @@ function SC_Parameters(p, check){
     const kl= kiz.length
     for(var n= 0; n<kl; n++){
       const key= kiz[n];
+      if(["_", "_e", "_$", "toString"].includes(key)){
+        continue;
+        }
       this[key]= p[key];
       }
     if(Array.isArray(check)){
@@ -281,6 +284,9 @@ function SC_Parameters(p, check){
 (function(proto){
 Object.defineProperty(proto, "_"
 , { value: function(name, dval){
+        if(!testNES(name)){
+          throw new Error("invalid name '"+name+"'");
+          }
         const v= this[name];
         return (undefined!==v || (null!==v && undefined===dval))?v:dval;
         }
@@ -288,6 +294,9 @@ Object.defineProperty(proto, "_"
     });
 Object.defineProperty(proto, "_e"
 , { value: function(name){
+        if(!testNES(name)){
+          throw new Error("invalid name '"+name+"'");
+          }
         const v= this[name];
         return undefined!==v;
         }
@@ -295,7 +304,7 @@ Object.defineProperty(proto, "_e"
     });
 Object.defineProperty(proto, "_$"
 , { value: function(name, value){
-        if((null==name)||("string"!=typeof(name))){
+        if(!testNES(name)){
           throw new Error("invalid name '"+name+"'");
           }
         this[name]= v;
@@ -349,14 +358,13 @@ function SC_LateBinding(){
   if(testNES(obj)){
     Object.defineProperty(this, "name", { value: obj , writable: false });
     }
-  else if("object"==typeof(obj) && "object"==typeof(obj.t)
-          && testNES(obj.f)){
+  else if(testTA(obj)){ 
     Object.defineProperty(this, "tgt"
     , { value: obj.t, writable: false });
     Object.defineProperty(this, "name"
     , { value: obj.f, writable: false });
     }
-  else if("function"==typeof(obj)){
+  else if("function"==typeof(obj)){ 
     Object.defineProperty(this, this.vf?"fun":"__"
     , { value: obj, writable: false });
     }
@@ -567,6 +575,34 @@ function SC_cubify(params){
   if(params.sci){
     params.sci.call(this);
     }
+  Object.defineProperty(this, "_sc_get",
+    { value: function(name){
+        if(undefined!==this[name]){
+	  return this[name];
+	  }
+	if(undefined!=this._sc_extension){
+	  if(undefined!==this._sc_extension[name]){
+	    return this._sc_extension[name];
+	    }
+	  }
+	return undefined;
+        }
+    , writable: false
+      }
+    );
+  Object.defineProperty(this, "_sc_set",
+    { value: function(name, val){
+        if(undefined!==this[name]){
+	  return this[name]= val;
+	  }
+	if(undefined!=this._sc_extension){
+	  return this._sc_extension[name]= val;
+	  }
+	return undefined;
+        }
+    , writable: false
+      }
+    );
   };
 function Evt_bindTo(registeredMachines, engine){
   if(engine instanceof SC_Machine){
@@ -723,7 +759,7 @@ proto.getValues= function(m){
 proto.__proto__= SC_Event.prototype;
 Object.freeze(proto);
 })(SC_EventDistributed.prototype);
-function SC_SensorId(params){
+function SC_SensorId(params= {}){
   Object.defineProperty(this, "internalId"
          , { value: nextEventID++, writable: false });
   const iids= "00000000"+this.internalId.toString(16);
@@ -733,10 +769,9 @@ function SC_SensorId(params){
            , writable: false });
   Object.defineProperty(this, "name"
          , { value: "&#_"+this.iids+"_"+params.name, writable: false } );
-  const boundClocks= [];
   const binder= {
       sens: this
-    , bc: boundClocks
+    , bc: []
     , term: false
     , add: function(clk){
           if(this.bc.includes(clk)){
@@ -757,6 +792,16 @@ function SC_SensorId(params){
           }
     , value: undefined
     , ts: 0
+    , activateClocks: function(){
+          this.ts++;
+          const bc= this.bc;
+          const bclen= bc.length;
+          for(var i= 0; i<bclen; i++){ bc[i](); }
+          }
+    , release: function(){
+          SC_Runtime.unregisterBinder(this.sens);
+          this.term= true;
+          }
       };
   SC_Runtime.registerBinder(binder);
   if(params.isPower){
@@ -767,36 +812,26 @@ function SC_SensorId(params){
                             ?params.async:NO_FUN;
       if(!isNaN(delay)){
         if(delay>0){
-          const handle= setInterval(function(){
-            this.ts++;
-            const bclen= this.bc.length;
-            for(var i= 0; i<bclen; i++){ this.bc[i](); }
-            }.bind(binder), delay);
-          Object.defineProperty(this, "stop"
-                 , { value: function(h){
+          const handle= setInterval(binder.activateClocks.bind(binder), delay);
+          Object.defineProperty(this, "release"
+                 , { value: function(h, b){
                        clearInterval(h);
-                       SC_Runtime.unregisterBinder(this.sens);
-                       this.term= true;
-                       }.bind(this, handle), writable: false } );
+                       b.release();
+                       }.bind(this, handle, binder), writable: false } );
           }
         else{
           throw new Error("invalid delay");
           }
         }
       else{
-        Object.defineProperty(this, "stop"
-               , { value: function(){
-                     SC_Runtime.unregisterBinder(this.sens);
-                     this.term= true;
-                     }.bind(binder), writable: false } );
+        Object.defineProperty(this, "release"
+               , { value: binder.release.bind(binder), writable: false } );
         Object.defineProperty(this, "run"
                , { value: function(n, fasync){
                        if(this.term){ return; }
                        for(var i= 0; i<n; i++){
                          fasync();
-                         this.ts++;
-                         const bclen= this.bc.length;
-                         for(var j= 0; j<bclen; j++){ this.bc[j](); }
+                         this.activateClocks();
                          }
                        }.bind(binder, n, fasync), writable: false } );
         }
@@ -808,10 +843,8 @@ function SC_SensorId(params){
           };
       const animDetector= function(b, bc, ts){
         b.posted= false;
-        this.ts++;
         this.value= ts;
-        const bclen= this.bc.length;
-        for(var j= 0; j<bclen; j++){ this.bc[j](); }
+        this.activateClocks();
         }.bind(binder, b);
       b.ad= animDetector;
       b.posted= true;
@@ -826,22 +859,19 @@ function SC_SensorId(params){
       }
     }
   else{ 
-    const dom_targets= (params.dom_targets && Array.isArray(params.dom_targets))
+    const dom_targets= (Array.isArray(params.dom_targets))
                        ?params.dom_targets
-                       :[];
+                       :(Array.isArray(params.targets)?params.targets:[]);
     const times= params.times?parseInt(params.times):-1;
     binder.timer= { count: isNaN(times)?-1:times
        , dt: dom_targets?dom_targets:[] };
     const basic_handler= function(evt){
-        this.ts++;
         this.value= evt;
-        const bc= this.bc;
-        const bclen= bc.length;
-        for(var i= 0; i<bclen; i++){ bc[i](); }
+        this.activateClocks();
         }.bind(binder);
     const timed_handler= function(evt){
           if(this.timer.count-->0){
-            basic_handler.call(undefined, evt);
+            basic_handler.call(this, evt);
             }
           else{
             this.sens.release();
@@ -852,21 +882,22 @@ function SC_SensorId(params){
         :timed_handler;
     Object.defineProperty(this, "release"
            , { value: function(some){
-                 const selectedRelease= some && "array"==typeof(some);
-                 const rm=selectedRelease?some:this.dt;
-                 if(rm){
-                   const tlen= rm.length;
-                   for(var i= 0; i<tlen; i++){
-                     const t= rm[i];
-                     if(t.evt && testNES(t.evt)){
-                       t.target.removeEventListener(t.evt, this.handler);
+                   const selectedRelease= Array.isArray(some);
+                   const rm= selectedRelease?some:this.dt;
+                   if(rm){
+                     const tlen= rm.length;
+                     for(var i= 0; i<tlen; i++){
+                       const t= rm[i];
+                       if(testNES(t.evt) && "object"==typeof(t.target)
+			   && t.target.removeEventListener){
+                         t.target.removeEventListener(t.evt, this.handler);
+                         }
                        }
                      }
-                   }
-                if(!selectedRelease){
-                  this.term= true;
-                  SC_Runtime.unregisterBinder(this.sens);
-                  }
+                   if(!selectedRelease){
+                     this.term= true;
+                     SC_Runtime.unregisterBinder(this.sens);
+                     }
            }.bind(binder), writable: false } );
     if(dom_targets){
       const dtlen= dom_targets.length;
@@ -2213,7 +2244,7 @@ proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
       const binder= _b(cube);
       const bound_cond= binder(this.cond);
       if(true===bound_cond){
-        return SC_PauseOne.bindTo(engine, parbranch, seq, path, cube, cinst);
+        return new SC_PauseOne().bindTo(engine, parbranch, seq, path, cube, cinst);
         }
       else if(false==bound_cond){
         return SC_PauseForever;
@@ -2238,8 +2269,8 @@ function SC_Seq(seqElements){
     if(prg instanceof SC_Seq){
       const len= prg.seqElements.length;
       for(var j= 0; j<len; j++){
-	const subse= prg.seqElements[j];
-	if(subse instanceof SC_Seq){ throw new Error("innerSeq"); }
+        const subse= prg.seqElements[j];
+        if(subse instanceof SC_Seq){ throw new Error("innerSeq"); }
         this.seqElements.push(subse);
         }
       }
@@ -4494,8 +4525,10 @@ function SC_Control(c, p){
 markProgram(proto);
 proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
     if(engine instanceof SC_Machine){
+      const binder= _b(cube);  
       const copy= new SC_Instruction(SC_Opcodes.CONTROL_INIT);
-      copy.c= this.c.bindTo(engine, parbranch, null, copy, cube, cinst);
+      copy.c= binder(this.c)
+                  .bindTo(engine, parbranch, null, copy, cube, cinst);
       copy.p= this.p.bindTo(engine, parbranch, null, copy, cube, cinst);
       copy.path= path;
       return copy;
@@ -4623,6 +4656,7 @@ function SC_Cube(o, p, extension){
   this.lastWill= NO_FUN;
   if(extension){
     if(extension.init){
+      console.warn("registering init: "+extension.init);
       this.init= isFun(extension.init)?extension.init:null;
       }
     if(extension.lastWill){
@@ -4663,7 +4697,7 @@ proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
       const copy= new SC_Instruction(SC_Opcodes.CUBE_ZERO);
       copy.o= this.o;
       const Evt_kill= this.o.SC_cubeKillEvt;
-      copy.killEvt = Evt_kill.bindTo(engine, parbranch
+      copy.killEvt= Evt_kill.bindTo(engine, parbranch
                                    , null, copy, cube, cinst);
       copy.swapList= this.swapList;
       copy.exposeReader= new SC_CubeReader();
@@ -9095,12 +9129,12 @@ const SC= {
         }
     };
 Object.defineProperty(SC, "sc_build"
-                        , { value: 1109
+                        , { value: 1232
                           , writable: false
                             }
                         );
 Object.defineProperty(SC, "sc_version"
-                        , { value: "5.0.1109.alpha"
+                        , { value: "5.0.1232.alpha"
                           , writable: false
                             }
                         );
@@ -9148,14 +9182,10 @@ const NO_NAME_EVT= "no_name";
 Object.defineProperty(SC, "evt"
                         , { value: function(name, params){
                               const p= {};
-                              if(undefined==name){
-                                throw new Error("Invalid parameters: "
-                                                                  +arguments);
-                                }
-                              else if(testNES(name)){
+                              if(testNES(name)){
                                 p.name= name;
                                 }
-                              else if(testNES(name.name)){
+                              else if(name && testNES(name.name)){
                                 p.name= name.name;
                                 }
                               else{
@@ -9294,7 +9324,7 @@ Object.defineProperty(SC, "sensor"
         if(undefined==params.name){
           p.name=(nextID++)+"_unanmed_machine"
           }
-        else if("string"!=typeof(params.name)){
+        else if("string"!=typeof(params.name) || ""==params.name){
           throw new Error("invalid name : "+p.name);
           }
         else{
@@ -9499,7 +9529,8 @@ Object.defineProperty(SC, "sensor"
             console.error("pauseUntil(): single pause for a true const.");
             return this.pause();
             }
-          if("function"!=typeof(cond) && !(cond instanceof SC_LateBinding)){
+          if("function"!=typeof(cond) && !(cond instanceof SC_LateBinding)
+	      && !testNES(cond)){
             throw new Error('pauseUntil(): invalid condition implementation: '
                            +cond);
             }
@@ -9647,14 +9678,18 @@ Object.defineProperty(SC, "sensor"
             if(undefined!==life.cubeProto && "object"!=typeof(life.cubeProto)){
               throw new Error("invalid params.life.cubeProto");
               }
+	    if(undefined!=life.swapList && !Array.isArray(life.swapList)){
+              throw new Error("invalid params.life.swapList");
+	      }
             if(p.life){
               p.life.init= life.init;
               p.life.lastWill= life.lastWill;
               p.life.cubeProto= life.cubeProto;
+              p.life.swapList= life.swapList;
               }
             else{
-              p.life= { init: params.init, lastWill: params.lastWill
-                , cubeProto: params.cubeProto };
+              p.life= { init: life.init, lastWill: life.lastWill
+                , cubeProto: life.cubeProto, swapList: life.swapList };
               }
             }
           return new SC_Cube(p.root, p.prg, p.life);
@@ -9887,6 +9922,7 @@ Object.defineProperty(SC, "sensor"
           var jump= 1;
           if('function'!=typeof(c) && true!==c && false!==c
              && ("object"!=typeof(c.t) || !testNES(c.f))
+	     && "string"!=typeof(c)
              && !(c instanceof SC_LateBinding)){
             throw new Error("Invalid condition: "+c);
             }
@@ -10082,16 +10118,16 @@ Object.defineProperty(SC, "sensor"
             else if(p instanceof SC_Par && 1==p.branches.length){
               prgs.push(p.branches[0].prg);
               }
-	    else{
+            else{
               prgs.push(p);
-	      }
+              }
             }
           if(1==prgs.length){
             return prgs[0];
             }
-	  else if(0==prgs.length){
-	    return SC.nothing();
-	    }
+          else if(0==prgs.length){
+            return SC.nothing();
+            }
           return new SC_Seq(prgs);
           }
     , writable: false
@@ -10202,8 +10238,7 @@ Object.defineProperty(SC, "sensor"
     , writable: false
       });
   Object.defineProperty(SC, "NO_ACTION"
-                          , { enumerable: false
-                            , value: NO_FUN
+                          , { value: NO_FUN
                             , writable: false
                               }
                           );
@@ -10226,6 +10261,11 @@ Object.defineProperty(SC, "sensor"
     , writable: false
       }
     );
+  Object.defineProperty(SC, "globals"
+  , { value: {}
+    , writable: false
+      }
+    );
   Object.defineProperty(SC, "forever"
                           , { enumerable: false
                             , value: -1
@@ -10233,27 +10273,202 @@ Object.defineProperty(SC, "sensor"
                               }
                           );
   this.SC= SC;
-  try{
-    const loadModule= new XMLHttpRequest();
-    var glob= this;
+  Object.defineProperty(SC, "tools"
+  , { value: {}, writable: false });
+function SC_Tools_init(){
+  const params= SC.globals.init_params;
+  const ze_te= new TextEncoder();
+  const ze_td= new TextDecoder();
+  var main= params.Tools.main;
+  var periodic= null;
+  };
+function SC_Loader(glb){
+  this.global= glb;
+  };
+const BN="base";
+const modules= [
+    "Tools"
+  , "AudioToolbox"
+  , "WebTools"
+  , "Canvas"
+  , "Listings"
+  , "MathJax"
+  , "SP"
+  , "WebEnergize"
+    ];
+var inline_param="";
+const MULTI_LINE_SPC= `[\\s\\r\\n]`;
+const CMT='\\/\\/'; 
+const SLC=`${CMT}.*`;
+const MLC=`(\\/\\*(?:.|[\\r\\n])*?\\*\\/)`;
+const sns=`(\\s|\\n|\\r|${SLC}|${MLC})`;
+const str1=`(?:[^\\\\]|\\\\.)*?`;
+const strm=`(?:[^\\\\]|\\\\.|\\n|\\r\\n?)*?`;
+const strings=`("${str1}"|'${str1}'|\`${strm}\`)`
+const nums=`([+-]?[0-9]+(\\.[0-9]+)?([Ee][+-]?[0-9]+)?)`
+const protocols= "(http|https|file|ftp)";
+const path=`([\\/a-zA-Z0-9_\\-\\.]|%[0-9]{2})+`;
+const autority=`(${CMT})?[a-zA-Z0-9\\-\\.]+(:[0-9]{,4})?`;
+const url=`(${protocols}:${autority})?${path}`;
+const string_url= `("${url}"|'${url}'|\`${url}\`)`;
+const config= `{([^{}]|{([^{}]|{[^}]*})*})*}`;
+const base_entry= `base${sns}*:${sns}*${string_url}`;
+const first_entry= `(${base_entry}`+(function(){
+  var res= '';
+  const klen= modules.length;
+  for(var i= 0; i<klen; i++){
+    res+=`|${modules[i]}${sns}*:${sns}*${config}`;
+    }
+  return res;
+  })()+`)`;
+const following_entries= `(,${sns}*${first_entry})`;
+const initConfigParser= new RegExp(
+    `^${sns}*{${sns}*` 
+  +`${first_entry}${sns}*`
+  +`(${following_entries}${sns}*)*`
+  + `}${sns}*$`
+  );
+if('undefined'==typeof(window)){
+  console.warn("In node");
+  Object.defineProperty(SC, "loader"
+  , { value: new SC_Loader(global), writable: false });
+  const fs= require('fs');
+  function read(f) {
+    return fs.readFileSync(f).toString();
+    };
+  SC_Loader.prototype.include= function (f) {
+    eval.apply(global, [read(f.src)]);
+    };
+  global.SC= SC;
+  module.exports= { SC };
+  Object.defineProperty(SC.globals, "global", { value: global, writable: false });
+  Object.defineProperty(SC, "init"
+  , { value: function(p={}){
+          if(undefined!==SC.globals.init_params){
+            throw new Error("Fatal Error invalid init parameters... "+SC.globals.init_params);
+            }
+          Object.defineProperty(SC.globals, 'init_params'
+          , { value: p, writable: false, enumerable: false });
+          const pkeys= Object.keys(SC.globals.init_params);
+          if(pkeys.length>0){
+            const bd= p.tools.base?p.tools.base:"./";
+            SC.loader.include({ src: bd+"SC_Tools.js" });
+            const pklen= pkeys.length;
+            for(var i= 0; i<pklen; i++){
+              const pkey= pkeys[i];
+              if(BN!=pkey && modules[0]!=pkey){
+                SC.loader.include({ src: bd+'SC_Tools_'+pkey+'.js' });
+                }
+              }
+            }
+          }
+    , writable: false
+      }
+    );
+  }
+else{
+  console.warn("In browser");
+  Object.defineProperty(SC, "loader"
+  , { value: new SC_Loader(window), writable: false });
+  Object.defineProperty(SC.globals, "global", { value: window, writable: false });
+  const loadModule= new XMLHttpRequest();
+  SC_Loader.prototype.include= function(p){
+      if(p.src){
+        if("string"==typeof(p.cont) && ""!=p.cont){
+          p.cont.replace(/[\n\r]/gm, "");
+          document.write("<scr"+"ipt src=\""+p.src+"\" onload=\""+p.cont+"\">");
+          }
+        else{
+          document.write("<scr"+"ipt src=\""+p.src+"\"></sc"+"ript>");
+          }
+        }
+      else if(p.asrc){
+        var scrpt= document.createElement("script");
+        if(p.cont){
+          console.log("adding cont", p.cont);
+          scrpt.onload= p.cont;
+          }
+        scrpt.src= p.asrc;
+        document.currentScript.parentElement.appendChild(scrpt);
+        }
+      else if(p.code){
+        if("string"==typeof(p.cont) && ""!=p.cont){
+          p.cont.replace(/[\n\r]/gm, "");
+          document.write("<scr"+"ipt onload=\""+p.cont+"\">");
+          }
+        else{
+          document.write("<scr"+"ipt>");
+          }
+        document.write(p.code);
+        document.write("</scr"+"ipt>");
+        }
+      else if(p.acode){
+        var scrpt= document.createElement("script");
+        if(p.cont){
+          console.log("adding cont", p.cont);
+          scrpt.onload= p.cont;
+          }
+        scrpt.textContent= p.acode;
+        document.currentScript.parentElement.appendChild(scrpt);
+        }
+      else if(p.load){
+        loadModule.open("GET", p.load, false);
+        loadModule.send(null);
+        if(200==loadModule.status || 0==loadModule.status){
+          console.log("loading", p.load);
+          eval(loadModule.responseText);
+          }
+        }
+      };
+  const paramSrc= document.currentScript.textContent;
+  if(initConfigParser.test(paramSrc)){
+    console.log("parameters seems ok");
+    eval(`Object.defineProperty(SC.globals, 'init_params', { value: ${paramSrc}, writable: false, enumerable: false })`);
+    if(undefined==SC.globals.init_params){
+      throw new Error("Fatal Error invalid init parameters... "+paramSrc);
+      }
+    const p= SC.globals.init_params;
+    const pkeys= [];
+    const actKeys= Object.keys(p);
+    for(let m of modules){
+      if(actKeys.includes(m)){
+        pkeys.push(m);
+        }
+      }
+    const pklen= pkeys.length;
+    const bd= p.base?p.base:"./";
+    SC.loader.include({ src: bd+"SC_Tools.js" });
+    for(var i= 0; i<pklen; i++){
+      const pkey= pkeys[i];
+      if(BN!=pkey & modules[0]!=pkey){
+        console.log("loading SC module", bd+'SC_Tools_'+pkey+'.js');
+        SC.loader.include({ src: bd+'SC_Tools_'+pkey+'.js' });
+        }
+      }
+    }
+  else{
     Object.defineProperty(SC, "init"
     , { value: function(p= {}){
-          if(p.tools){
-            const bd= p.tools.baseDir?p.tools.baseDir:"";
-            loadModule.open("GET", bd+"SC_Tools.js", false);
-            loadModule.send(null);
-            if(200==loadModule.status || 0==loadModule.status){
-              console.log("loading", bd+'SC_Tools.js');
-              eval(loadModule.responseText);
+          if(undefined!==SC.globals.init_params){
+            throw new Error("Fatal Error invalid init parameters... "+paramSrc);
+            }
+          Object.defineProperty(SC.globals, 'init_params'
+          , { value: p, writable: false, enumerable: false });
+          const pkeys= [];
+          const actKeys= Object.keys(SC.globals.init_params);
+          for(let m of modules){
+            if(actKeys.includes(m)){
+              pkeys.push(m);
               }
-            if(p.tools.list){
-              for(var url of p.tools.list){
-                loadModule.open("GET", bd+'SC_Tools_'+url+'.js', false);
-                loadModule.send(null);
-                if(200==loadModule.status || 0==loadModule.status){
-                  console.log("loading", bd+'SC_Tools_'+url+'.js');
-                  eval(loadModule.responseText);
-                  }
+            }
+          const pklen= pkeys.length;
+          if(pklen>0){
+            const bd= p.base?p.base:"";
+            SC.loader.include({ load: bd+'SC_Tools.js' });
+            for(var i= 0; i<pklen; i++){
+              const pkey= pkeys[i];
+              if(BN!=pkey && modules[0]!=pkey){
+                SC.loader.include({ load:  bd+'SC_Tools_'+pkey+'.js' });
                 }
               }
             }
@@ -10262,32 +10477,5 @@ Object.defineProperty(SC, "sensor"
         }
       );
     }
-  catch(e){
-    global.SC=SC;
-    const fs=require('fs');
-    function read(f) {
-      return fs.readFileSync(f).toString();
-      }
-    function include(f) {
-      eval.apply(glob, [read(f)]);
-      }
-    Object.defineProperty(global.SC, "init"
-    , { value: function(p={}){
-          if(p.tools){
-            const bd= p.tools.baseDir?p.tools.baseDir:"./";
-            global.glob= global;
-            global.p= p;
-            global.sc_global= global;
-            include(bd+"SC_Tools.js");
-            if(p.tools.list){
-              for(var url of p.tools.list){
-                include(bd+'SC_Tools_'+url+'.js');
-                }
-              }
-            }
-          }
-      , writable: false
-        }
-      );
-    }
-  }).call(this, this);
+  }
+}).call(this, this);

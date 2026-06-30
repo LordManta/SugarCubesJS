@@ -5,7 +5,7 @@
  * Part of the SugarCubes Project
  * version : 5.0 alpha
  * implantation : 0.1
- * Copyright 2014-2023.
+ * Copyright 2014-2025.
  */
 
 /*********************
@@ -14,7 +14,8 @@
 
 ;
 if(SC && SC.sc_build>1 && SC.tools){
-  (function(params){
+  (function(){
+    const params= SC.globals.init_params;
 /*
 Support audio.
 On crée un AudioContext commun à tous les players.
@@ -62,7 +63,9 @@ On crée un AudioContext commun à tous les players.
           );
         }
       };
-    AudioResource.prototype.play=function(){
+    (function(){
+    const proto= AudioResource.prototype;
+    proto.play=function(){
       if(this.rt<0){
         this.a.play();
         }
@@ -74,13 +77,14 @@ On crée un AudioContext commun à tous les players.
         this.a.play();
         }
       };
-    AudioResource.prototype.stop=function(){
+    proto.stop=function(){
       if(this.playing){
         this.playing=false;
         this.a.pause();
         this.a.currentTime=0;
         }
       };
+    })();
 /*
 Jouer des sons grace aux objets AudioChunk
 */
@@ -200,12 +204,12 @@ Jouer des sons grace aux objets AudioChunk
         , init: function(){
             var sharedContext=null;
             var webKitAPI=false;
-            if(sc_global.AudioContext){
-              sharedContext=new sc_global.AudioContext();
+            if(SC.globals.global.AudioContext){
+              sharedContext=new SC.globals.global.AudioContext();
               }
-            else if(sc_global.webkitAudioContext){
+            else if(SC.globals.global.webkitAudioContext){
               try{
-                sharedContext=new sc_global.webkitAudioContext();
+                sharedContext=new SC.globals.global.webkitAudioContext();
                 webKitAPI=true;
                 }
               catch(e){
@@ -335,7 +339,7 @@ Jouer des sons grace aux objets AudioChunk
           }
       , writable: false
         });
-    }).call(sc_global, p);
+    })();
   }
 else{
   throw new Error("SugarCubesJS must be loaded first and tools initialized");

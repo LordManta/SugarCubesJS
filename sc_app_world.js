@@ -4,7 +4,7 @@
  * Created : 02/01/2015 17:54
  * version: 0.1 alpha
  * implantation : 0.2
- * Copyleft 2015-2024.
+ * Copyleft 2015-2025.
  */
 
 (function(){

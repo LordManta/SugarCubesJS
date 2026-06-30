@@ -4,7 +4,7 @@
  * Created : 25/10/2015 at 21:31
  * version : 1.0 alpha
  * implantation : 0.0.3
- * Copyleft 2015-2024.
+ * Copyleft 2015-2026.
  */
 
 ;
@@ -850,7 +850,7 @@ if(SC && SC.sc_build>1 && SC.tools){
             content: "Element Inspector"
           , evt_click: this.elementInspector._sc_extension.Evt_show
             });
-        SC.tools.generateEvent(SC.globals.CP.Evt_appendElement, inspector_btn);
+        SC.tools.addProgram(SC.generate(SC.globals.CP.Evt_appendElement, inspector_btn));
       }
       else{
         console.error("WebEnergize must be initialized after WebTools");
@@ -937,7 +937,7 @@ if(SC && SC.sc_build>1 && SC.tools){
                               , writable: false
                                 }
                             );
-    }).call(window);
+    })();
   }
 else{
   throw new Error("SugarCubesJS must be loaded first, tools and WebTools initialized");

@@ -6,7 +6,7 @@ modules.
 <html>
  <head>
   <meta charset="utf-8"/>
-  <script type="text/javascript" src="SugarCubes_min.js"></script>
+  <script type="text/javascript" src="SugarCubes.js"></script>
   <script type="text/javascript">
 /*
 This demo introduces the use of SugarCubes Tools: a set of utilities derived
@@ -19,59 +19,60 @@ To enable this, it is recommended to use the SC.init() function providing a
 parameter object.
 */
 SC.init({
+  // baseDir: from where to find SugarCubes modules This is an early stage so
+  // many functions are yet to be implemented before it can be a robust API
+  // for mdules.
+  base: ""
   // Tools parameters
-    tools: {
-    // baseDir: from where to find SugarCubes modules This is an early stage so
-    // many functions are yet to be implemented before it can be a robust API
-    // for mdules.
-      baseDir: ""
-    // List of modules to load (here : WebTools and AudioToobox)
-    , list: [ "AudioToolbox", "WebTools" ]
+, Tools: {
     // Default reactive clock parameters:
     // - delay: is provided beacuse the main reactive clock (SC.tools.main) will
     //   be bound to a periodic sensor of period 15 ms.
     // - init: provide the initial program
     // - stdout: provide a default function for stdout, but here this parameter
     //   will be overritten by the control panel configuration.
-    , mainConfig: {
-        init: SC.pauseForever()
-      , delay: 15
-      , stdout: SC.writeInConsole
-        }
+      main: {
+          init: SC.pauseForever()
+        , delay: 15
+        , stdout: SC.writeInConsole
+          }
       }
+, AudioToolbox: {}
   // Application Parameters
   // Those parameters will be used if the WebTools module is activated before.
-  , appConfig: {
-      // Web browser viewport configuration
-        viewport: {
-            width: "device-width"
-          , height: "device-height"
-          , init_scale: "1"
-          , max: "1"
-          , min: "1"
-          , scalable: "no"
+, WebTools: {
+      appConfig: {
+          // Web browser viewport configuration
+            viewport: {
+                width: "device-width"
+              , height: "device-height"
+              , init_scale: "1"
+              , max: "1"
+              , min: "1"
+              , scalable: "no"
+                }
+          // WebApp will support audio (that means AudioToolbox need to be loaded
+          // first...)
+          , audioSupport: true
+          // Splash screen configuration.
+          , splashConfig: {
+                title_style: "font-size: 12vh; color: white; font-weight: bold; /*text-shadow: 0.5vw 0.5vh 0.5vmax white;*/ padding:10px"
+              // Title of the start button on splash screen.
+              , start_btn_text: "Start"
+              // style used to display the start button
+              , start_btn_style: "padding:0vh 2vw 0vh 2vw; bottom: 10vh; left: 50%; position: absolute; border: 2px solid; border-radius: 1vh; font-size: 6vh; color: white; font-weight: bold;transform: translate(-50%, 0); --webkit-transform: translate(-50%, 0);"
+              // SugarCubes event triggered when the user clicks on the start button
+              , startEvt: SC.evt("evt")
+                }
+          // Apptitle used to be desplayed in the window title of the browser.
+          , appTitle: "SCAdventure"
+          , appAuthors: "Jean-Ferdy Susini"
+          , appDescription: "Prémisse à un petit jeu d'aventure et de combats ?"
+          // Activate the control panel
+          , controler: true
+          // Make the control panel in collapsed form at init
+          , controler_closed: true
             }
-      // WebApp will support audio (that means AudioToolbox need to be loaded
-      // first...)
-      , audioSupport: true
-      // Splash screen configuration.
-      , splashConfig: {
-            title_style: "font-size: 12vh; color: white; font-weight: bold; /*text-shadow: 0.5vw 0.5vh 0.5vmax white;*/ padding:10px"
-          // Title of the start button on splash screen.
-          , start_btn_text: "Start"
-          // style used to display the start button
-          , start_btn_style: "padding:0vh 2vw 0vh 2vw; bottom: 10vh; left: 50%; position: absolute; border: 2px solid; border-radius: 1vh; font-size: 6vh; color: white; font-weight: bold;transform: translate(-50%, 0); --webkit-transform: translate(-50%, 0);"
-          // SugarCubes event triggered when the user clicks on the start button
-          , startEvt: SC.evt("evt")
-            }
-      // Apptitle used to be desplayed in the window title of the browser.
-      , appTitle: "SCAdventure"
-      , appAuthors: "Jean-Ferdy Susini"
-      , appDescription: "Prémisse à un petit jeu d'aventure et de combats ?"
-      // Activate the control panel
-      , controler: true
-      // Make the control panel in collapsed form at init
-      , controler_closed: true
         }
     }
   );

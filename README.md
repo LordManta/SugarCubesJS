@@ -2,9 +2,9 @@
 
 **Authors:** Jean-Ferdy Susini, Olivier Pons, Claude Lion\
 **Created:** 2/12/2014 9:23 PM\
-**Version:** 5.0.1110.alpha\
-**Build**: 1110\
-**Copyleft 2014-2025**
+**Version:** 5.0.1233.alpha\
+**Build**: 1233\
+**Copyleft 2014-2026**
 
 _This implementation is still in alpha stage, cause API is still mostly subject
 to big changes..._\
@@ -50,7 +50,7 @@ So, the primary environment for *SugarCubesJS* is a Web page.
 4. write programs using events previously declared :
    ```javascript
    var program1= SC.repeat(3, SC.await(e), SC.write("event &e is generated !"));
-   var program2= SC.repeat(3, SC.pause(5), SC.generate(e));
+   var program2= SC.repeat(4, SC.pause(5), SC.generate(e));
    ```
 
 5. add each program to the execution environment (each program will be added to execute in parallel each with the others) :
@@ -154,7 +154,7 @@ A MM is the given of :
 
 A reaction of a MM is just the acquisition (sampling) of the inputs, compute the transition function to get the next state of the system and compute the output function to know what is produced in response to the entries. Simple ?
 
-Well now on the synchronous approach the idea is to add a first property which is that the input set and the output set are in fact part of the same set (an union of those two sets) called the environment set (one can also this that the internal state of the program could also be a part of this set). Hence, inputs and outputs are simultaneous. So this restrict acceptable output functions to the ones that doesn't override entries. We also introduce a second property which is that transition function and output function must be deterministic. Those restrictions on transition function and output function leads to constraints on reactive program semantics : about *causality dependences*, and *deterministic behavior*.
+Well now on the synchronous approach the idea is to add a first property which is that the input set and the output set are in fact part of the same set (an union of those two sets) called the environment set (one can also add this, that the internal state of the program could also be a part of this set). Hence, inputs and outputs are simultaneous. So, this restrict acceptable output functions to the ones that doesn't override entries. We also introduce a second property which is that transition function and output function must be deterministic. Those restrictions on transition function and output function leads to constraints on reactive program semantics : about *causality dependences*, and *deterministic behavior*.
 
 Therefore, *Synchronous/reactive* model defines a strong *time type system* which enforce correctness of a program in a perfectly determined execution environment modulo the entries of the system. Programs define at each instant which outputs are produced and how the system's internal state evolves.
 
@@ -162,20 +162,20 @@ Another important consequence of this is that, logical notion of discrete time a
 
 The reactive programming model «à la» F. Boussinot's relax the strong synchronous constraint, allowing instants of execution to last. **But** an instant shall always terminate (after a finite amount of time) ! So sequence of instants can always proceed as an instant shall terminate before the subsequent instant of execution should begin. The main implication of this here is that no instantaneous reaction to the absence of information (of *SugarCubesJS* events) can take place before the end of the instant (that was possible in pure reactive/synchronous paradigm). Doing so, reaction to the absence of information at one instant is always postponed to the next instant. The interesting point of such an approach is that it allows us to build language constructions dealing with the logical discrete time to have semantics correct by construction (syntactically correct program always have one and only one deterministic meaning). So no more complex and static time type system is needed. Every program will have a unique semantics and provides a deterministic execution. But this comes at the cost of slightly different expressiveness capabilities.
 
-The most observable consequence of this model is that we can define modular and dynamically transformable systems, which we thought are simpler to use in the context of Web programming.
+The most observable consequence of this model is that we can define modular and dynamically transformable systems more easily, which we thought are simpler to use in the context of Web programming.
 
-The reactive/synchronous approach «à la» Boussinot defines an environment made of events (warning : Esterel defines signals which are more or les the same king of objects that events in Boussinot's approach; while an event in Esterel defines what is called a sample of the environment in Boussinot's approach).
+The reactive/synchronous approach «à la» Boussinot defines an environment made of events (warning : Esterel defines signals which are more or less the same kind of objects that events in Boussinot's approach; while an event in Esterel defines what is called a sample of the environment in Boussinot's approach).
 
 One word about terminology
 --------------------------
 
-This section is intend to clarify some definitions before learning mor about the *SugarCubesJS* *API* :
+This section is intend to clarify some definitions before learning more about the *SugarCubesJS* *API* :
 
- - **reactive system**: a whole computational system which follow the reactive/synchronous paradigm «à la» Boussinot. It is made of an environment, a whole reactive program, a reactive machine and an execution engine. It is capable of producing reactions to external solicitations.
+ - **reactive system**: a whole computational system which follow the reactive/synchronous paradigm «à la» Boussinot. It is made of an environment, a whole reactive program, a reactive machine and an execution engine. It is capable of producing reactions to external stimuli.
  - **reaction**: a step of execution of a reactive system. On a model point of view, physical (external) time elapse only between reactions. From a physical time point of view reactions are fast enough to be considered as atomic.
  - **clocks**: refers to a series of reactions and where every reactions can be uniquely tagged by a time stamp according to a *physical world clock* (real time clock).
  - **environment**: refers to an associative table of values (identified by references/identifiers) which is globally accessible by a reactive system.
- - **external environment**: is a part of the environment which refers to the information produced outside the reactive system (entries or asynchronous informations). The external environment is sampled at each reaction. One can see this as taking a snapshot of the outside world through a window before starting to compute on that.  
+ - **external environment**: is a part of the environment which refers to the information produced outside the reactive system (entries or asynchronous informations). The external environment is sampled at each reaction. One can sees this as taking a snapshot of the outside world through a window before starting to compute on that.  
  - **reactive program**: defines the actions to perform during the reactions of the reactive system. The program is made of a tree of instructions defining a so called AST. The reactive program is interpreted by a reactive execution machine.
  - **reactive execution machine**: is the interpretor which traverses the AST at each reactions to execute reactive instructions for the current reaction according to their semantics.
  - **execution engine**: is responsible of making the bridge between external informations and environment and triggering reactions of the reactive system.

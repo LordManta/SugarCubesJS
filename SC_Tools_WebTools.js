@@ -2,13 +2,14 @@
  * File : SC_Tools_WebTools.js
  * Author : Jean-Ferdinand SUSINI (MNF)
  * Created : 20/12/2014 18:46
- * Copyleft 2017-2025.
+ * Copyleft 2017-2026.
  */
 
 ;
 if(SC && SC.sc_build>1 && SC.tools){
   Object.defineProperty(SC.tools, "Web"
-  , { value: (function(params){
+  , { value: (function(){
+          const params= SC.globals.init_params;
 /*
 Obsolète : gestion du Manifest HTML
 */
@@ -256,7 +257,7 @@ Zone de control
               // <link rel="stylesheet" href="mesStyles.css">
               const cssLink=document.createElement("link");
               cssLink.setAttribute('rel', 'stylesheet');
-              cssLink.setAttribute('href', params.tools.baseDir
+              cssLink.setAttribute('href', params.base
                                            +'SC_Tools_Panel.css');
               document.head.appendChild(cssLink);
               const controlPanel={};
@@ -500,14 +501,14 @@ Zone de control
             }
           );
         // WebApp Parameters
-        if(this==window && params.appConfig){
+        if(this==window && params.WebTools.appConfig){
           if(document.body){
             throw new Error("Initialisation too late: WebApp init must be called as soon as possible while parsing the header of the page");
             }
           if(SC.tools.appInited){
             throw new Error("Initialisation already occured");
             }
-          const config= params.appConfig;
+          const config= params.WebTools.appConfig;
           Object.defineProperty(SC.tools, "appInited"
           , { value: true
             , writable: false
@@ -676,7 +677,7 @@ Zone de control
               document.head.appendChild(headTag);
               }
             }
-          // - l'icone d'application adaptée aux différnetes tailels d'écran.
+          // - l'icone d'application adaptée aux différentes tailles d'écran.
           if(config.iconSet){
             for(var i of config.iconSet){
               headTag=document.createElement("link");
@@ -725,14 +726,14 @@ Zone de control
               }
             }
           if(config.splashConfig){
-            const cssLink=document.createElement("link");
+            const cssLink= document.createElement("link");
             cssLink.setAttribute('rel', 'stylesheet');
             cssLink.setAttribute('type', 'text/css');
             cssLink.setAttribute('href'
-                         , params.tools.baseDir+'SC_Tools_Splash.css');
+                         , params.base+'SC_Tools_Splash.css');
             document.head.appendChild(cssLink);
-            const splashScreen=document.createElement("div");
-            splashScreen.id="App_splashScreen";
+            const splashScreen= document.createElement("div");
+            splashScreen.id= "App_splashScreen";
             Object.defineProperty(SC.tools, "splashScreen"
             , { value: splashScreen
               , writable: false
@@ -822,13 +823,13 @@ Zone de control
           //  SC.tools.initPanel();
           //  }
           }
-	if(params.pwa){
-	  const pwa= params.pwa;
-	  const manifest_link= document.createElement("link");
-	  manifest_link.setAttribute("rel", "manifest");
-	  manifest_link.setAttribute("href", (pwa.mnf)?pwa.mnf:"manifest.json");
+        if(params.WebTools.pwa){
+          const pwa= params.WebTools.pwa;
+          const manifest_link= document.createElement("link");
+          manifest_link.setAttribute("rel", "manifest");
+          manifest_link.setAttribute("href", (pwa.mnf)?pwa.mnf:"manifest.json");
           document.head.appendChild(manifest_link);
-	  }
+          }
         if("complete"!=document.readyState){
           SC.tools.addProgram=function(p){
             this.main.addProgram((SC.globals.Evt_Start)
@@ -861,7 +862,7 @@ Zone de control
 Define globals and WebTools
 ---------------------------
 */
-        SC.globals.globalKeydown={
+        SC.globals.globalKeydown= {
             esc: SC.evt("esc")
           , home: SC.evt("home")
           , left: SC.evt("left")
@@ -878,6 +879,11 @@ Define globals and WebTools
                 ]
               }
             );
+        document.addEventListener("keyup", function(evt){
+            if([ 27, 36, 35, 37, 38, 38, 40 ].includes(evt.which)){
+              evt.preventDefault();
+              }
+            }),
         SC.globals.globalKeydownSensor=SC.sensor("globalKeydownSensor"
             , { dom_targets: [{
                   target: document
@@ -988,11 +994,14 @@ Define globals and WebTools
                       if(!cvs.jfs_isASPCanvas){
                         WebTools.SP.buildCanvas({cvs: cvs});
                         }
+                      //cvs.style= tag.getAttribute("style");		      
                       if(!cvs.parentElement){
                         tag.appendChild(cvs);
                         }
                       const drawingMethodName= tag.getAttribute("drawing");
-                      WebTools.cvs_draw[drawingMethodName](cvs);
+                      if(drawingMethodName){
+                        SC.globals.cvs_draw[drawingMethodName](cvs);
+                        }
                       break;
                       }
                     case 'JFS_CODE':{
@@ -1011,11 +1020,15 @@ Define globals and WebTools
                                     || ("true"==tag.getAttribute("numbering"))));
                       const collapsable= (("pre"==wrapTag)&&((""==tag.getAttribute("collapsable"))
                                       || ("true"==tag.getAttribute("collapsable"))));
+                      const base64= (("pre"==wrapTag)&&((""==tag.getAttribute("base64"))
+                                      || ("true"==tag.getAttribute("base64"))));
                       const downloadable= (("pre"==wrapTag)&&((""==tag.getAttribute("downloadable"))
                                       || ("true"==tag.getAttribute("downloadable"))));
                       const selectable= (("pre"==wrapTag)&&((""==tag.getAttribute("selectable"))
                                      || ("true"==tag.getAttribute("selectable"))));
                       const limitH= (("pre"==wrapTag)&&(tag.getAttribute("limitH")))?tag.getAttribute("limitH"):undefined;
+                      const hlapi= ("pre"==wrapTag)&&(tag.getAttribute("hlapi"));
+                      txt= (base64)?SC.tools.atob(txt):txt;
                       if((""==tag.getAttribute("hlapi"))
                                ||("true"==tag.getAttribute("hlapi"))){
                         switch(langAtt.toUpperCase()){
@@ -1037,27 +1050,20 @@ Define globals and WebTools
                             }
                           }
                         }
-                      //if(("" == tag.getAttribute("useapi"))
-                      //         ||("true"  == tag.getAttribute("useapi"))){
-                      //  tag.innerHTML='';
-		      //  txt= SC.tools.LST.qp.parse
-                      //  //SC.tools.LST.qp.parse(base, txt, langAtt);
-                      //  }
-                      //else {
-                        base.parsed=SC.tools.LST.parseDoc({
-                             src: txt
-                           , lang: langAtt.toUpperCase()
-                           , no_final_br: true
-                             });
-                      //  }
+                      base.parsed= SC.tools.LST.parseDoc({
+                           src: txt
+                         , lang: langAtt.toUpperCase()
+                         , no_final_br: true
+                           });
                       tag.innerHTML='';
                       if(collapsable||numbering||selectable||hideComments||tag.getAttribute("filename")){
-                        base.innerText=txt;
+                        base.innerText= txt;
                         SC.tools.Web.formatSnipet({ selectCmd: selectable
                                                   , lineNumberCmd: numbering
                                                   , downloadable: downloadable
                                                   , maskCmd: collapsable
                                                   , commentCmd: hideComments
+                                                  , hlapiCmd: hlapi
                                                   , lang: langAtt.toUpperCase()
                                                   , base: tag
                                                   , hidden_control: hidden_control
@@ -1068,7 +1074,7 @@ Define globals and WebTools
                         }
                       else{
                         tag.appendChild(base);
-                        base.innerHTML=base.parsed[2];
+                        base.innerHTML= base.parsed[2];
                         }
                       tag.setAttribute("jfs_processed", "true");
                       break;
@@ -1082,7 +1088,7 @@ Define globals and WebTools
                 }
               }
             };
-        if(params.modal_stack){
+        if(params.WebTools.modal_stack){
           initModalStack();
           }
         SC.tools.main.bindTo(SC.globals.globalKeydownSensor);
@@ -1093,7 +1099,10 @@ Define globals and WebTools
               , SC.globals.globalKeydown.home
               , function(evt){
                   if(evt.which==36 && !ic.modal){
-                    return "home";
+                    return { k: "home", shift: evt.shiftKey
+                           , meta: evt.metaKey, ctrl: evt.ctrlKey
+                           , alt: evt.altKey
+                             };
                     }
                   }
               , SC.forever
@@ -1103,7 +1112,10 @@ Define globals and WebTools
                 , SC.globals.globalKeydown.end
                 , function(evt){
                     if(evt.which==35 && !ic.modal){
-                      return "end";
+                      return { k: "end", shift: evt.shiftKey
+                           , meta: evt.metaKey, ctrl: evt.ctrlKey
+                           , alt: evt.altKey
+                             };
                       }
                     }
                 , SC.forever
@@ -1113,7 +1125,10 @@ Define globals and WebTools
                 , SC.globals.globalKeydown.left
                 , function(evt){
                     if(evt.which==37 && !ic.modal){
-                      return "left";
+                      return { k: "left", shift: evt.shiftKey
+                           , meta: evt.metaKey, ctrl: evt.ctrlKey
+                           , alt: evt.altKey
+                             };
                       }
                     }
                 , SC.forever
@@ -1123,7 +1138,10 @@ Define globals and WebTools
                 , SC.globals.globalKeydown.right
                 , function(evt){
                     if(evt.which==39 && !ic.modal){
-                      return "right";
+                      return { k: "right", shift: evt.shiftKey
+                           , meta: evt.metaKey, ctrl: evt.ctrlKey
+                           , alt: evt.altKey
+                             };
                       }
                     }
                 , SC.forever
@@ -1133,7 +1151,10 @@ Define globals and WebTools
                 , SC.globals.globalKeydown.up
                 , function(evt){
                     if(evt.which==38 && !ic.modal){
-                      return "up";
+                      return { k: "up", shift: evt.shiftKey
+                           , meta: evt.metaKey, ctrl: evt.ctrlKey
+                           , alt: evt.altKey
+                             };
                       }
                     }
                 , SC.forever
@@ -1143,7 +1164,10 @@ Define globals and WebTools
                 , SC.globals.globalKeydown.down
                 , function(evt){
                     if(evt.which==40 && !ic.modal){
-                      return "down";
+                      return { k: "down", shift: evt.shiftKey
+                           , meta: evt.metaKey, ctrl: evt.ctrlKey
+                           , alt: evt.altKey
+                             };
                       }
                     }
                 , SC.forever
@@ -1153,7 +1177,10 @@ Define globals and WebTools
                 , SC.globals.globalKeydown.esc
                 , function(evt){
                     if(evt.which==27){
-                      return "esc";
+                      return { k: "esc", shift: evt.shiftKey
+                           , meta: evt.metaKey, ctrl: evt.ctrlKey
+                           , alt: evt.altKey
+                             };
                       }
                     }
                 , SC.forever
@@ -1596,7 +1623,7 @@ Bubble view utility funs
         function loadBubbleCSS(){
           const cssLink=document.createElement("link");
           cssLink.setAttribute('rel', 'stylesheet');
-          cssLink.setAttribute('href', params.tools.baseDir
+          cssLink.setAttribute('href', params.base
                                        +'SC_Tools_Bubble.css');
           document.head.appendChild(cssLink);
           Object.defineProperty(WebTools, "scc_bubbles_link"
@@ -1623,7 +1650,7 @@ Bubble view utility funs
           const Evt_nextMessage= SC.evt("nextMessage");
           bubble_view._sc_bar= mkBubbleMenuBar();
           bubble_view.appendChild(bubble_view._sc_bar);
-	  // Evt_showBar avec true ou false
+          // Evt_showBar avec true ou false
           bubble_view._sc_showBar= function(re){
             const data= re.getValuesOf(this.Evt_showBar);
             if(data){
@@ -1808,20 +1835,16 @@ Bubble view utility funs
                 }
               else{
                 this._sc_noSpeech= true;
-		const zc= ((this._sc_clock)?this._sc_clock:SC.tools);
-		console.log("on va ajouter le comportement sur le texte...");
+                const zc= ((this._sc_clock)?this._sc_clock:SC.tools);
                 zc.generateEvent(
-		          this.SC_cubeAddBehaviorEvt
+                          this.SC_cubeAddBehaviorEvt
                         , SC.kill(this.Evt_display
                           , SC.seq(
                               SC.purge(data.pre)
-			    , SC.trace("ça commence")
                             , SC.action(this._sc_setText.bind(this, data))
                             , SC.await(this.Evt_bubbleFinish)
                             , SC.purge(data.post)
-			    , SC.trace("c'est fini 😅")
                               )
-			  , SC.trace("Auto coupe !")
                             )
                           );
                 }
@@ -2087,7 +2110,7 @@ Bubble view utility funs
               }
             const pre_line=code_tag._sc_lst_lines;
             const src_lines=code_tag.getElementsByTagName('BR');
-            var src_nb_lines=0;
+            var src_nb_lines=1;
             for(var j=src_lines.length-1; j>=0; j--){
               if(!src_lines[j].hidden){
                 src_nb_lines++;
@@ -2103,7 +2126,7 @@ Bubble view utility funs
         function hideComments(evt){
           toggle_hideComments(evt.target._sc_lst_frame);
           };
-        var lst_css_needed=params.tools.baseDir;
+        var lst_css_needed=params.base;
         function makeInterface(params){
           if(lst_css_needed){
             const cssLink=document.createElement("link");
@@ -2274,7 +2297,7 @@ Bubble view utility funs
             code_tag.style.width= params.w?params.w:"";
             params.code_parent= code_parent;
             code_parent._sc_lst_code= code_tag;
-            console.warn(" tooled ? code_parent", code_parent, "code_tag", code_tag, code_parent._sc_lst_code);
+            //console.warn(" tooled ? code_parent", code_parent, "code_tag", code_tag, code_parent._sc_lst_code);
             const frame= makeInterface(params);
             const src_nb_lines= code_tag.innerText.split("\n").length;
             pre_line.textContent= makeLNText(src_nb_lines);
@@ -2288,6 +2311,18 @@ Bubble view utility funs
             bg_hi_pre.style.zIndex="-1";
             bg_hi_pre.style.left=code_tag.offsetLeft+"pt";
             bg_hi_pre.style.width=code_tag.offsetWidth+"pt";
+            code_parent._sc_updateLineNumbers= function(){
+                const code_tag= this._sc_lst_code;
+                const src_lines= code_tag.getElementsByTagName('BR');
+                var src_nb_lines=0;
+                for(var j= src_lines.length-1; j>=0; j--){
+                  if(!src_lines[j].hidden){
+                    src_nb_lines++;
+                    }
+                  }
+                lines_nb_txt= makeLNText(src_nb_lines+1);
+                code_tag._sc_lst_lines.textContent=lines_nb_txt;
+                };
             code_parent._sc_maskUpdateFun=function(c){};
             code_parent._sc_registerMaskUpdate=function(fun){
               this._sc_maskUpdateFun=fun;
@@ -2335,7 +2370,7 @@ Bubble view utility funs
             }
           const cssLink= document.createElement("link");
           cssLink.setAttribute('rel', 'stylesheet');
-          cssLink.setAttribute('href', params.tools.baseDir
+          cssLink.setAttribute('href', params.base
                                        +'SC_Tools_Popup.css');
           document.head.appendChild(cssLink);
           Object.defineProperty(WebTools, "scc_popup_link"
@@ -2442,7 +2477,7 @@ Bubble view utility funs
           popupTools._sc_displayHide= function(re){
             this.style.display= this._sc_hiddable_word;
             }
-          const pp= params.popup;
+          const pp= params.WebTools.popup;
           popupTools._sc_init=(pp && pp.init)?pp.init:function(re){
             console.log("std popup init");
             const tmp= quickElt({
@@ -2569,7 +2604,7 @@ Bubble view utility funs
             }
           const cssLink= document.createElement("link");
           cssLink.setAttribute('rel', 'stylesheet');
-          cssLink.setAttribute('href', params.tools.baseDir
+          cssLink.setAttribute('href', (params.base?params.base:"")
                                        +'SC_Tools_ModalDialog.css');
           document.head.appendChild(cssLink);
           Object.defineProperty(WebTools, "scc_modal_dialog_link"
@@ -2583,7 +2618,7 @@ Bubble view utility funs
           zeModalStack.Evt_showContent= SC.evt("Evt_showContent");
           zeModalStack.Evt_close= SC.evt("close");
           zeModalStack.Evt_return= SC.evt("return");
-          zeModalStack.innerHTML= `<div class="SC_modal_dialog"><span class="close_box">&times;</span><div></div></div>`;
+          zeModalStack.innerHTML= `<div class="SC_modal_dialog"><span class="SC_modal_close_box"> &times; </span> <span class="SC_modal_title"></span><div style="margin-top:1ch;"></div></div>`;
           zeModalStack.Sens_close= SC.sensor("close", {
                 dom_targets: [ { target: zeModalStack.children[0].children[0]
                                , evt: 'click' } ]
@@ -2593,7 +2628,8 @@ Bubble view utility funs
               };
           zeModalStack._sc_showHTML= function(msg){
               const zeMenu= this.children[0];
-              const zeContent= zeMenu.children[1];
+              const zeContent= zeMenu.children[2];
+              const zeTitle= zeMenu.children[1];
               const tmpContent= [];
               while(zeContent.childNodes[0]){
                 tmpContent.push(zeContent.removeChild(zeContent.childNodes[0]));
@@ -2609,14 +2645,18 @@ Bubble view utility funs
                 }
               zeMenu.style.left= msg.x?msg.x:"50%";
               zeMenu.style.top= msg.y?msg.y:"50%";
+              if("string"==typeof(msg.title)){
+                const ttl= msg.title.substring(0, 32).replace(/\s|\n\r/g, " ");
+                zeTitle.textContent= ttl;
+                }
               zeContent.appendChild(msg.content);
               this._sc_resp= msg.resp?msg.resp:{};
+              
               ic.modal= true;
               this.classList.add("SC_popup_modal_transition");
               };
           zeModalStack.Act_showHTML= function(re){
               const data= re.getValuesOf(this.Evt_showContent);
-	      console.log("got content ?");
               if(data){
                 const msg= data[0];
                 this._sc_showHTML(msg);
@@ -2625,7 +2665,7 @@ Bubble view utility funs
           zeModalStack.Act_close= function(re){
               const resp= this._sc_resp;
               const zeMenu= this.children[0];
-              const zeContent= zeMenu.children[1];                
+              const zeContent= zeMenu.children[2];                
               zeContent.innerHTML= ``;
               if(this._sc_modalStackContent.length>0){
                 const heap= this._sc_modalStackContent.pop();
@@ -2687,6 +2727,210 @@ Bubble view utility funs
         , { value: quickElt
           , writable: false
             });
+        Object.defineProperty(WebTools, "saveDocStorge"
+        , { value: function(){
+                try{
+                SC.tools.Web.setLSItem(SC.globals.docID, SC.globals.docStorage);
+                }
+                catch(e){
+                  console.error("Can't save", e);
+                  }
+                }
+          , writable: false
+            });
+        Object.defineProperty(WebTools, "initDocID"
+        , { value: function(name){
+                if("string"!=typeof(name)){
+                  throw new Error("Invalid param name: "+name);
+                  }
+                if("string"==typeof(SC.globals.docID)){
+                  console.error("docID already initialized");
+                  }
+                else if(undefined!==SC.globals.docID){
+                  throw new Error("Fatal eror docID global is invalid: "+SC.globals.docID);
+                  }
+                else{
+                  const id= name+SC.tools.generateHash(location.href);
+                  Object.defineProperty(SC.globals, "docID"
+                  , { value: "SugarCubesJS_"+name+SC.tools.generateHash(location.href)
+                    , writable: false
+                     });
+                  }
+                return SC.globals.docID;
+                }
+          , writable: false
+            });
+        Object.defineProperty(WebTools, "initDocStorage"
+        , { value: function(){
+                      if(undefined===SC.globals.docID){
+                        SC.tools.Web.initDocID("unamed");
+                        }
+                      else if("string"!=typeof(SC.globals.docID)){
+                        throw new Error("uninitialized docID ?");
+                        }
+                      const docID= SC.globals.docID;
+                      if(undefined===SC.globals.docStorage){
+                        Object.defineProperty(SC.globals, "docStorage"
+                        , { value: (function(){
+                                        try{return (SC.tools.Web.getLSItem(docID))
+                                                   ?SC.tools.Web.getLSItem(docID)
+                                                   :{}; }
+                                        catch(e){
+                                          return { status_msg: "Access Error" };
+                                          }
+                                        })()
+                          , writable: false
+                            });
+                        }
+                      else{
+                        console.error("docStorage already set");
+                        }
+                      return SC.globals.docStorage;
+                      }
+          , writable: false
+            });
+        var collapseCounter= 0;        
+        const COLLAPSE_ID= "_sc_collapse_data";
+        function saveCSPrefs(){
+          if(undefined==SC.globals.doc_cs_list
+            || "object"!=typeof(SC.globals.doc_cs_list)
+            || (COLLAPSE_ID!=SC.globals.doc_cs_list.__magic__)){
+            throw new Error("invalid prefs: "+SC.globals.doc_cs_list);
+            }
+          try{
+            SC.tools.Web.setLSItem(SC.globals.docID+COLLAPSE_ID, SC.globals.doc_cs_list);
+            }
+          catch(e){
+            console.error("Can't save", e);
+            }
+          };
+        function makeSectionCollapsable(p){
+          const CSS_SECTION_BLOCK= "sectionBlock";
+          const CSS_SECTION_BLOCK_COLLAPSED= "sectionBlockColapsed";
+          const TITLES= [ "H1", "H2", "H3", "H4" ];
+          const hasDocID= "string"==typeof(SC.globals.docID);
+          console.log(hasDocID, SC.globals.docID);
+          if(hasDocID && undefined===SC.globals.doc_cs_list){
+            Object.defineProperty(SC.globals, "doc_cs_list", {
+                value: (function(){
+                           var res;
+                           try{
+                             res= SC.tools.Web.getLSItem(SC.globals.docID+COLLAPSE_ID)
+                             }
+                           catch(e){}
+                           if(null==res){
+                             res= {};
+                             Object.defineProperty(res, "__magic__", {
+                               value: COLLAPSE_ID
+                             , writable: false
+                             , enumerable: true
+                               });
+                             }
+                           return res;
+                           })()
+              , writable: false
+              //, enumerable: false
+                });
+            }
+          if(hasDocID && ("object"!=typeof(SC.globals.doc_cs_list)
+            || COLLAPSE_ID!=SC.globals.doc_cs_list.__magic__)){
+            throw new Error("Invalid preference data: "+SC.globals.doc_cs_list);
+            }
+          if("object"==typeof(p)){
+            if(undefined==p.tgt && TITLES.includes(p.head)){
+              p.tgt= document.createElement("section");
+              p.appendChild(document.createElement(p.head));
+              }
+            else if("object"!=typeof(p.tgt)){
+              throw new Error("invalid parameters: "+p);
+              }
+            }
+          else{
+            p= { tgt: document.currentScript.previousElementSibling };
+            }
+          const s= p.tgt;
+          if("SECTION"!=s.tagName){
+            throw new Error("makeSectionCollapsable only works for section element for now !\n"+s);
+            }
+          var title= null;
+          var sd= null;
+          var i= 0;
+          do{
+            sd= s.childNodes[i++];
+            switch(sd.nodeType){
+              case Node.ELEMENT_NODE:{
+                if(!TITLES.includes(sd.tagName)){
+                  throw new Error("first element is not a node");
+                  }
+                title=sd;
+                sd=null;
+                break;
+                }
+              case Node.TEXT_NODE:{
+                if(!/^[\s\n\r]*$/gm.test(sd.textContent)){
+                  throw new Error("invalid section format");
+                  }
+                break;
+                }
+              case Node.COMMENT_NODE:{
+                break;
+                }
+              }
+            }
+          while(null!=sd);
+          if(hasDocID && undefined===s._sc_collapseID){
+            s._sc_collapseID= SC.globals.docID+"_"+(p.id?p.id:("cs_"+collapseCounter++));
+            s._sc_cs_state= SC.globals.doc_cs_list[s._sc_collapseID];
+            }
+          if(hasDocID && undefined==s._sc_cs_state){
+            SC.globals.doc_cs_list[s._sc_collapseID]= s._sc_cs_state= { show: true };
+            saveCSPrefs();
+          }
+          if(!s.classList.contains(CSS_SECTION_BLOCK)){
+            s.classList.add(CSS_SECTION_BLOCK);
+          }
+          const tmpCh= [];
+          while(s.childNodes[i]){
+            tmpCh.push(s.removeChild(s.childNodes[i]));
+          }    
+          const div= document.createElement("DIV");
+          let j= 0;
+          while(tmpCh[j]){
+            div.appendChild(tmpCh[j++]);
+          }
+          s.appendChild(div);
+          title.onclick= function(div, evt){
+            if(this._sc_hiddenChildren){
+              this.classList.remove(CSS_SECTION_BLOCK_COLLAPSED);
+              this.classList.add(CSS_SECTION_BLOCK);
+              this._sc_hiddenChildren= false;
+              div.style.display="";
+              if(hasDocID){
+                s._sc_cs_state.show= true;
+                }
+            }
+            else{
+              this._sc_hiddenChildren= true;
+              this.classList.remove(CSS_SECTION_BLOCK);
+              this.classList.add(CSS_SECTION_BLOCK_COLLAPSED);
+              div.style.display="none";
+              if(hasDocID){
+                s._sc_cs_state.show= false;
+                }
+            }
+            if(hasDocID){
+              saveCSPrefs();
+              }
+            }.bind(s, div);
+          if(hasDocID && !s._sc_cs_state.show){
+            title.onclick.apply(s, div);
+            }
+          return s;
+          };
+        Object.defineProperty(WebTools, "makeSectionCollapsable"
+        , { value: makeSectionCollapsable
+          , writable: false
+            });
 ///* affichage de la photo dans le cadre dédié */
 //JFS.paperTool = SC.tools.makeDiv({
 //  id : 'JFSDOMID_pageViewer'
@@ -2733,8 +2977,11 @@ Bubble view utility funs
           , enumerable: true
             }
           );
+        if(this==window && "string"==typeof(params.WebTools.docID)){
+          WebTools.initDocID(params.WebTools.docID);
+          }
         return WebTools;
-        }).call(sc_global, p)
+        })()
     , writable: false
       }
     );

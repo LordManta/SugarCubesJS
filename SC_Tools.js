@@ -3,18 +3,17 @@
  * Author : Jean-Ferdy Susini (MNF)
  * Created : 20/12/2014 18:46
  * Part of the SugarCubes Project
- * version : 5.0.1109.alpha
- * build: 1109
- * Copyleft 2014-2025.
+ * version : 5.0.1185.alpha
+ * build: 1185
+ * Copyleft 2014-2026.
  */
 ;
-if(SC && SC.sc_build>1 && undefined===SC.tools){
-  Object.defineProperty(SC, "tools"
-                          , { value: (function(params){
-    var main= params.tools.main;
-    var periodic= null;
-    const SC_ClientTools= {
-      crc32_bin: function(bytes){
+if(SC && SC.sc_build>1 && SC.tools){
+  (function(){
+    const SC_ClientTools= SC.tools;
+    const ze_te= new TextEncoder();
+    const ze_td= new TextDecoder();
+    SC_ClientTools.crc32_bin= function(bytes){
         const crc=new Uint32Array(3);
         crc[0]=0xFFFFFFFF;
         const n= input.length;
@@ -30,24 +29,48 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
           }
         crc[0]= ~crc[0];
         return crc[0];
-        }
-    , convertB2C_64: function(n){
-          var code= 0;
-          if(n<25){
-            code= 65+n;
-            }
-          else if(n<51){
-            code= 97+n;
-            }
-          else if(52==n){
-            code= 95;
-            }
-          else{
-            code= 45;
-            }
-          return String.fromCharCode(code);
+        };
+    SC_ClientTools.btoa= function(str_utf){
+        const bin= Array.from(ze_te.encode(str_utf)
+                            , function(b){
+                                return String.fromCodePoint(b)
+                                }).join("");
+        return btoa(bin);
+        };
+    SC_ClientTools.atob= function(base64){
+        const bin= atob(base64);
+        return ze_td.decode(Uint8Array.from(bin
+                                           , function(m){
+                                               return m.codePointAt(0);
+                                               }));
+        };
+    SC_ClientTools.generateHash= function(str){
+        var res= 0;
+        const strlen= str.length;
+        for(var i= 0; i<strlen; i++){
+          const c= str[i];
+          res= (res<<5)-res+c.charCodeAt(0);
+          res|= 0;
           }
-    , signal_ft: function(signal, params={}){ 
+        return res;
+        };
+    SC_ClientTools.convertB2C_64= function(n){
+        var code= 0;
+        if(n<25){
+          code= 65+n;
+          }
+        else if(n<51){
+          code= 97+n;
+          }
+        else if(52==n){
+          code= 95;
+          }
+        else{
+          code= 45;
+          }
+        return String.fromCharCode(code);
+        };
+    SC_ClientTools.signal_ft= function(signal, params={}){ 
         const N=signal.length;
         const threshold=(params.threshold)?params.threshold:1e-8;
         const DE_PI_N=2*Math.PI/N;
@@ -67,8 +90,8 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
           ft[2*f+1]=(Math.abs(freq_im)<threshold)?0:freq_im;
           }
         return ft;
-        }
-    , spectrum_ft: function(spectrum, params={}){
+        };
+    SC_ClientTools.spectrum_ft= function(spectrum, params={}){
         const N=spectrum.length; 
         const hN=N/2; 
         const threshold=(params.threshold)?params.threshold:1e-8;
@@ -89,8 +112,8 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
           s[2*t+1]=(Math.abs(sig_im) < threshold)?0:sig_im;
           }
         return s;
-        }
-    , getUnSymNormsOf: function(complex, p={}){
+        };
+    SC_ClientTools.getUnSymNormsOf= function(complex, p={}){
         if(0!=(complex.length%2)){
           throw new Error("not valid spec");
           }
@@ -109,38 +132,38 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
             }
           }
         return norms;
-        }
-    , heaviside: function(z){
-          return z>=0?1:0;
+        };
+    SC_ClientTools.heaviside= function(z){
+        return z>=0?1:0;
+        };
+    SC_ClientTools.sigmoid= function(z){
+        return 1/(1+Math.exp(-z));
+        };
+    SC_ClientTools.relu= function(z){
+        return z<0?0:z;
+        };
+    SC_ClientTools.id= function(z){
+        return z;
+        };
+    SC_ClientTools.near= function(z){
+        return 2/(1+Math.exp(Math.abs(z/10)))-0.5;
+        };
+    SC_ClientTools.softmax= function(z){
+        const res=[];
+        var st= 0;
+        if(!Array.isArray(z)){
+          z= [ z ];
           }
-    , sigmoid: function(z){
-          return 1/(1+Math.exp(-z));
+        const zl= z.lentgh;
+        for(var i= 0; i<zl; i++){
+          st+= Math.exp(z[i]);
           }
-    , relu: function(z){
-          return z<0?0:z;
+        for(var i=0; i<zl; i++){
+          res.push(z[i]/st);
           }
-    , id: function(z){
-          return z;
-          }
-    , near: function(z){
-          return 2/(1+Math.exp(Math.abs(z/10)))-0.5;
-          }
-    , softmax: function(z){
-          const res=[];
-          var st= 0;
-          if(!Array.isArray(z)){
-            z= [ z ];
-            }
-          const zl= z.lentgh;
-          for(var i= 0; i<zl; i++){
-            st+= Math.exp(z[i]);
-            }
-          for(var i=0; i<zl; i++){
-            res.push(z[i]/st);
-            }
-          return res;
-          }
-    , getRealParts: function(complex,  p={}){
+        return res;
+        };
+    SC_ClientTools.getRealParts= function(complex,  p={}){
         if(0!=(complex.length%2)){
           throw new Error("not valid spec");
           }
@@ -151,8 +174,8 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
           norms[i]=complex[2*i]*mu;
           }
         return norms;
-        }
-    , getNormsOf: function(complex,  p={}){
+        };
+    SC_ClientTools.getNormsOf= function(complex,  p={}){
         if(0!=(complex.length%2)){
           throw new Error("not valid spec");
           }
@@ -165,8 +188,8 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
           norms[i]=mu*Math.sqrt(c_re*c_re+c_im*c_im);
           }
         return norms;
-        }
-    , applyFilter: function(complex, filter,  p={}){
+        };
+    SC_ClientTools.applyFilter= function(complex, filter,  p={}){
         if(0!=(complex.length%2)){
           throw new Error("not valid spec");
           }
@@ -179,8 +202,8 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
           res[i2+1]= filtered[1];
           }
         return res;
-        }
-    , applyAttenuation: function(complex, filter,  p={}){
+        };
+    SC_ClientTools.applyAttenuation= function(complex, filter,  p={}){
         if(0!=(complex.length%2)){
           throw new Error("not valid spec");
           }
@@ -191,33 +214,42 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
           norms[2*i+1]=complex[2*i+1]*filter(i);
           }
         return norms;
-        }
-    , ranRange: function(max, min){
+        };
+    SC_ClientTools.ranRange= function(max, min){
         min=(undefined===min)?0:min;
         const range = max-min;
         return Math.random()*range+min;
-        }
-    , ranRange_i: function(max, min){
+        };
+    SC_ClientTools.ranRange_i= function(max, min){
         return parseInt(this.ranRange(parseInt(max), parseInt(min)));
-        }
-    , ran: function(amplitude, base){
+        };
+    SC_ClientTools.ran= function(amplitude, base){
         return Math.random()*amplitude+(base?base:0);
-        }
-    , dice: function(face=6){
+        };
+    SC_ClientTools.rani= function(amplitude, base){
+        return Math.round(this.ran(amplitude, base));
+        };
+    SC_ClientTools.ranfi= function(amplitude, base){
+        return Math.floor(this.ran(amplitude, base));
+        };
+    SC_ClientTools.ranci= function(amplitude, base){
+        return Math.ceil(this.ran(amplitude, base));
+        };
+    SC_ClientTools.dice= function(face=6){
         return parseInt(Math.random()*face)+1;
-        }
-    , gauss: function gaussianRandom(mean=0, stdev=1) {
-          var u= 0.0, v= 0.0;
-          while(0===u){
-            u= 1-Math.random();
-            }
-          while(0===v){
-            v= Math.random();
-            }
-          const num=Math.sqrt(-2.0*Math.log(u))*Math.cos(2.0*Math.PI*v);
-          return num*stdev+mean;
+        };
+    SC_ClientTools.gauss= function gaussianRandom(mean=0, stdev=1) {
+        var u= 0.0, v= 0.0;
+        while(0===u){
+          u= 1-Math.random();
           }
-    , gaussmm: function(min, max, skew){
+        while(0===v){
+          v= Math.random();
+          }
+        const num=Math.sqrt(-2.0*Math.log(u))*Math.cos(2.0*Math.PI*v);
+        return num*stdev+mean;
+        };
+    SC_ClientTools.gaussmm= function(min, max, skew){
         let u= 0.0, v= 0.0;
         while(0===u){
           u= 1-Math.random();
@@ -234,59 +266,50 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
         num*= max-min;
         num+= min;
         return num;
-        }
-    , gaussi: function(min=0, max=1, skew=0.5){
+        };
+    SC_ClientTools.gaussi= function(min=0, max=1, skew=0.5){
         return parseInt(this.gauss(parseInt(min), parseInt(max), skew));
-        }
-    , tick: function(){
-        return performance.now();
-       }
-      };
+        };
+    SC_ClientTools.loadData= function(url, resEvt, engine){
+        if(!(resEvt instanceof SC_SampledId)){
+          resEvt=SC.sampled("loadingData("+url+")");
+          }
+        const xmlHttpReq=new XMLHttpRequest();
+        xmlHttpReq.open("GET", url, true);
+        xmlHttpReq.onload=(function(sampled){
+            if(200==this.status || 0==this.status){
+              sampled.newValue(this.responseText);
+              }
+            }).bind(xmlHttpReq, resEvt);
+        xmlHttpReq.send(null);
+        return resEvt;
+        };
+    SC_ClientTools.loadDataSync= function(url){
+        const xmlHttpReq=new XMLHttpRequest();
+        xmlHttpReq.open("GET", url, false);
+        xmlHttpReq.send(null);
+        if(200==xmlHttpReq.status || 0==xmlHttpReq.status){
+          return xmlHttpReq.responseText;
+          }
+        throw new Error("Can't load");
+        };
     if(undefined==performance){
-      performance={ now: function(){
-                   return new Date().getTime();
-                   }
-                 };
+      SC_ClientTools.tick= function(){
+                             return new Date().getTime();
+                             };
       }
-    Object.defineProperty(SC_ClientTools, "loadData"
-    , { value: function(url, resEvt, engine){
-          if(!(resEvt instanceof SC_SampledId)){
-            resEvt=SC.sampled("loadingData("+url+")");
-            }
-          const xmlHttpReq=new XMLHttpRequest();
-          xmlHttpReq.open("GET", url, true);
-          xmlHttpReq.onload=(function(sampled){
-              if(200==this.status || 0==this.status){
-                sampled.newValue(this.responseText);
-                }
-              }).bind(xmlHttpReq, resEvt);
-          xmlHttpReq.send(null);
-          return resEvt;
-          }
-      , writable: false
-        }
-      );
-    Object.defineProperty(SC_ClientTools, "loadDataSync"
-    , { value: function(url){
-          const xmlHttpReq=new XMLHttpRequest();
-          xmlHttpReq.open("GET", url, false);
-          xmlHttpReq.send(null);
-          if(200==xmlHttpReq.status || 0==xmlHttpReq.status){
-            return xmlHttpReq.responseText;
-            }
-          throw new Error("Can't load");
-          }
-      , writable: false
-        }
-      );
-    if(SC.tools){
-      console.log("seem to be already initialized...", SC.tools);
-      return;
+    else{
+      SC_ClientTools.tick= function(){
+          return performance.now();
+          };
       }
+    const params= SC.globals.init_params;
+    var main= params.Tools.main;
+    var periodic= null;
     if(undefined==main || !main.isSCClock){
       var cfg= {};
-      if(params.tools.mainConfig){
-        cfg= params.tools.mainConfig;
+      if(params.Tools.main){
+        cfg= params.Tools.main;
         }
       main= SC.clock(cfg);
       if(cfg && "function"==typeof(cfg.stdout)){
@@ -321,11 +344,6 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
       , writable: false
         }
       );
-    Object.defineProperty(SC, "globals"
-    , { value: {}
-      , writable: false
-        }
-      );
     Object.defineProperty(SC.globals, "Evt_appStarted"
     , { value: SC.evt("appStarted")
       , writable: false
@@ -334,10 +352,7 @@ if(SC && SC.sc_build>1 && undefined===SC.tools){
     SC_ClientTools.addProgram= main.addProgram.bind(main);
     SC_ClientTools.generateEvent= main.addEntry.bind(main);
     return SC_ClientTools;
-    }).call(sc_global, p)
-                            , writable: false
-                              }
-                          );
+    })()
   }
 else{
   throw new Error("SugarCubesJS must be loaded first");
