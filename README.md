@@ -135,6 +135,10 @@ Other demoes can be found there:
 - [http://jeanferdysusini.free.fr/SC_Demo4.html](http://jeanferdysusini.free.fr/SC\_Demo4.html)
 - [http://jeanferdysusini.free.fr/SC_Demo5.html](http://jeanferdysusini.free.fr/SC\_Demo5.html)
 - [http://jeanferdysusini.free.fr/SC_Demo6.html](http://jeanferdysusini.free.fr/SC\_Demo6.html)
+- [http://jeanferdysusini.free.fr/time.html](http://jeanferdysusini.free.fr/time.html)
+- [http://jeanferdysusini.free.fr/MeteorJS.html](http://jeanferdysusini.free.fr/MeteorJS.html)
+- [http://jeanferdysusini.free.fr/KeyboardTrainer.html](http://jeanferdysusini.free.fr/KeyboardTrainer.html)
+- [http://jeanferdysusini.free.fr/TestTools.html](http://jeanferdysusini.free.fr/TestTools.html)
 
 
 One word about Reactive Synchronous Programming Model « à la » Boussinot:
