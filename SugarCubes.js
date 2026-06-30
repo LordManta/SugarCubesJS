@@ -3,8 +3,8 @@
  * Author : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.1232.alpha
- * build: 1232
+ * version : 5.0.1233.alpha
+ * build: 1233
  * Copyleft 2014-2026.
  */
 ;
@@ -34,13 +34,16 @@ Fonction utilitaires
 function testNES(obj){
   return "string"==typeof(obj) && ""!=obj;
   };
+function testValidID(s){
+  return testNES(s) && /^[a-zA-Z_][a-zA-Z_0-9\$]*$/.test(s);
+  };
 function testInt(n){
   return !isNaN(parseInt(n)) && parseInt(n)==n;
   };
 function testTA(o){
   return ("object"==typeof(o)
           && "object"==typeof(o.t)
-          && testNES(o.f));
+          && testValidID(o.f));
   };
 function markProgram(proto){
   Object.defineProperty(proto, "isAnSCProgram", { value: true
@@ -58,7 +61,7 @@ les parametres SC sont :
   - ou bien deja un late binding
 */
 function b_(nm, args){
-    if(testNES(nm)
+    if(testValidID(nm)
       || testInt(nm)
       || nm===true
       || nm===false
@@ -95,7 +98,7 @@ function isEvent(evt){
       }
     return (evt instanceof SC_EventId)||(evt instanceof SC_SensorId)
           || (evt instanceof SC_LateBinding)
-          || testNES(evt)
+          || testValidID(evt)
           || testTA(evt);
     };
 function isConfig(cfg){
@@ -9871,12 +9874,12 @@ pas garanti. C'est pourquoi il est déclaré dans la partie de l'API dite
 Strong API
  */
 Object.defineProperty(SC, "sc_build"
-                        , { value: 1232
+                        , { value: 1233
                           , writable: false
                             }
                         );
 Object.defineProperty(SC, "sc_version"
-                        , { value: "5.0.1232.alpha"
+                        , { value: "5.0.1233.alpha"
                           , writable: false
                             }
                         );
