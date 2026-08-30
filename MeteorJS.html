@@ -31,7 +31,7 @@ footer {
 </head>
 <body>
   <div style="display:flex;">
-    <canvas id="workspace" height="700px" width="700px" onclick="for(var i= 0; i<10; i++){launch();}"></canvas>
+    <canvas id="workspace" height="800px" width="800px" onclick="for(var i= 0; i<10; i++){launch();}"></canvas>
     <section>
       <h3>Simulation d'un système planétaire en utilisant SugarCubes JS.</h3>
 La simulation commence par créer 3 corps stellaires :
@@ -339,7 +339,7 @@ terre_rev_duree.textContent= format(Terre_revolPer*1000.0);
       }
     this.oldTime=time ;
     }
-  var zeZoom= 2e-9;
+  var zeZoom= 2.5e-9;
   var DT= 0.1;
   DTnum.value= DTslider.value= DTVal.innerHTML= DT;
   const tempo= 5999;
@@ -473,7 +473,7 @@ function JFS_meteor(params){
   Object.defineProperty(this.me, "y",{get : function(){return this.y}.bind(this)});
   Object.defineProperty(this.me, "z",{get : function(){return this.z}.bind(this)});
   Object.defineProperty(this.me, "m",{get : function(){return this.m}.bind(this)});
-  this.me.draw= function(ctx){ this.draw(ctx)}.bind(this);
+  this.me.draw= function(ctx){ this.draw(ctx); }.bind(this);
     
   }
 /*
@@ -589,7 +589,7 @@ JFS_meteor.prototype.draw=function(ctx){
         return;
         }
       var theCtx=ctx.save();
-      ctx.translate((this.x)*zoom+350, (-this.y)*zoom+350);
+      ctx.translate((this.x)*zoom+400, (-this.y)*zoom+400);
       if(this.zoneVisible){
         //ctx.strokeStyle=(this.touched)?"red":"black";
         //ctx.translate(this.x, this.y);
@@ -686,7 +686,7 @@ const cubeTerre= new JFS_meteor({
     , dy: Terre_dy // [m.s-1]
     , dz: 0
     , m: Terre_masse //[kg]
-    , bgColor: "blue"
+    , bgColor: "lightblue"
     , r: 2
     , Evt_angle: Evt_soleil
     });

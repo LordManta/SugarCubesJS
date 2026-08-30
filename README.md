@@ -2,8 +2,8 @@
 
 **Authors:** Jean-Ferdy Susini, Olivier Pons, Claude Lion\
 **Created:** 2/12/2014 9:23 PM\
-**Version:** 5.0.1234.alpha\
-**Build**: 1234\
+**Version:** 5.0.1236.alpha\
+**Build**: 1236\
 **Copyleft 2014-2026**
 
 _This implementation is still in alpha stage, cause API is still mostly subject
@@ -14,6 +14,23 @@ A *Javascript* implementation of the reactive programming framework
 It is based on Frederic Boussinot's *synchronous/reactive paradigm* proposed in
 the early 90's by Frédéric BOUSSINOT[Bo1], and allows one to write *reactive
 parallel/concurrent programs* on top of sequential *Javascript*.
+
+```
+ ___________________________________________________________________________
+|\                                                                          \
+| \                                                                          \
+|  +--------------------------------------------------------------------------+
+|  |  #### #   #  ###   ###  ####  |----------|  ###  #   # ####  #####  #### | 
+|  | #     #   # #     #   # #   # |   Tick   | #     #   # #   # #     #     |
+|  |  ###  #   # #  ## ##### ####  |----------| #     #   # ####  ####   ###  |
+|  |     # #   # #   # #   # #  #               #     #   # #   # #         # |
+|  | ####   ###   ###  #   # #   # #####   ####  ###   ###  ####  ##### ####  |
+|  |                    |            #    #              |                    |
+\  |                    |            #     ###           |                    |
+ \ |                    --------> #  #        # <---------                    |
+  \|                               ##     ####                                |
+   +--------------------------------------------------------------------------+
+```
 
 Quick start:
 ------------

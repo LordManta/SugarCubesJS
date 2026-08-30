@@ -270,6 +270,15 @@ if(SC && SC.sc_build>1 && SC.tools){
     SC_ClientTools.gaussi= function(min=0, max=1, skew=0.5){
         return parseInt(this.gauss(parseInt(min), parseInt(max), skew));
         };
+    // input: h as an angle in [0,360] and s,l in [0,1] - output: r,g,b in [0,1]
+    SC_ClientTools.hsl2rgb= function hsl2rgb(h,s,l){
+        const a= s*Math.min(l,1-l);
+        const f= function(n){
+	  const k= (n+h/30)%12;
+	  return l-a*Math.max(Math.min(k-3,9-k,1),-1);
+	  };
+        return [f(0),f(8),f(4)];
+        };
     SC_ClientTools.loadData= function(url, resEvt, engine){
         if(!(resEvt instanceof SC_SampledId)){
           resEvt=SC.sampled("loadingData("+url+")");

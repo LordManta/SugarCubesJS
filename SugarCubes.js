@@ -3,14 +3,28 @@
  * Author : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.1233.alpha
- * build: 1233
+ * version : 5.0.1235.alpha
+ * build: 1235
  * Copyleft 2014-2026.
  */
 ;
 (function(sc_global){ //Chargement et identification du module
 /*----------------------------------------------------------------------------*/
 /*
+ ___________________________________________________________________________
+|\                                                                          \
+| \                                                                          \
+|  +--------------------------------------------------------------------------+
+|  |  #### #   #  ###   ###  ####  |----------|  ###  #   # ####  #####  #### | 
+|  | #     #   # #     #   # #   # |   Tick   | #     #   # #   # #     #     |
+|  |  ###  #   # #  ## ##### ####  |----------| #     #   # ####  ####   ###  |
+|  |     # #   # #   # #   # #  #               #     #   # #   # #         # |
+|  | ####   ###   ###  #   # #   # #####   ####  ###   ###  ####  ##### ####  |
+|  |                    |            #    #              |                    |
+\  |                    |            #     ###           |                    |
+ \ |                    --------> #  #        # <---------                    |
+  \|                               ##     ####                                |
+   +--------------------------------------------------------------------------+
 SugarCubes internals.
 Many comments are made in french, as they are personal working notes.
 English comments should be more official, but it is still a work in progress...
@@ -5999,7 +6013,7 @@ Si on est au début d'une réaction on échantillone les sensors...
       const wevtvals= this.writeEvt.getValues(this);
       const wevtvalslen= wevtvals.length;
       for(var n= 0; n<wevtvalslen; n++){
-        const msg= wevtvals[n];
+        let msg= wevtvals[n];
         if(msg._){ msg= "["+this.instantNumber+": "+msg.t+"]"; }
         this.stdOut(msg);
         }
@@ -9874,12 +9888,12 @@ pas garanti. C'est pourquoi il est déclaré dans la partie de l'API dite
 Strong API
  */
 Object.defineProperty(SC, "sc_build"
-                        , { value: 1233
+                        , { value: 1235
                           , writable: false
                             }
                         );
 Object.defineProperty(SC, "sc_version"
-                        , { value: "5.0.1233.alpha"
+                        , { value: "5.0.1235.alpha"
                           , writable: false
                             }
                         );
