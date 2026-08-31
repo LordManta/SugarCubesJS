@@ -3,8 +3,8 @@
  * Authors : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.1237.alpha
- * build: 1237
+ * version : 5.0.1238.alpha
+ * build: 1238
  * Copyleft 2014-2026.
  */
 ;
@@ -9133,12 +9133,12 @@ const SC= {
         }
     };
 Object.defineProperty(SC, "sc_build"
-                        , { value: 1237
+                        , { value: 1238
                           , writable: false
                             }
                         );
 Object.defineProperty(SC, "sc_version"
-                        , { value: "5.0.1237.alpha"
+                        , { value: "5.0.1238.alpha"
                           , writable: false
                             }
                         );

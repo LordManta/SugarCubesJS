@@ -3,28 +3,28 @@
  * Author : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.1237.alpha
- * build: 1237
+ * version : 5.0.1238.alpha
+ * build: 1238
  * Copyleft 2014-2026.
  */
 ;
 (function(sc_global){ //Chargement et identification du module
 /*----------------------------------------------------------------------------*/
 /*
- ____________________________________________
-|\                                           \
-| \                                           \
-|  +-------------------------------------------+
-|  |  ####         |----------|         ####   | 
-|  | #     U       |   Tick   |       U     #  |
-|  |  ###  G       |----------|       B     #  |
-|  |     # A                          E     #  |
-|  | ####  R       #####   ####       S ###    |
-|  |     |           #    #             |      |
-\  |     |           #     ###          |      |
- \ |     +------> #  #        # <-------+      |
-  \|               ##     ####                 |
-   +-------------------------------------------+
+ __________________________________________
+|\                                         \
+| \                                         \
+|  +-----------------------------------------+
+|  |  ####         |----------|      ####    | 
+|  | #     U       |   Tick   |     #     U  |
+|  |  ###  G       |----------|     #     B  |
+|  |     # A                        #     E  |
+|  | ####  R       #####   ####      #### S  |
+|  |     |           #    #             |    |
+\  |     |           #     ###          |    |
+ \ |     +------> #  #        # <-------+    |
+  \|               ##     ####               |
+   +-----------------------------------------+
 SugarCubes internals.
 Many comments are made in french, as they are personal working notes.
 English comments should be more official, but it is still a work in progress...
@@ -9889,12 +9889,12 @@ pas garanti. C'est pourquoi il est déclaré dans la partie de l'API dite
 Strong API
  */
 Object.defineProperty(SC, "sc_build"
-                        , { value: 1237
+                        , { value: 1238
                           , writable: false
                             }
                         );
 Object.defineProperty(SC, "sc_version"
-                        , { value: "5.0.1237.alpha"
+                        , { value: "5.0.1238.alpha"
                           , writable: false
                             }
                         );
