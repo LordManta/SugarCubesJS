@@ -266,15 +266,13 @@ for(var i=0; i<10; i++){
   new Ball();
   }
 /*
-The last program one adds here call for refreshing the screen and pauses. If
-Evt_alive is present this program resets for the next instant. So it vitually
-implements a loop while Evt_alive is here. But if there is an instant where no
-one has generated Evt_alive (all have been preempted). Then the program ends at
-the next instant revealing the message « The End !! »
+If Evt_alive is present this program resets for the next instant. So it
+vitually implements a loop while Evt_alive is here. But if there is an instant
+where no one has generated Evt_alive (all have been preempted). Then the
+program ends at the next instant revealing the message « The End !! »
 */
 main.addProgram(
   SC.resetOn(Evt_alive
-  , SC.action(function(){ power.needRefresh(); })
   , SC.pause()
   , SC.action(function(m){
       document.getElementById("killer").style.display="block";
@@ -282,11 +280,7 @@ main.addProgram(
     )
   );
 
-/*
-One uses a special sensor of SugarCubes called animSensor which synchronized
-ticks on each requestAnimationFrame() of the DOM.
-*/
-const power= SC.animSensor();
+const power= SC.periodic({ delay: 30 });
 /*
 One binds the main clock on animSensor and mouse down sensor...
 */

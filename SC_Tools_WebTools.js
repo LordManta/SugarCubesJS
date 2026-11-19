@@ -840,22 +840,16 @@ Zone de control
                   ?SC.seq(SC.await(SC.globals.Evt_Start), SC.generate(evt, v))
                   :SC.generate(evt, v));
             }.bind(SC.tools);
-          if(SC.globals.Evt_Start){
-            SC.tools.main.addProgram(
-              SC.seq(
-                SC.await(SC.globals.Evt_Start)
-              , SC.action(function(re){
-                  SC.tools.addProgram=SC.tools.main.addProgram.bind(SC.tools.main);
-                  SC.tools.generateEvent=SC.tools.main.addEntry.bind(SC.tools.main);
+          SC.tools.main.addProgram(
+            SC.seq(
+              SC.await(SC.globals.Evt_Start)
+            , SC.action(function(re){
+                  SC.tools.addProgram= SC.tools.main.addProgram.bind(SC.tools.main);
+                  SC.tools.generateEvent= SC.tools.main.addEntry.bind(SC.tools.main);
                   re.addEntry(SC.globals.Evt_Start);
                   })
-                )
-              );
-            }
-          }
-        else{
-          SC.tools.addProgram=SC.tools.main.addProgram.bind(SC.tools.main);
-          SC.tools.generateEvent=SC.tools.main.addEntry.bind(SC.tools.main);
+              )
+            );
           }
 /*
 ---------------------------
@@ -994,7 +988,7 @@ Define globals and WebTools
                       if(!cvs.jfs_isASPCanvas){
                         WebTools.SP.buildCanvas({cvs: cvs});
                         }
-                      //cvs.style= tag.getAttribute("style");		      
+                      //cvs.style= tag.getAttribute("style");                      
                       if(!cvs.parentElement){
                         tag.appendChild(cvs);
                         }
@@ -1005,7 +999,7 @@ Define globals and WebTools
                       break;
                       }
                     case 'JFS_CODE':{
-                      var txt= tag.textContent;
+                      let txt= tag.textContent;
                       const wrapTag= ((""==tag.getAttribute("inline"))
                                   || ("true"==tag.getAttribute("inline")))?"code":"pre";
                       tag.style.display= ("pre"==wrapTag)?"block":"inline";
@@ -1026,8 +1020,14 @@ Define globals and WebTools
                                       || ("true"==tag.getAttribute("downloadable"))));
                       const selectable= (("pre"==wrapTag)&&((""==tag.getAttribute("selectable"))
                                      || ("true"==tag.getAttribute("selectable"))));
-                      const limitH= (("pre"==wrapTag)&&(tag.getAttribute("limitH")))?tag.getAttribute("limitH"):undefined;
+                      const limitH= (("pre"==wrapTag)&&(tag.getAttribute("limitH")))
+                                      ?tag.getAttribute("limitH"):undefined;
                       const hlapi= ("pre"==wrapTag)&&(tag.getAttribute("hlapi"));
+                      const src_code= ("pre"==wrapTag)&&(tag.getAttribute("src"));
+                      const mask_fun= ("pre"==wrapTag)&&(tag.getAttribute("mask"));
+                      if(src_code){
+                        txt= SC.tools.loadDataSync(src_code);
+                        }
                       txt= (base64)?SC.tools.atob(txt):txt;
                       if((""==tag.getAttribute("hlapi"))
                                ||("true"==tag.getAttribute("hlapi"))){
@@ -1056,21 +1056,31 @@ Define globals and WebTools
                          , no_final_br: true
                            });
                       tag.innerHTML='';
-                      if(collapsable||numbering||selectable||hideComments||tag.getAttribute("filename")){
+                      if(mask_fun||collapsable||numbering||selectable||hideComments||tag.getAttribute("filename")){
                         base.innerText= txt;
-                        SC.tools.Web.formatSnipet({ selectCmd: selectable
-                                                  , lineNumberCmd: numbering
-                                                  , downloadable: downloadable
-                                                  , maskCmd: collapsable
-                                                  , commentCmd: hideComments
-                                                  , hlapiCmd: hlapi
-                                                  , lang: langAtt.toUpperCase()
-                                                  , base: tag
-                                                  , hidden_control: hidden_control
-                                                  , snip: base.parsed[2]
-                                                  , limitH: limitH
-                                                  , filename: tag.getAttribute("filename")
-                                                    });
+                        const params= { selectCmd: selectable
+                          , lineNumberCmd: numbering
+                          , downloadable: downloadable
+                          , maskCmd: collapsable
+                          , commentCmd: hideComments
+                          , hlapiCmd: hlapi
+                          , lang: langAtt.toUpperCase()
+                          , base: tag
+                          , hidden_control: hidden_control
+                          , snip: base.parsed[2]
+                          , limitH: limitH
+                          , filename: tag.getAttribute("filename")
+                            };
+                        if(mask_fun && /^[a-z_A-Z][a-z_A-Z0-9]+$/.test(mask_fun)){
+                          const fun= eval(mask_fun);
+                          if("function"==typeof(fun)){
+                            params.mask_fun= fun;
+                            }
+                          else{
+                            console.error("invalid parameter mask", mask_fun);
+                            }
+                          }
+                        SC.tools.Web.formatSnipet(params);
                         }
                       else{
                         tag.appendChild(base);
@@ -1315,12 +1325,12 @@ Liste des paramètres :
           params.get=function(field, d){
             return (undefined!==this[field])?this[field]:d;
             }
-          const tts=document.createElement("div");
-          tts.innerHTML=params.get("speech","");
+          const tts= document.createElement("div");
+          tts.innerHTML= params.get("speech","");
           this.speechAlternative(tts);
           const speakable= new SpeechSynthesisUtterance(tts.textContent);
           speakable.lang= params.get("lang", "fr-FR");
-          console.log(speakable);
+          //console.log(speakable);
           speakable.Evt_startSpeak=params.get("start_evt"
                                              , SC.evt("Evt_startSpeak"));
           speakable.Evt_cancel=params.get("cancel", SC.evt("Evt_cancel"));
@@ -1328,19 +1338,25 @@ Liste des paramètres :
           //console.log("speech Evt_talkEnded", speakable.Evt_talkEnded);
           speakable.Sns_ended=SC.sensor("Sns_ended"
             , { dom_targets: [ { target: speakable, evt: 'end' } ] });
-          speakable.sc_speech_beh=SC.seq(
-              SC.kill(speakable.Evt_cancel
+          speakable.sc_speech_beh= SC.seq(SC.trace("speeching ?")
+            , SC.kill(speakable.Evt_cancel
               , SC.seq(
                   SC.await(speakable.Evt_startSpeak)
+                , SC.trace("starting speech "+(tts.textContent.substring(0, 30)))
                 , SC.action(
                     window.speechSynthesis.speak.bind(window.speechSynthesis
                                                     , speakable))
                 , SC.await(speakable.Sns_ended)
+                , SC.trace("speech ended")
                   )
-              , SC.action(
+              , SC.seq(
+                  SC.action(
                     window.speechSynthesis.cancel.bind(window.speechSynthesis))
+                , SC.trace("speech preempted")
+                  )
                 )
             , SC.generate(speakable.Evt_talkEnded)
+            , SC.trace("speech behavior terminated")
               );
             return speakable;
           };
@@ -1352,7 +1368,7 @@ Liste des paramètres :
         function speechAlternative(element){
           const jfs_tags=element.getElementsByTagName("JFS_AS");
           for(var tag of jfs_tags){
-            tag.textContent=tag.getAttribute("text");
+            tag.textContent= tag.getAttribute("text");
             }
           };
         Object.defineProperty(WebTools, "speechAlternative"
@@ -1363,8 +1379,35 @@ Liste des paramètres :
 /*
 Bubble view utility funs
 */
+        function searchRelParent(node){
+          let prt= node.parentElement;
+          let stle= window.getComputedStyle(prt);
+          while(prt && stle.position!="relative"){
+            console.log({ prt, stle });
+            prt= prt.parentElement;
+            if(prt){
+              stle= window.getComputedStyle(prt);
+              }
+            }
+          return prt;
+          };
         function bubble_view_setNewText(msg){
-          const frame=this._sc_frame;
+          //console.warn('bubble setNewText()', msg, this);
+          const frame= this._sc_frame;
+          const rel_prt= searchRelParent(frame);
+          const { anchor }= msg;
+          const an= SC.tools.Web.findElementById(rel_prt, anchor);
+          if(an){
+            let root= an;
+            const rect= { x: 0, y: 0, w: an.offsetWidth, h: an.offsetHeight };
+            while(root && root!=rel_prt){
+              rect.x+= root.offsetLeft;
+              rect.y+= root.offsetTop;
+              root= root.offsetParent;
+              }
+            //console.warn(rect);
+            msg.an_rect= rect;
+            }
           function _(data){
             if('function'==typeof data){
               return data();
@@ -1387,30 +1430,47 @@ Bubble view utility funs
               this.dir = 0;
               this.classList.remove(this.classList[0]);
               this.classList.add("SC_bubble_text_0");;
-              frame.style.left=_(msg.x);
-              frame.style.top=_(msg.y);
+              frame.style.left= _(msg.x);
+              frame.style.top= _(msg.y);
               break;
               }
             case 1:{ // top left
               this.dir = 1;
               this.classList.remove(this.classList[0]);
               this.classList.add("SC_bubble_text_1");
-              frame.style.left=_(msg.x);
-              frame.style.top=_(msg.y);
+              if(undefined==msg.x || undefined==msg.y){
+                const an_rect= msg.an_rect;
+                msg.x= an_rect.x+10;
+                msg.y= an_rect.y+20+an_rect.h;
+                }
+              frame.style.left= _(msg.x);
+              frame.style.top= _(msg.y);
               break;
               }
             case 2:{ // top middle
               this.dir = 2;
               this.classList.remove(this.classList[0]);
               this.classList.add("SC_bubble_text_2");
-              frame.style.left=_(msg.x);
-              frame.style.top=_(msg.y);
+              if(undefined==msg.x || undefined==msg.y){
+                const an_rect= msg.an_rect;
+                const f_w= frame.offsetWidth;
+                msg.x= an_rect.x+an_rect.w/2-f_w/2;
+                msg.y= an_rect.y+20+an_rect.h;
+                }
+              frame.style.left= _(msg.x);
+              frame.style.top= _(msg.y);
               break;
               }
             case 3:{ // top right
               this.dir = 3;
               this.classList.remove(this.classList[0]);
               this.classList.add("SC_bubble_text_3");
+              if(undefined==msg.x || undefined==msg.y){
+                const an_rect= msg.an_rect;
+                const f_w= frame.offsetWidth;
+                msg.x= 1024-(an_rect.x+an_rect.w/2);
+                msg.y= an_rect.y+20+an_rect.h;
+                }
               frame.style.right=_(msg.x);
               frame.style.top=_(msg.y);
               break;
@@ -1420,14 +1480,28 @@ Bubble view utility funs
               //console.log("bottom left");
               this.classList.remove(this.classList[0]);
               this.classList.add("SC_bubble_text_4");
-              frame.style.left=msg.x;
-              frame.style.bottom=_(msg.y);
+              if(undefined==msg.x || undefined==msg.y){
+                const an_rect= msg.an_rect;
+                const f_h= frame.offsetHeight;
+                msg.x= an_rect.x;
+                msg.y= rel_prt.offsetHeight-(an_rect.y+10-an_rect.h);
+                }
+              frame.style.left= _(msg.x);
+              frame.style.bottom= _(msg.y);
+              //debugger;
               break;
               }
             case 5:{ // bottom middle
               this.dir = 5;
               this.classList.remove(this.classList[0]);
               this.classList.add("SC_bubble_text_5");
+              if(undefined==msg.x || undefined==msg.y){
+                const an_rect= msg.an_rect;
+                const f_h= frame.offsetHeight;
+                const f_w= frame.offsetWidth;
+                msg.x= an_rect.x+an_rect.w/2-f_w/2;
+                msg.y= rel_prt.offsetHeight-(an_rect.y+10-an_rect.h);
+                }
               frame.style.left=_(msg.x);
               frame.style.bottom=_(msg.y);
               break;
@@ -1562,7 +1636,7 @@ Bubble view utility funs
             res.setAttribute('title', p.title);
             }
           return res;
-          }
+          };
         function mkBubbleMenuBar(){
           const bar= quickElt({ tag: 'div'
               , style:`position: relative;
@@ -1665,9 +1739,12 @@ Bubble view utility funs
               , style: `text-align: right;
                         margin: 0;
                         padding: 0;`
-              , innerHTML: "<em style='font-size:10px;cursor:pointer'>OK</em>"
+              , innerHTML: "<span style='font-size:10px;cursor:pointer; margin-right: 1ch;'>🗣️</span><em style='font-size:10px;cursor:pointer'>OK</em>"
                 });
-          const Sns_talkOK=SC.sensor("Sns_talkOK"
+          const Sns_talkOK= SC.sensor("Sns_talkOK"
+               , { dom_targets: [ { target: bubble_view._sc_ok.children[1]
+                                  , evt: "click" } ] });
+          const Sns_talkAgain= SC.sensor("talkAgain"
                , { dom_targets: [ { target: bubble_view._sc_ok.children[0]
                                   , evt: "click" } ] });
           bubble_view._sc_displayNextBtn=function(re){
@@ -1760,7 +1837,13 @@ Bubble view utility funs
                     , SC.test({ t: bubble_view, f: "_sc_wc" }
                       , SC.seq(
                           SC.action("_sc_displayNextBtn")
-                        , SC.await(Sns_talkOK)
+                        , SC.pause()
+                        , SC.kill(Sns_talkOK
+                          , SC.repeatForever(
+                              SC.await(Sns_talkAgain)
+                            , SC.action("_sc_forceTalk")
+                              )
+                            )
                         , SC.generate('Evt_bubbleFinish')
                           )
                       , SC.pause({ t: bubble_view, f: '_sc_pauseAfterEnd' })
@@ -1793,6 +1876,14 @@ Bubble view utility funs
               this._sc_updateAppearance(msg);
               };
             }
+          bubble_view._sc_forceTalk= function(re){
+             const text= this._sc_forceTalkSpeech;
+             const tmp= SC.tools.Web.speech({ speech: text
+                 , talkEnded: this.Evt_talkEnded
+                 , cancel: SC.or(this.Evt_display, this.Evt_bubbleFinish)});
+             ((this._sc_clock)?this._sc_clock:SC.tools.main).addProgram(
+                   SC.par(SC.seq(SC.pause(),SC.generate(tmp.Evt_startSpeak)),tmp.sc_speech_beh));
+             },
           bubble_view._sc_display= function(re){
             const entry= re.getValuesOf(this.Evt_display);
             if(entry){
@@ -1814,9 +1905,11 @@ Bubble view utility funs
                                           }.bind(this, data.icn))
                                     , SC.purge(data.post)))
                                   :data.post;
+              /* On garde l'info en cas de force talk */
+              this._sc_forceTalkSpeech= data.speech?data.speech:data.text;
               if(data.talk){
                 this._sc_noSpeech=false;
-                const text=data.speech?data.speech:data.text;
+                const text= this._sc_forceTalkSpeech;
                 const tmp=SC.tools.Web.speech({ speech: text
                     , talkEnded: this.Evt_talkEnded
                     , cancel: SC.or(this.Evt_display, this.Evt_bubbleFinish)});
@@ -1948,6 +2041,27 @@ Bubble view utility funs
           , writable: false
             }
           );
+        Object.defineProperty(WebTools, "findElementById"
+        , { value: function(root, id){
+                  let found= null;
+                  function searchDescendants(node){
+                    if(1===node.nodeType){
+                      if(id===node.id && null===found){
+                        found= node;
+                        }
+                      }
+                    for(let child of node.childNodes) {
+                      searchDescendants(child);
+                      }
+                    };
+                  if(root && "object"==typeof(root) && 1===root.nodeType){
+                    searchDescendants(root);
+                    }
+                  return found;
+                  }
+          , writable: false
+            }
+          );
         function getCookie(cname){
           const res={ name: cname };
           const decodedCookie=decodeURIComponent(document.cookie);
@@ -1998,7 +2112,7 @@ Bubble view utility funs
               });
           //var n = new Notification("Bonjour,"
           //  , { body: "Merci d'avoir autorisé les notification pour ce site. Cette focntionnalité vous permettra d'être informé rapidement des modifications et des nouveautés qui seront publiées au fur et à mesure."});
-          }
+          };
         Object.defineProperty(WebTools, "initNotificationSupport"
         , { value: initNotificationSupport
           , writable: false
@@ -2007,13 +2121,13 @@ Bubble view utility funs
 /* Code source tools */
         WebTools.listingTools={
           strings: {
-            VIS_BTN_YES: "&nbsp;Afficher le fichier&nbsp;"
+            /*VIS_BTN_YES: "&nbsp;Afficher le fichier&nbsp;"
           , VIS_BTN_NO: "&nbsp;Masquer le fichier&nbsp;"
-          , SELECT_BTN: "&nbsp;Selectionner le Source&nbsp;"
-          , COMMENT_BTN_YES: "&nbsp;Afficher les commentaires&nbsp;"
-          , COMMENT_BTN_NO: "&nbsp;Masquer les commentaires&nbsp;"
-          , LN_BTN_YES: "&nbsp;Afficher la numérotation&nbsp;"
-          , LN_BTN_NO: "&nbsp;Masquer la numérotation&nbsp;"
+          , */SELECT_BTN: "&nbsp;Copier&nbsp;"
+          , COMMENT_BTN_YES: "&nbsp;Commentaires ❎&nbsp;"
+          , COMMENT_BTN_NO: "&nbsp;Commentaires ✅&nbsp;"
+          , LN_BTN_YES: "&nbsp;Numéros de ligne ❎&nbsp;"
+          , LN_BTN_NO: "&nbsp;Numéros de ligne ✅&nbsp;"
             }
           };
         function selectCode(evt){
@@ -2028,25 +2142,25 @@ Bubble view utility funs
             }
           document.execCommand("copy");        
           };
-        function setCodeVisibility(f, vis){
-          const frame='string'==typeof(f)
-                        ?document.getElementById(f).parentElement
-                        :f;
-          frame._sc_lst_visBtn.innerHTML=
-                           vis?WebTools.listingTools.strings.VIS_BTN_NO
-                              :WebTools.listingTools.strings.VIS_BTN_YES;
-          frame._sc_lst_code.style.display=vis?"block":"none";
-          frame._sc_lst_selBtn.hidden=!vis;
-          frame._sc_lst_cmtBtn.hidden=!vis;
-          frame._sc_lst_lnBtn.hidden=!vis;
-          };
-        function jfs_lst_toggle_codeVisibility(frame){
-          jfs_lst_setCodeVisibility(frame
-            , 'none'==frame._sc_lst_code.style.display);
-          };
+        //function setCodeVisibility(f, vis){
+        //  const frame='string'==typeof(f)
+        //                ?document.getElementById(f).parentElement
+        //                :f;
+        //  frame._sc_lst_visBtn.innerHTML=
+        //                   vis?WebTools.listingTools.strings.VIS_BTN_NO
+        //                      :WebTools.listingTools.strings.VIS_BTN_YES;
+        //  frame._sc_lst_code.style.display=vis?"block":"none";
+        //  frame._sc_lst_selBtn.hidden=!vis;
+        //  frame._sc_lst_cmtBtn.hidden=!vis;
+        //  frame._sc_lst_lnBtn.hidden=!vis;
+        //  };
+        //function jfs_lst_toggle_codeVisibility(frame){
+        //  jfs_lst_setCodeVisibility(frame
+        //    , 'none'==frame._sc_lst_code.style.display);
+        //  };
         function codeVisibility(evt){
           toggle_codeVisibility(evt.target._sc_lst_frame);
-          }
+          };
         function numberingCode(evt){
           const main=evt.target._sc_lst_frame;
           const lines=main._sc_lst_code._sc_lst_lines;
@@ -2134,7 +2248,7 @@ Bubble view utility funs
             cssLink.setAttribute('href', lst_css_needed
                                          +'SC_Tools_ListingsIHM.css');
             document.head.appendChild(cssLink);
-            lst_css_needed=false;
+            lst_css_needed= false;
             }
           const frame= quickElt({ tag: 'div', cls: "interfaceMenuBar" });
           if(params.maskCmd){
@@ -2157,7 +2271,7 @@ Bubble view utility funs
               const code_spc= code_parent.children[1];
               if(this.innerHTML==_sc_inners[0] && code_spc.style.display=="none"){
                 this.innerHTML=_sc_inners[1];
-                code_spc.style.display="flex";
+                code_spc.style.display= "flex";
                 code_parent._sc_maskUpdateFun(code_parent);
                 }
               else{
@@ -2229,8 +2343,15 @@ Bubble view utility funs
               });
             if(params.downloadable){
               b.addEventListener("click", function(evt){
-                var blob = new Blob([this._sc_lst_code.innerText]
+                const html= this._sc_lst_code.innerHTML.replace(/<[bB][rR]\/?>/g, "\n");
+                const pre_form= document.createElement("pre");
+                //pre_form.hidden= true;
+                pre_form.innerHTML= html;
+                evt.target.parentElement.appendChild(pre_form);
+                console.log("pre_form", pre_form.offsetHeight);
+                var blob = new Blob([pre_form.innerText]
                                   , {type : 'javsacript/text'});
+                evt.target.parentElement.removeChild(pre_form);
                 this._sc_lst_pathName.children[0].href=URL.createObjectURL(blob);
                 }.bind(params.code_parent));
               }
@@ -2324,17 +2445,17 @@ Bubble view utility funs
                 code_tag._sc_lst_lines.textContent=lines_nb_txt;
                 };
             code_parent._sc_maskUpdateFun=function(c){};
-            code_parent._sc_registerMaskUpdate=function(fun){
-              this._sc_maskUpdateFun=fun;
+            code_parent._sc_registerMaskUpdate= function(fun){
+              this._sc_maskUpdateFun= fun;
               };
             code_parent._sc_set_pathName=function(pname){
               this._sc_lst_pathName.children[0].innerHTML=pname;
               this._sc_lst_pathName.children[0].setAttribute('download', pname);
               };
             code_parent._sc_setMask=function(code_tag, html){
-              this.innerHTML=html;
-              this.style.width=code_tag.offsetWidth+"px";
-              this.style.left=code_tag.offsetLeft+"px";
+              this.innerHTML= html;
+              this.style.width= code_tag.offsetWidth+"px";
+              this.style.left= code_tag.offsetLeft+"px";
               }.bind(bg_hi_pre, code_tag);
             code_parent._sc_setMask("");
             code_parent.children[1].appendChild(bg_hi_pre);
@@ -2349,6 +2470,11 @@ Bubble view utility funs
               }
             if(params.hidden_control){
               frame.style.display="none";
+              }
+            if(params.mask_fun){
+              //console.error("adding mask");
+              code_parent._sc_maskUpdateFun= params.mask_fun;
+              code_parent._sc_maskUpdateFun(code_parent);
               }
             }
           else {
@@ -2643,8 +2769,9 @@ Bubble view utility funs
                   , resp: this._sc_resp
                     });
                 }
-              zeMenu.style.left= msg.x?msg.x:"50%";
-              zeMenu.style.top= msg.y?msg.y:"50%";
+              //console.warn("***msg", msg);
+              zeMenu.style.left= msg.x?(("string"!=typeof(msg.x))?(msg.x+"px"):msg.x):"50%";
+              zeMenu.style.top= msg.y?(("string"!=typeof(msg.y))?(msg.y+"px"):msg.y):"50%";
               if("string"==typeof(msg.title)){
                 const ttl= msg.title.substring(0, 32).replace(/\s|\n\r/g, " ");
                 zeTitle.textContent= ttl;
@@ -2725,6 +2852,87 @@ Bubble view utility funs
           );
         Object.defineProperty(WebTools, "mke"
         , { value: quickElt
+          , writable: false
+            });
+        let web_comp_css_needed= true;
+        Object.defineProperty(WebTools, "mkStarRanking"
+        // - n: form name ["no_name"]
+        // - t: label ["no_label"]
+        // - s: range step [0.25]
+        // - h: help string [undefined]
+        // - max: range valeur max [5] (min is always 0)
+        // - nmx: range scale [1]
+        , { value: function (params){
+                if(web_comp_css_needed){
+                  const cssLink= document.createElement("link");
+                  cssLink.setAttribute('rel', 'stylesheet');
+                  cssLink.setAttribute('href', params.base
+                                               +'SC_Tools_WebComponents.css');
+                  document.head.appendChild(cssLink);
+                  web_comp_css_needed= false;
+                  }
+                if(params){
+                  const p= SC.$(params)
+                  const name= p.$$("n", "no_name");
+                  const title= p.$$("t","no_label");
+                  const step= p.$$("s", 0.25);
+                  const max= p.$$("max", 5);
+                  const cp= {
+                      tag: "div"
+                    , style: "display:inline-block;"
+                    , innerHTML: "<label for=\""+name+"\">"+title+" :</label>"
+                      };
+                  if(p.$("h")){
+                    cp.title= p.$$("h");
+                    }
+                  const ui_obj= quickElt(cp);
+                  ui_obj._n_max= p.$$("nmx", 1);
+                  const range= document.createElement("input");
+                  range.setAttribute("type", "range");
+                  range.setAttribute("name", name);
+                  range.setAttribute("value", "0");
+                  range.setAttribute("min", "0");
+                  range.setAttribute("max", max);
+                  range.style.width = (max+1)*16+"px";
+                  range.setAttribute("step", ""+step);
+                  range.setAttribute("class", "SCUI_rate");
+                  const output= document.createElement("output")
+                  output.setAttribute("max", max/ui_obj._n_max);    
+                  output.setAttribute("for", name);
+                  output.value= 0;
+                  const tmp_span= document.createElement("div");
+                  tmp_span.classList.add("SCUI_rangeOut");
+                  ui_obj.range_obj= range;
+                  ui_obj.range_out= output;
+                  ui_obj.appendChild(range);
+                  tmp_span.appendChild(output);
+                  ui_obj.appendChild(tmp_span);
+                  ui_obj.Evt_sendValue= p.$$("evt_out", SC.evt());
+                  //ui_obj.id_n= notation.length;
+                  //notation.push(0);
+                  //notGUI.push(ui_obj);
+                  ui_obj._sc_Act_updateOut= function(){
+                    this.range_out.value= this.range_obj.value/this._n_max;
+                    //notation[this.id_n]= this.range_obj.value/this._n_max;
+
+                    }
+                  ui_obj._sc_rate_it= SC.sensor(name+"_rate_it", {
+                                               dom_targets: [ { target: range, evt: "click" } ]
+                                               });
+                  SC.tools.main.addProgram(SC.cubify(
+                      {
+                        root: ui_obj
+                      , prg: SC.par(
+                            SC.repeatForever(
+                              SC.await("_sc_rate_it")
+                            , SC.cubeAction({ fun: SC.my("_sc_Act_updateOut") })
+                              )
+                            //, SC.log("starting "+name)
+                            )
+                      }));
+                  return ui_obj.Evt_sendValue;
+                  }
+                }
           , writable: false
             });
         Object.defineProperty(WebTools, "saveDocStorge"

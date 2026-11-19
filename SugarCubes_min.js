@@ -3,21 +3,52 @@
  * Authors : Jean-Ferdy Susini (MNF), Olivier Pons & Claude Lion
  * Created : 2/12/2014 9:23 PM
  * Part of the SugarCubes Project
- * version : 5.0.1238.alpha
- * build: 1238
+ * version : 5.0.1297.alpha
+ * build: 1297
  * Copyleft 2014-2026.
  */
 ;
 (function(sc_global){ 
+if(undefined!==this.SC){
+  throw new Error("Cannot settup SC global.");
+  }
 function NO_FUN(){};
 const VOID_VALUES= [];
 Object.freeze(VOID_VALUES);
+const finalizeStats= { alloc: 0 
+                     , gc: 0
+                     , ast_a: 0, cfg_ast_a: 0 
+                     , ast: 0, cfg_ast: 0
+                     , sens_id_a: 0, sampl_id_a: 0, evt_id_a: 0 
+                     , sens_id: 0, sampl_id: 0, evt_id: 0
+                     , clk_a: 0, evt_a: 0, inst_a: 0 
+                     , clk: 0, evt: 0, inst: 0
+                     , c_r_a: 0
+                     , c_r: 0
+                       };
+const finalizeReg= new FinalizationRegistry((id) => {
+    finalizeStats.gc++;
+    if(Array.isArray(id)){
+      for(let elt of id){
+        if(undefined==finalizeStats[elt]){
+          finalizeStats[elt]= 0;
+          }
+        finalizeStats[elt]++;
+        }
+      }
+    else{
+      if(undefined==finalizeStats[id]){
+        finalizeStats[id]= 0;
+        }
+      finalizeStats[id]++;
+      }
+    });
 var nextEventID= 0;
 function testNES(obj){
   return "string"==typeof(obj) && ""!=obj;
   };
-function testValidID(s){
-  return testNES(s) && /^[a-zA-Z_][a-zA-Z_0-9\$]*$/.test(s);
+function isValidID(s){
+  return testNES(s) && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(s);
   };
 function testInt(n){
   const fin= parseInt(n);
@@ -26,14 +57,28 @@ function testInt(n){
 function testTA(o){
   return ("object"==typeof(o)
           && "object"==typeof(o.t)
-          && testValidID(o.f));
+          && isValidID(o.f));
+  };
+function defOn(obj, name, val, writtable= false, enumerable= true){
+  Object.defineProperty(obj, name, {
+    value: val
+  , writtable: writtable
+  , enumerable: enumerable
+    });
+  };
+function defGet(obj, name, get, writtable= false, enumerable= true){
+  Object.defineProperty(obj, name, {
+    get: get
+  , writtable: writtable
+  , enumerable: enumerable
+    });
   };
 function markProgram(obj){
   Object.defineProperty(obj, "isAnSCProgram", { value: true
                                               , writable: false });
   };
 function b_(nm, args){
-    if(testValidID(nm)
+    if(isValidID(nm)
       || testInt(nm)
       || nm===true
       || nm===false
@@ -60,7 +105,7 @@ function isEvent(evt){
       }
     return (evt instanceof SC_EventId)||(evt instanceof SC_SensorId)
           || (evt instanceof SC_LateBinding)
-          || testValidID(evt)
+          || isValidID(evt)
           || testTA(evt);
     };
 function isConfig(cfg){
@@ -100,16 +145,18 @@ function checkStrictEvent(evt){
       }
     };
 function lateBindProperty(copy, name, param){
-    if(param instanceof SC_LateBinding){
-      delete copy[name];
-      Object.defineProperty(copy, name, { get: param.resolve.bind(param.o) });
-      }
-    else if("function"==typeof(param)){
-      delete copy[name];
-      Object.defineProperty(copy, name, { get: param });
-      }
-    else{
-      Object.defineProperty(copy, name, { value: param });
+    if(isValidID(name)){
+      if(param instanceof SC_LateBinding){
+        delete copy[name];
+        Object.defineProperty(copy, name, { get: param.resolve.bind(param.o) });
+        }
+      else if("function"==typeof(param)){
+        delete copy[name];
+        Object.defineProperty(copy, name, { get: param });
+        }
+      else{
+        Object.defineProperty(copy, name, { value: param });
+        }
       }
     };
 function checkNum(num){
@@ -253,70 +300,97 @@ proto.cleanup= (undefined!=sc_global.WeakMap)
       };
 Object.freeze(proto);
 })(PurgeableCollection.prototype);
-function SC_Parameters(p, check){
-  if(undefined===p && undefined===check){
-    return this;
-    }
-  if("object"==typeof(p)){
-    if(p instanceof SC_Parameters){
-      return p;
+function SC_Parameters(obj, mandatory){
+  if(undefined===obj){
+    if(undefined===mandatory){
+      return this;
       }
-    const kiz= Object.keys(p);
-    const kl= kiz.length
-    for(var n= 0; n<kl; n++){
-      const key= kiz[n];
-      if(["_", "_e", "_$", "toString"].includes(key)){
-        continue;
-        }
-      this[key]= p[key];
-      }
-    if(Array.isArray(check)){
-      const len= check.length;
-      for(var n= 0; n<len; n++){
-        const key= check[n];
-        if(undefined===this[key]){
-          console.warn(key+" is mandatory but not defined");
-          return undefined;
-          }
-        }
+    else{
+      throw new Error("mandatory cannot be verified on undefined");
       }
     }
-  else{
-    return Array.isArray(check)?undefined:p;
+  if(obj instanceof SC_Parameters){
+    return obj;
     }
-  };
+  if("object"!=typeof(obj) || obj.$ || obj.$$ || obj.$set
+    || obj.$check || obj.$clean
+    || Object.keys(obj).includes("toString")){
+    throw new Error("invalid parameter "+obj);
+    }
+  Object.assign(this, obj);
+  const kz= Object.keys(obj);
+  const klen= kz.length;
+  for(let i= 0; i<klen; i++){
+    const k= kz[i];
+    if(!isValidID(k)){
+      throw new Error("invalid id '"+k+"'");
+      }
+    }
+  if(!this.$check(mandatory)){
+    throw new Error("Cannot validate mandatory keys");
+    }
+  };
 (function(proto){
-Object.defineProperty(proto, "_"
-, { value: function(name, dval){
-        if(!testNES(name)){
+defOn(proto, "$$", function(name, dval){
+        if(!isValidID(name)){
           throw new Error("invalid name '"+name+"'");
           }
         const v= this[name];
-        return (undefined!==v || (null!==v && undefined===dval))?v:dval;
-        }
-  , writable: false
-    });
-Object.defineProperty(proto, "_e"
-, { value: function(name){
-        if(!testNES(name)){
+        return undefined!==v?v:dval;
+        });
+defOn(proto, "$", function(name){
+        if(!isValidID(name)){
           throw new Error("invalid name '"+name+"'");
           }
-        const v= this[name];
-        return undefined!==v;
-        }
-  , writable: false
-    });
-Object.defineProperty(proto, "_$"
-, { value: function(name, value){
-        if(!testNES(name)){
+        return Object.keys(this).includes(name);
+        });
+defOn(proto, "$clean", function(){
+	const kz= Object.keys(this);
+	for(let k of kz){
+	  delete this[k];
+	  }
+        });
+defOn(proto, "$check", function(mandatory){
+        const kz= Object.keys(this);
+        if(Array.isArray(mandatory)){
+          const len= mandatory.length;
+          console.log("Begining mandatory check of "+len+" entries.");
+          for(let n= 0; n<len; n++){
+            const key= mandatory[n];
+            if(isValidID(key)){
+              if(! kz.includes(key)){
+                throw new Error(key+" is mandatory but not defined");
+                }
+              }
+            else if("object"==typeof(key)){
+              const k= key.name;
+              if(isValidID(k)){
+                const verif= key.verif;
+                if("function"==typeof(verif)){
+                  if(!verif(this[k])){
+                    throw new Error("mandatory defines an invlid verif function "+verif);
+                    }
+                  }
+                else if(verif){
+                  throw new Error("mandatory defines an invlid verif function "+verif);
+                  }
+                }
+              else{
+                throw new Error("mandatory defines an invlid id "+k);
+                }
+              }
+            }
+	  return true;
+          }
+	return (undefined===mandatory);
+        });
+defOn(proto, "$set", function(name, value){
+        if(!isValidID(name)){
           throw new Error("invalid name '"+name+"'");
           }
-        this[name]= v;
-        }
-  , writable: false
-    });
-Object.defineProperty(proto, "toString"
-, { value: function(){
+        this[name]= value;
+        });
+defOn(proto, "toString", function(){
         var res= "SC_Parameters:={";
         const kiz= Object.keys(this);
         const klen= kiz.length;
@@ -325,9 +399,7 @@ Object.defineProperty(proto, "toString"
           res+= " "+key+": "+this[key];
           }
         return res+"}";
-        }
-  , writable: false
-    });
+        }, false, false);
 Object.freeze(proto);
 })(SC_Parameters.prototype);
 const SC_Runtime= {
@@ -582,14 +654,14 @@ function SC_cubify(params){
   Object.defineProperty(this, "_sc_get",
     { value: function(name){
         if(undefined!==this[name]){
-	  return this[name];
-	  }
-	if(undefined!=this._sc_extension){
-	  if(undefined!==this._sc_extension[name]){
-	    return this._sc_extension[name];
-	    }
-	  }
-	return undefined;
+          return this[name];
+          }
+        if(undefined!=this._sc_extension){
+          if(undefined!==this._sc_extension[name]){
+            return this._sc_extension[name];
+            }
+          }
+        return undefined;
         }
     , writable: false
       }
@@ -597,12 +669,12 @@ function SC_cubify(params){
   Object.defineProperty(this, "_sc_set",
     { value: function(name, val){
         if(undefined!==this[name]){
-	  return this[name]= val;
-	  }
-	if(undefined!=this._sc_extension){
-	  return this._sc_extension[name]= val;
-	  }
-	return undefined;
+          return this[name]= val;
+          }
+        if(undefined!=this._sc_extension){
+          return this._sc_extension[name]= val;
+          }
+        return undefined;
         }
     , writable: false
       }
@@ -636,6 +708,8 @@ function SC_EventId(params){
   Object.defineProperty(this, "isSensor", { value: false, writable: false });
   Object.defineProperty(this, "isSampled", { value: false, writable: false });    
   Object.freeze(this.__proto__);
+  finalizeReg.register(this, "evt_id"); 
+  finalizeStats.alloc++; finalizeStats.evt_id_a++;
   };
 (function(proto){
 proto.getId= function(){
@@ -660,6 +734,8 @@ function SC_Event(id, m){
   this.permanentGenerators= [];
   this.permanentValuatedGenerator= 0;
   this.registeredInst= [];  
+  finalizeReg.register(this, "evt"); 
+  finalizeStats.alloc++; finalizeStats.evt_a++;
   };
 (function(proto){
 proto.isPresent= function(m){
@@ -728,6 +804,8 @@ function SC_EventDistributed(id){
   this.permanentGenerators= [];
   this.permanentValuatedGenerator= 0;
   this.registeredInst= [];  
+  finalizeReg.register(this, "evt"); 
+  finalizeStats.alloc++; finalizeStats.evt_a++;
   };
 (function(proto){
 proto.generateInput= function(m, val){
@@ -840,27 +918,6 @@ function SC_SensorId(params= {}){
                        }.bind(binder, n, fasync), writable: false } );
         }
       }
-    else{
-      const b= { 
-          ad: null
-        , posted: false
-          };
-      const animDetector= function(b, bc, ts){
-        b.posted= false;
-        this.value= ts;
-        this.activateClocks();
-        }.bind(binder, b);
-      b.ad= animDetector;
-      b.posted= true;
-      sc_global.requestAnimationFrame(animDetector);
-      Object.defineProperty(this, "needRefresh"
-             , { value: function(b){
-                   if(!b.posted){
-                     b.posted= true;
-                     sc_global.requestAnimationFrame(b.ad);
-                     }
-             }.bind(binder, b), writable: false } );
-      }
     }
   else{ 
     const dom_targets= (Array.isArray(params.dom_targets))
@@ -893,7 +950,7 @@ function SC_SensorId(params= {}){
                      for(var i= 0; i<tlen; i++){
                        const t= rm[i];
                        if(testNES(t.evt) && "object"==typeof(t.target)
-			   && t.target.removeEventListener){
+                           && t.target.removeEventListener){
                          t.target.removeEventListener(t.evt, this.handler);
                          }
                        }
@@ -948,6 +1005,8 @@ function SC_SensorId(params= {}){
   Object.defineProperty(this, "timestamp", { get: function(){return this.ts; }.bind(binder) });
   Object.defineProperty(this, "bindTo"
   , { value: function(engine){ return engine.getSensor(this); }, writable: false });
+  finalizeReg.register(this, "sens_id"); 
+  finalizeStats.alloc++; finalizeStats.sens_id_a++;
   };
 (function(proto){
 proto.getId= function(){
@@ -984,6 +1043,8 @@ function SC_SampledId(params){
   SC_Runtime.registerBinder(binder);
   Object.defineProperty(this, "value", { get: function(){return this.value; }.bind(binder) });
   Object.defineProperty(this, "timestamp", { get: function(){return this.ts; }.bind(binder) });
+  finalizeReg.register(this, "sampl_id"); 
+  finalizeStats.alloc++; finalizeStats.sampl_id_a++;
   };
 (function(proto){
 Object.defineProperty(proto, "newValue"
@@ -1004,6 +1065,8 @@ function SC_Sensor(id){
   this.val= null; 
   this.sampled= 0;
   this.registeredInst= [];
+  finalizeReg.register(this, "evt"); 
+  finalizeStats.alloc++; finalizeStats.evt_a++;
   };
 (function(proto){
 proto.isPresent= SC_Event.prototype.isPresent;
@@ -1368,6 +1431,8 @@ function SC_Instruction(opcode){
        , enumerable: true
        }
      );
+  finalizeReg.register(this, "inst"); 
+  finalizeStats.alloc++; finalizeStats.inst_a++;
   };
 const act_exit= new SC_Instruction(SC_Opcodes._EXIT);
 (function(proto){
@@ -2057,6 +2122,8 @@ Object.freeze(proto);
 })(SC_Nothing);
 function SC_Next(count){
   this.count= count;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -2096,13 +2163,18 @@ proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
     if(engine instanceof SC_Machine){
       return new SC_Instruction(SC_Opcodes.PAUSE_BURST);
       }
+    finalizeReg.register(this, "ast"); 
+    finalizeStats.alloc++; finalizeStats.ast_a++;
     };
 proto.toString= function(){
     return "pause burst ";
     };
 Object.freeze(proto);
 })(SC_PauseBurstOne.prototype);
-function SC_PauseOne(){};
+function SC_PauseOne(){
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
+  };
 (function(proto){
 markProgram(proto);
 proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
@@ -2126,6 +2198,8 @@ function SC_PauseBurst(times){
   if(1===this.time){
     return new SC_PauseBurstOne();
     }
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -2165,6 +2239,8 @@ function SC_Pause(times){
   if(1===this.time){
     return new SC_PauseOne();
     }
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -2195,6 +2271,8 @@ Object.freeze(proto);
 })(SC_Pause.prototype);
 function SC_PauseRT(duration){
   this.duration= duration;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -2214,6 +2292,8 @@ Object.freeze(proto);
 })(SC_PauseRT.prototype);
 function SC_PauseBurstUntil(cond){
   this.cond= cond;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -2240,6 +2320,8 @@ Object.freeze(proto);
 })(SC_PauseBurstUntil.prototype);
 function SC_PauseUntil(cond){
   this.cond= cond;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -2282,6 +2364,8 @@ function SC_Seq(seqElements){
       this.seqElements.push(prg);
       }
     }
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -2398,6 +2482,8 @@ Object.freeze(proto);
 function SC_RelativeJump(jump, no_test){
   this.relativeJump= jump; 
   this.no_test= no_test;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -2433,6 +2519,8 @@ Object.freeze(proto);
 function SC_IfRepeatBurstPoint(cond){
   this.condition= cond; 
   this.end= 0;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -2469,6 +2557,8 @@ Object.freeze(proto);
 function SC_IfRepeatPoint(cond){
   this.condition= cond; 
   this.end= 0;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -2502,7 +2592,10 @@ proto.toString= function(){
     };
 Object.freeze(proto);
 })(SC_IfRepeatPoint.prototype);
-function SC_RepeatBurstPointForever(){};
+function SC_RepeatBurstPointForever(){
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
+  };
 (function(proto){
 markProgram(proto);
 proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
@@ -2517,7 +2610,10 @@ proto.toString= function(){
     };
 Object.freeze(proto);
 })(SC_RepeatBurstPointForever.prototype);
-function SC_RepeatPointForever(){};
+function SC_RepeatPointForever(){
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
+  };
 (function(proto){
 markProgram(proto);
 proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
@@ -2538,6 +2634,8 @@ function SC_RepeatBurstPoint(times){
     }
   this.it= times;
   this.end= 0;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -2583,6 +2681,8 @@ function SC_RepeatPoint(times){
     }
   this.it= times;
   this.end= 0;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -2622,6 +2722,8 @@ function SC_RepeatPointLate(times){
     }
   this.it= times;
   this.end= 0;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -2654,6 +2756,8 @@ function SC_GenerateBurstForeverLateEvtNoVal(evt){
                                                                        +evt+")";
     }
   this.evt= evt;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -2678,6 +2782,8 @@ function SC_GenerateBurstForeverLateVal(evt, val){
   this.evt= evt;
   this.val= val;
   this.itsParent= null;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -2734,6 +2840,8 @@ function SC_GenerateForeverLateEvtNoVal(evt){
                                                                        +evt+")";
     }
   this.evt= evt;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -2757,6 +2865,8 @@ function SC_GenerateForeverLateVal(evt, val){
   this.evt= evt;
   this.val= val;
   this.itsParent= null;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -2816,6 +2926,8 @@ function SC_GenerateBurstForeverNoVal(evt){
     throw "GenerateBurstForEver error on evt:("+evt+")";
     }
   this.evt= evt;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -2841,6 +2953,8 @@ function SC_GenerateForeverNoVal(evt){
     throw "GenerateForEver error on evt:("+evt+")";
     }
   this.evt= evt;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -2863,6 +2977,8 @@ function SC_GenerateBurstForever(evt, val){
     }
   this.evt= evt;
   this.val= val;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -2902,6 +3018,8 @@ function SC_GenerateForever(evt, val){
     }
   this.evt= evt;
   this.val= val;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -2954,6 +3072,8 @@ Object.freeze(proto);
 })(SC_GenerateForever.prototype);
 function SC_GenerateOneNoVal(evt){
   this.evt= evt;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -2977,6 +3097,8 @@ function SC_GenerateOne(evt, val){
   this.evt= evt;
   this.val= val;
   this.itsParent= null;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3037,6 +3159,8 @@ function SC_GenerateBurst(p){
   this.val= p.val;
   this.wrap= p.wrap;
   this.times= p.times;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3108,6 +3232,8 @@ function SC_Generate(evt, val, times){
   this.val= val;
   this.itsParent= null;
   this.count= this.times= times;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3161,6 +3287,8 @@ Object.freeze(proto);
 function SC_GenerateBurstNoVal(evt, times){
   this.evt= evt;
   this.times= times;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3202,6 +3330,8 @@ Object.freeze(proto);
 function SC_GenerateNoVal(evt, times){
   this.evt= evt;
   this.times= times;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3253,6 +3383,8 @@ function SC_FilterForeverNoSens(sensor, filterFun, evt){
   this.sensor= sensor;
   this.evt= evt;
   this.filterFun= filterFun;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3302,6 +3434,8 @@ function SC_FilterForever(sensor, filterFun, evt, no_sens){
   this.evt= evt;
   this.filterFun= filterFun;
   this.noSens_evt= no_sens;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3359,6 +3493,8 @@ function SC_FilterOneNoSens(sensor, filterFun, evt){
   this.sensor= sensor;
   this.evt= evt;
   this.filterFun= filterFun;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3415,6 +3551,8 @@ function SC_FilterOne(sensor, filterFun, evt, no_sens){
   this.evt= evt;
   this.filterFun= filterFun;
   this.noSens_evt= no_sens;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3467,6 +3605,8 @@ function SC_FilterNoSens(sensor, evt, filterFun, times){
   this.evt= evt;
   this.filterFun= filterFun;
   this.times= times;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3530,6 +3670,8 @@ function SC_Filter(sensor, evt, filterFun, times, no_sens){
   this.filterFun= filterFun;
   this.times= times;
   this.noSens_evt= no_sens;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3591,6 +3733,8 @@ function SC_Send(evt, value, times){
   this.evt= evt;
   this.count= this.times= times;
   this.value= value;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3632,6 +3776,8 @@ Object.freeze(proto);
 function SC_SendOne(evt, value){
   this.evt= evt;
   this.value= value;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3655,6 +3801,8 @@ Object.freeze(proto);
 function SC_SendForever(evt, value){
   this.evt= evt;
   this.value= value;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3673,6 +3821,8 @@ Object.freeze(proto);
  })(SC_SendForever.prototype);
 function SC_Await(aConfig){
   this.config= aConfig;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
 }
 (function(proto){
 markProgram(proto);
@@ -3704,6 +3854,8 @@ Object.freeze(proto);
 function SC_ResetOn(config, prog){
   this.config= config;
   this.prog= prog;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3723,6 +3875,8 @@ Object.freeze(proto);
 })(SC_ResetOn.prototype);
 function SC_ActionForever(f){
   this.action= f;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3755,6 +3909,8 @@ function SC_Action(f, times){
     }
   this.count= this.times= times;
   this.action= f;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3807,6 +3963,8 @@ Object.freeze(proto);
 })(SC_Action.prototype);
 function SC_SimpleAction(f){
   this.action= f;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3842,6 +4000,8 @@ function SC_Log(msg){
     throw "undefined msg";
     }
   this.msg= msg;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3867,6 +4027,8 @@ Object.freeze(proto);
 })(SC_Log.prototype);
 function SC_ActionOnEventForeverNoDef(c, act){
   this.evtFun= { action: act, config: c };
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3897,6 +4059,8 @@ function SC_ActionOnEventForever(c, act, defaultAct){
     }
   this.evtFun= { action: act, config: c };
   this.defaultAct= defaultAct;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3924,6 +4088,8 @@ Object.freeze(proto);
 function SC_ActionOnEventNoDef(c, act, times){
   this.evtFun= { action: act, config: c };
   this.count= this.times= times;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3961,6 +4127,8 @@ function SC_ActionOnEvent(c, act, defaultAct, times){
   this.evtFun= { action: act, config: c };
   this.defaultAct= defaultAct;
   this.count= this.times= times;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -3989,6 +4157,8 @@ Object.freeze(proto);
 })(SC_ActionOnEvent.prototype);
 function SC_SimpleActionOnEventNoDef(c, act){
   this.evtFun= { action: act, config: c };
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -4017,6 +4187,8 @@ function SC_SimpleActionOnEvent(c, act, defaultAct){
     }
   this.evtFun= { action: act, config: c };
   this.defaultAct= defaultAct;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -4062,6 +4234,8 @@ function SC_SeqBranchOfPar(aParent, aPar, prg){
   if(null!=aParent){
     aParent.subBranches.push(this);
     }
+  finalizeReg.register(this, "inst"); 
+  finalizeStats.alloc++; finalizeStats.inst_a++;
   };
 (function(proto){
 proto.setProgram= function(prg){
@@ -4136,6 +4310,8 @@ function SC_Par(args, channel){
       }
     this.branches.push(new SC_SeqBranchOfPar(null, null, i));
     }
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -4211,6 +4387,8 @@ function SC_ParDyn(channel, args){
     this.branches.push(new SC_SeqBranchOfPar(null, this, args[i]));
     }
   this.channel= channel;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -4259,6 +4437,8 @@ Object.freeze(proto);
 function SC_AndBin(c1,c2){
   this.c1= c1;
   this.c2= c2;
+  finalizeReg.register(this, "cfg_ast"); 
+  finalizeStats.alloc++; finalizeStats.cfg_ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -4299,6 +4479,8 @@ function SC_And(configsArray){
     return new SC_AndBin(configsArray[0], configsArray[1])
     }
   this.c= configsArray;
+  finalizeReg.register(this, "cfg_ast"); 
+  finalizeStats.alloc++; finalizeStats.cfg_ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -4350,6 +4532,8 @@ Object.freeze(proto);
 function SC_OrBin(c1,c2){
   this.c1= c1;
   this.c2= c2;
+  finalizeReg.register(this, "cfg_ast"); 
+  finalizeStats.alloc++; finalizeStats.cfg_ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -4385,6 +4569,8 @@ function SC_Or(configsArray){
     return new SC_OrBin(configsArray[0], configsArray[1])
     }
   this.c= configsArray;
+  finalizeReg.register(this, "cfg_ast"); 
+  finalizeStats.alloc++; finalizeStats.cfg_ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -4425,6 +4611,8 @@ Object.freeze(proto);
 function SC_Cell(params){
   this.params= params;
   Object.freeze(this.__proto__);
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -4469,6 +4657,8 @@ Object.freeze(proto);
 })(SC_Cell.prototype);
 function SC_CubeCell(c){
   this.cellName= c;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -4493,10 +4683,15 @@ proto.toString= function(){
     };
 Object.freeze(proto);
 })(SC_CubeCell.prototype);
-function SC_Kill(c, p, end){
+function ACT_STD_ON_KILL(re, cfg){
+  };
+function SC_Kill(c, p, end, aOK){
   this.c= c;
   this.p= p;
   this.end= end;
+  this.actOnKill= aOK;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -4504,8 +4699,10 @@ proto.bindTo= function(engine, parbranch, seq, path, cube, cinst){
     if(engine instanceof SC_Machine){
       const binder= _b(cube);  
       const copy= new SC_Instruction(SC_Opcodes.KILL_SUSP_INIT);
+      const actOnKill= binder(this.actOnKill);
       copy.c= binder(this.c)
                   .bindTo(engine, parbranch, null, copy, cube, cinst);
+      copy.actOnKill= (actOnKill?actOnKill:ACT_STD_ON_KILL).bind(cube, copy.c);
       copy.p= this.p.bindTo(engine, parbranch, null, copy, cube, cinst);
       copy.end= parseInt(this.end);
       copy.path= path;
@@ -4524,6 +4721,8 @@ Object.freeze(proto);
 function SC_Control(c, p){
   this.c= c;
   this.p= p;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -4547,6 +4746,8 @@ Object.freeze(proto);
 })(SC_Control.prototype);
 function SC_Dump(p){
   this.p= p;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -4567,6 +4768,8 @@ Object.freeze(proto);
 function SC_When(c){
   this.c= c;
   this.elsB= 0;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -4591,6 +4794,8 @@ function SC_Test(b, thenB, elseB){
   this.b= b;
   this._thenB= thenB;
   this._elseB= elseB;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -4618,6 +4823,8 @@ Object.freeze(proto);
 function SC_Match(val, cases){
   this.v= val;
   this.cases= cases;
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -4649,6 +4856,8 @@ proto.toString= function(){
 Object.freeze(proto);
 })(SC_Match.prototype);
 function SC_CubeReader(){
+  finalizeReg.register(this, "c_r"); 
+  finalizeStats.alloc++; finalizeStats.c_r_a++;
   };
 (function(proto){
   Object.freeze(proto);
@@ -4680,6 +4889,8 @@ function SC_Cube(o, p, extension){
     this.cubeProto= {};
     }
   this.toAdd= [];
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -4781,6 +4992,8 @@ Object.freeze(proto);
 function SC_CubeActionForever(params){
   this.action= params.fun;
   this.evtList= (params.evtList)?params.evtList:[];
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -4819,6 +5032,8 @@ function SC_CubeAction(params){
   this.count= this.times= params.times;
   this.action= params.fun;
   this.evtList= (params.evtList)?params.evtList:[];
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -4877,6 +5092,8 @@ Object.freeze(proto);
 function SC_CubeSimpleAction(params){
   this.action= params.fun;
   this.evtList= (params.evtList)?params.evtList:[];
+  finalizeReg.register(this, "ast"); 
+  finalizeStats.alloc++; finalizeStats.ast_a++;
   };
 (function(proto){
 markProgram(proto);
@@ -5024,6 +5241,8 @@ function SC_Machine(params){
   this.traceEvt= this.getEvent(SC_WRITE_EVT);
   this.writeEvt= this.getEvent(SC_WRITE_ID);
   this.Evt_dump= this.getEvent(SC_DUMP_ID);
+  finalizeReg.register(this, "clk"); 
+  finalizeStats.alloc++; finalizeStats.clk_a++;
   };
 (function(proto){
 proto.toString= function(){
@@ -7920,6 +8139,9 @@ EOI:  switch(inst.oc){
           }
         case SC_Opcodes.KILL_STOP:{
           if(inst.c.isPresent(this)){
+            if(inst.actOnKill){
+              this.addFun(inst.actOnKill);
+              }
             inst.oc= SC_Opcodes.KILLED;
             this.reset(inst.p);
             inst.c.unregister(inst);
@@ -7933,6 +8155,9 @@ EOI:  switch(inst.oc){
         case SC_Opcodes.KILL_HALT:
         case SC_Opcodes.KILL_WAIT:{
           if(inst.c.isPresent(this)){
+            if(inst.actOnKill){
+              this.addFun(inst.actOnKill);
+              }
             inst.oc= SC_Opcodes.KILLED;
             inst.c.unregister(inst);
             this.reset(inst.p);
@@ -9104,7 +9329,8 @@ const SC= {
         return new SC_GenerateBurst(params);
         }
   , log: function(msg){
-        return new SC_Log(msg);
+        const inst= new SC_Log(msg);
+        return inst;
         }
   , _: function(tgt, fun){
         return (tgt[fun]).bind(tgt);
@@ -9131,14 +9357,23 @@ const SC= {
           }
         throw new Error("invalid object property name "+arguments);
         }
+  , mem_stat: function(){
+        const res= {
+            alloc: finalizeStats.alloc
+          , gc: finalizeStats.gc
+          , ast_a: finalizeStats.ast_a+finalizeStats.cfg_ast_a
+          , ast: finalizeStats.ast+finalizeStats.cfg_ast
+            };
+        return res;
+        }
     };
 Object.defineProperty(SC, "sc_build"
-                        , { value: 1238
+                        , { value: 1297
                           , writable: false
                             }
                         );
 Object.defineProperty(SC, "sc_version"
-                        , { value: "5.0.1238.alpha"
+                        , { value: "5.0.1297.alpha"
                           , writable: false
                             }
                         );
@@ -9169,19 +9404,6 @@ Object.defineProperty(SC, "me"
                           , writable: false
                             }
                         );
-var animator= null;
-Object.defineProperty(SC, "animSensor"
-                        , { value: function(){
-                              if(animator){
-                                return animator;
-                                }
-                              const params= { name: "animator"
-                                , isPower: true };
-                              return animator= new SC_SensorId(params);
-                              }
-                          , writable: false
-                            }
-                        );
 const NO_NAME_EVT= "no_name";
 Object.defineProperty(SC, "evt"
                         , { value: function(name, params){
@@ -9209,7 +9431,8 @@ Object.defineProperty(SC, "evt"
                                   p.distribute= params.distribute;
                                   }
                                 }
-                              return new SC_EventId(p);
+                              const evt= new SC_EventId(p);
+                              return evt;
                               }
                           , writable: false
                             }
@@ -9230,7 +9453,8 @@ Object.defineProperty(SC, "sampled"
                               else{
                                 p.name= NO_NAME_EVT;
                                 }
-                              return new SC_SampledId(p);
+                              const sampl= new SC_SampledId(p);
+                              return sampl;
                               }
                           , writable: false
                             }
@@ -9280,7 +9504,8 @@ Object.defineProperty(SC, "sensor"
                                   p.times= params.times;
                                   }
                                 }
-                              return new SC_SensorId(p);
+                              const sens= new SC_SensorId(p);
+                              return sens;
                               }
                           , writable: false
                             }
@@ -9298,7 +9523,8 @@ Object.defineProperty(SC, "sensor"
                                 if(params && 'function'==typeof(params.async)){
                                   p.async= params.async;
                                   }
-                                return new SC_SensorId(p);
+                                const sens= new SC_SensorId(p);
+                                return sens;
                                 }
                             , writable: false
                               }
@@ -9316,11 +9542,14 @@ Object.defineProperty(SC, "sensor"
                                        "SC.periodic(): invalid delay "+params.delay);
                                   }
                                 p.delay= params.delay;
-                                return new SC_SensorId(p);
+                                const sens= new SC_SensorId(p);
+                                return sens;
                                 }
                             , writable: false
                               }
                           );
+  function SC_Clock(){
+    };
   Object.defineProperty(SC, "clock"
   , { 
       value: function(params= {}){
@@ -9364,9 +9593,16 @@ Object.defineProperty(SC, "sensor"
         if(params.dumpTraceFun){
           p.dumpTraceFun= params.dumpTraceFun;
           }
-        const ownMachine=new SC_Machine(p);
-        var res={};
-        res.getIPS= ownMachine.getIPS.bind(ownMachine);
+        const ownMachine= new SC_Machine(p);
+        var res= new SC_Clock();
+        Object.defineProperty(res, "getIPS"
+        , { value: ownMachine.getIPS.bind(ownMachine)
+          , writable: false
+            });
+        Object.defineProperty(res, "isSCClock"
+        , { value: true
+          , writable: false
+            });
         res.getInstantNumber=ownMachine.getInstantNumber.bind(ownMachine);
         res.getTopLevelParallelBranchesNumber
            =ownMachine.getTopLevelParallelBranchesNumber.bind(ownMachine);
@@ -9460,9 +9696,10 @@ Object.defineProperty(SC, "sensor"
           prm.deffun= deffun;
           prm.times= checkNum(times);
           }
-        return new SC_ActionOnEvent(b_(prm.c), b_(prm.fun, { vf: true })
+        const inst= new SC_ActionOnEvent(b_(prm.c), b_(prm.fun, { vf: true })
                                   , b_(prm.deffun, { vf: true })
                                   , b_(prm.times));
+        return inst;
         }
     , writable: false
       }
@@ -9490,14 +9727,16 @@ Object.defineProperty(SC, "sensor"
         if(false==msg._){
           msg= msg.toString();
           }
-        return new SC_GenerateOne(SC_WRITE_ID, msg);
+        const inst= new SC_GenerateOne(SC_WRITE_ID, msg);
+        return inst;
         }
     , writable: false
       }
     );
   Object.defineProperty(SC, "dumpE"
   , { value: function(){
-          return new SC_GenerateOneNoVal(SC_DUMP_ID);
+          const inst= new SC_GenerateOneNoVal(SC_DUMP_ID);
+          return inst;
           }
     , writable: false
       }
@@ -9507,7 +9746,8 @@ Object.defineProperty(SC, "sensor"
         if("string"!=typeof(msg)){
           throw new Error("Invalid message: "+msg);
           }
-        return new SC_GenerateOne(null, msg);
+        const inst= new SC_GenerateOne(null, msg);
+        return inst;
         }
     , writable: false
       }
@@ -9515,7 +9755,8 @@ Object.defineProperty(SC, "sensor"
   Object.defineProperty(SC, "pause"
   , { value: function(n){
         checkNum(n);
-        return new SC_Pause(b_(n));
+        const inst= new SC_Pause(b_(n));
+        return inst;
         }
     , writable: false
       }
@@ -9534,18 +9775,20 @@ Object.defineProperty(SC, "sensor"
             return this.pause();
             }
           if("function"!=typeof(cond) && !(cond instanceof SC_LateBinding)
-	      && !testNES(cond)){
+              && !testNES(cond)){
             throw new Error('pauseUntil(): invalid condition implementation: '
                            +cond);
             }
-          return new SC_PauseUntil(cond);
+          const inst= new SC_PauseUntil(cond);
+          return inst;
           }
     , writable: false
       }
     );
   Object.defineProperty(SC, "pauseRT"
   , { value: function(n){
-        return new SC_PauseRT(checkNum(n));
+        const inst= new SC_PauseRT(checkNum(n));
+        return inst;
         }
     , writable: false
       }
@@ -9554,9 +9797,10 @@ Object.defineProperty(SC, "sensor"
   , { value: function(m, evt, v){
           if(m && m.isSCClock){
             if(evt && evt instanceof SC_EventId){
-              return SC.action(function(evt, v){
-                this.addEntry(evt, v);
-                }.bind(m, evt, v));
+              const inst= SC.action(function(evt, v){
+                    this.addEntry(evt, v);
+                    }.bind(m, evt, v));
+              return inst;
               }
             throw new Error("target event is incorrect "+evt);
             }
@@ -9571,17 +9815,20 @@ Object.defineProperty(SC, "sensor"
           count= 1;
           }
         if('function'==typeof(count)){
-          return new SC_Next(count);
+          const inst= new SC_Next(count);
+          return inst;
           }
         else if('object'==typeof(count)
              && "object"==typeof(count.t) && testNES(count.f)){
-            return new SC_Next({ f: count.f, t: count.t });
+          const inst= new SC_Next({ f: count.f, t: count.t });
+          return inst;
           }
         else if(isNaN(count) || count<=0 || count>1000000){
           throw new Error(
                          "count paramater must be an int between ]0, 1000000[");
           }
-        return new SC_Next(count);
+        const inst= new SC_Next(count);
+        return inst;
         }
     , writable: false
       }
@@ -9682,9 +9929,9 @@ Object.defineProperty(SC, "sensor"
             if(undefined!==life.cubeProto && "object"!=typeof(life.cubeProto)){
               throw new Error("invalid params.life.cubeProto");
               }
-	    if(undefined!=life.swapList && !Array.isArray(life.swapList)){
+            if(undefined!=life.swapList && !Array.isArray(life.swapList)){
               throw new Error("invalid params.life.swapList");
-	      }
+              }
             if(p.life){
               p.life.init= life.init;
               p.life.lastWill= life.lastWill;
@@ -9696,7 +9943,8 @@ Object.defineProperty(SC, "sensor"
                 , cubeProto: life.cubeProto, swapList: life.swapList };
               }
             }
-          return new SC_Cube(p.root, p.prg, p.life);
+          const inst= new SC_Cube(p.root, p.prg, p.life);
+          return inst;
           }
     , writable: false
       }
@@ -9830,11 +10078,12 @@ Object.defineProperty(SC, "sensor"
         if(n && !isStrictEvent(n)){
           throw new Error("invalid absence evet specified: "+arguments)
           }
-        return new SC_Filter(b_(s)
+        const inst= new SC_Filter(b_(s)
                            , b_(e)
                            , b_(f, { vf: true })
                            , b_(t, { vf: true })
                            , b_(n));
+        return inst;
         }
     , writable: false
       }
@@ -9894,18 +10143,21 @@ Object.defineProperty(SC, "sensor"
              throw new Error("field not specified on target ("
                                                              +params.field+")");
             }
-          return new SC_Cell(params);
+          const inst= new SC_Cell(params);
+          return inst;
           }
     , writable: false
       }
     );
   Object.defineProperty(SC, "kill"
-  , { value: function(c, p, h){
+  , { value: function(c, p, hAOK, h2){
           checkConfig(c);
           if(undefined==p || !p.isAnSCProgram){
             throw new Error("Invalid programme "+p);
             }
-          const prgs= [ new SC_Kill(b_(c), p, 1) ];
+          const aOK= ("function"==typeof(hAOK))?hAOK:undefined;
+          const h= (hAOK && hAOK.isAnSCProgram)?hAOK:h2;
+          const prgs= [ new SC_Kill(b_(c), p, 1, aOK) ];
           if(h && h!=SC_Nothing && h.isAnSCProgram){
             prgs.push(h);
             if(h instanceof SC_Seq){
@@ -9915,7 +10167,8 @@ Object.defineProperty(SC, "sensor"
               prgs[0].end+= 1;
               }
             }
-          return new SC_Seq(prgs);
+          const inst= new SC_Seq(prgs);
+          return inst;
           }
     , writable: false
       }
@@ -9926,7 +10179,7 @@ Object.defineProperty(SC, "sensor"
           var jump= 1;
           if('function'!=typeof(c) && true!==c && false!==c
              && ("object"!=typeof(c.t) || !testNES(c.f))
-	     && "string"!=typeof(c)
+             && "string"!=typeof(c)
              && !(c instanceof SC_LateBinding)){
             throw new Error("Invalid condition: "+c);
             }
@@ -10241,6 +10494,23 @@ Object.defineProperty(SC, "sensor"
           }
     , writable: false
       });
+  defOn(SC, "_$", function(res){
+      if(undefined==res || (!res.promise instanceof Promise)
+         || (! res.clk instanceof SC_Clock)
+         || (! res.Evt_then instanceof SC_EventId)
+	 || (! res.Evt_err instanceof SC_EventId)){
+        console.error("Promise2SC incorrect call parameters ", res);
+        return;
+        };
+      const th_c= function(evt, r){
+          this.addEntry(evt, r);
+          }.bind(res.clk, res.Evt_then);
+      const err_c= function(evt, err){
+          this.addEntry(evt, err);
+          }.bind(res.clk, res.Evt_err);
+      res.promise.then(th_c, err_c);
+      return res;
+      }, false, false);
   Object.defineProperty(SC, "NO_ACTION"
                           , { value: NO_FUN
                             , writable: false
@@ -10276,9 +10546,8 @@ Object.defineProperty(SC, "sensor"
                             , writable: false
                               }
                           );
-  this.SC= SC;
-  Object.defineProperty(SC, "tools"
-  , { value: {}, writable: false });
+  defOn(this, "SC", SC);  
+  defOn(SC, "tools", {});
 function SC_Tools_init(){
   const params= SC.globals.init_params;
   const ze_te= new TextEncoder();
@@ -10297,8 +10566,8 @@ const modules= [
   , "Canvas"
   , "Listings"
   , "MathJax"
-  , "SP"
   , "WebEnergize"
+  , "SP"
     ];
 var inline_param="";
 const MULTI_LINE_SPC= `[\\s\\r\\n]`;
